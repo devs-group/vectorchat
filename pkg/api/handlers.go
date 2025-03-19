@@ -33,25 +33,25 @@ func NewHandler(chatService *chat.ChatService, database db.VectorDB, uploadsDir 
 // RegisterRoutes registers all API routes
 func (h *Handler) RegisterRoutes(app *fiber.App) {
 	// Add a simple root route for testing
-	app.Get("/", h.HealthCheck)
+	app.Get("/", h.GET_HealthCheck)
 
 	// File upload and management
-	app.Post("/upload", h.UploadFile)
-	app.Delete("/files/:chatID/:filename", h.DeleteFile)
-	app.Put("/files/:chatID/:filename", h.UpdateFile)
-	app.Get("/files/:chatID", h.ListFiles)
+	app.Post("/upload", h.POST_UploadFile)
+	app.Delete("/files/:chatID/:filename", h.DELETE_ChatFile)
+	app.Put("/files/:chatID/:filename", h.PUT_UpdateFile)
+	app.Get("/files/:chatID", h.GET_ChatFiles)
 
 	// Chat
-	app.Post("/chat", h.Chat)
+	app.Post("/chat", h.POST_ChatMessage)
 }
 
-// HealthCheck handles the health check endpoint
-func (h *Handler) HealthCheck(c *fiber.Ctx) error {
+// GET_HealthCheck handles the health check endpoint
+func (h *Handler) GET_HealthCheck(c *fiber.Ctx) error {
 	return c.SendString("VectorChat API is running")
 }
 
-// UploadFile handles file uploads
-func (h *Handler) UploadFile(c *fiber.Ctx) error {
+// POST_UploadFile handles file uploads
+func (h *Handler) POST_UploadFile(c *fiber.Ctx) error {
 	// Get chat ID from form
 	chatID := c.FormValue("chat_id", fmt.Sprintf("chat-%d", time.Now().Unix()))
 
@@ -89,8 +89,8 @@ func (h *Handler) UploadFile(c *fiber.Ctx) error {
 	})
 }
 
-// DeleteFile handles file deletion
-func (h *Handler) DeleteFile(c *fiber.Ctx) error {
+// DELETE_ChatFile handles file deletion from a chat session
+func (h *Handler) DELETE_ChatFile(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
 	filename := c.Params("filename")
 	
@@ -126,8 +126,8 @@ func (h *Handler) DeleteFile(c *fiber.Ctx) error {
 	})
 }
 
-// UpdateFile handles file updates
-func (h *Handler) UpdateFile(c *fiber.Ctx) error {
+// PUT_UpdateFile handles updating files in a chat session
+func (h *Handler) PUT_UpdateFile(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
 	filename := c.Params("filename")
 	
@@ -178,8 +178,8 @@ func (h *Handler) UpdateFile(c *fiber.Ctx) error {
 	})
 }
 
-// ListFiles handles listing files in a chat session
-func (h *Handler) ListFiles(c *fiber.Ctx) error {
+// GET_ChatFiles handles listing all files in a chat session
+func (h *Handler) GET_ChatFiles(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
 	
 	if chatID == "" {
@@ -213,8 +213,8 @@ func (h *Handler) ListFiles(c *fiber.Ctx) error {
 	})
 }
 
-// Chat handles chat requests
-func (h *Handler) Chat(c *fiber.Ctx) error {
+// POST_ChatMessage handles sending messages to the chat system
+func (h *Handler) POST_ChatMessage(c *fiber.Ctx) error {
 	// Parse request
 	var req struct {
 		ChatID string `json:"chat_id"`

@@ -1,0 +1,148 @@
+# Project structure rules
+structure:
+  # Define the main packages in the project
+  packages:
+    - cmd
+    - pkg/api
+    - pkg/chat
+    - pkg/db
+    - pkg/errors
+    - pkg/vectorize
+
+# Code generation rules
+generation:
+  # Generate error handling boilerplate
+  errors:
+    template: |
+      // {{.Name}} represents {{.Description}}
+      var {{.Name}} = errors.New("{{.Message}}")
+    directory: pkg/errors
+
+  # Generate API handler boilerplate
+  handlers:
+    name_definition: "{{.HTTP_METHOD}}_{{.Name}} is for example POST_UploadFile"
+    template: |
+      // {{.HTTP_METHOD}}_{{.Name}}handles {{.Description}}
+      func (h *Handler) {{.HTTP_METHOD}}_{{.Name}}(c *fiber.Ctx) error {
+          // TODO: Implement {{.Name}} handler
+          return c.JSON(fiber.Map{
+              "message": "{{.Name}} endpoint not implemented yet",
+          })
+      }
+    directory: pkg/api
+
+# Code style rules
+style:
+  # Error handling patterns
+  errors:
+    - pattern: "fmt.Errorf"
+      suggestion: "Use apperrors.Wrap or apperrors.Wrapf instead of fmt.Errorf for better error context"
+
+    - pattern: "return err"
+      suggestion: "Consider wrapping errors with context using apperrors.Wrap"
+
+  # API response patterns
+  api:
+    - pattern: "c.Status(fiber.StatusInternalServerError)"
+      suggestion: "Consider more specific error status codes when possible"
+
+    - pattern: "c.JSON(fiber.Map{"
+      suggestion: "Consider using consistent response structures"
+
+# Testing rules
+testing:
+  # Patterns for test files
+  patterns:
+    - name: "Unit test"
+      template: |
+        func Test{{.FunctionName}}(t *testing.T) {
+            // Setup
+            {{.SetupCode}}
+            
+            // Execute
+            {{.ExecuteCode}}
+            
+            // Verify
+            {{.VerifyCode}}
+        }
+
+    - name: "Table-driven test"
+      template: |
+        func Test{{.FunctionName}}(t *testing.T) {
+            tests := []struct {
+                name string
+                input {{.InputType}}
+                want {{.OutputType}}
+                wantErr bool
+            }{
+                // TODO: Add test cases
+            }
+            
+            for _, tt := range tests {
+                t.Run(tt.name, func(t *testing.T) {
+                    // TODO: Implement test
+                })
+            }
+        }
+
+# Documentation rules
+documentation:
+  # Required documentation elements
+  required:
+    - package
+    - exported_functions
+    - exported_types
+
+  # Documentation templates
+  templates:
+    handler: |
+      // {{.Name}} handles {{.Description}}
+      // 
+      // Route: {{.Method}} {{.Path}}
+      // 
+      // Request:
+      // {{.RequestDescription}}
+      // 
+      // Response:
+      // {{.ResponseDescription}}
+
+    service: |
+      // {{.Name}} {{.Description}}
+      // 
+      // {{.DetailedDescription}}
+
+# Database rules
+database:
+  # SQL query templates
+  queries:
+    - name: "Select by ID"
+      template: |
+        SELECT * FROM {{.Table}} WHERE id = $1
+
+    - name: "Insert"
+      template: |
+        INSERT INTO {{.Table}} ({{.Columns}}) VALUES ({{.Values}})
+
+    - name: "Update"
+      template: |
+        UPDATE {{.Table}} SET {{.Updates}} WHERE id = $1
+
+    - name: "Delete"
+      template: |
+        DELETE FROM {{.Table}} WHERE id = $1
+
+# Dependency management
+dependencies:
+  # Recommended versions
+  recommended:
+    - name: "github.com/gofiber/fiber/v2"
+      version: "v2.52.0"
+
+    - name: "github.com/pkg/errors"
+      version: "v0.9.1"
+
+    - name: "github.com/pgvector/pgvector-go"
+      version: "v0.1.1"
+
+    - name: "github.com/tmc/langchaingo/llms"
+      version: "v0.1.1"
