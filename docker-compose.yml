@@ -1,0 +1,47 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vectorchat-app
+    environment:
+      - PG_CONNECTION_STRING=postgres://postgres:postgres@postgres:5432/vectordb?sslmode=disable
+      - OPENAI_API_KEY
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./uploads:/root/uploads
+    networks:
+      - vectorchat-network
+    env_file:
+      - .env
+
+  postgres:
+    image: pgvector/pgvector:pg14
+    container_name: vectorchat-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=vectordb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vectorchat-network
+
+networks:
+  vectorchat-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
