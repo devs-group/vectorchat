@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -46,12 +45,6 @@ func main() {
 	// Initialize chat service
 	chatService := chat.NewChatService(database, vectorizer, openaiKey)
 
-	// Demo: Add a document to the vector store
-	err = addDemoDocument(chatService)
-	if err != nil {
-		log.Fatalf("Failed to add demo document: %v", err)
-	}
-
 	// Create uploads directory if it doesn't exist
 	uploadsDir := "uploads"
 	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
@@ -69,7 +62,7 @@ func main() {
 
 	// Initialize API handlers
 	handler := api.NewHandler(chatService, database, uploadsDir)
-	
+
 	// Register routes
 	handler.RegisterRoutes(app)
 
@@ -78,19 +71,11 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	
+
 	log.Printf("Server starting on port %s", port)
 	if err := app.Listen(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
-}
-
-func addDemoDocument(chatService *chat.ChatService) error {
-	demoText := `Go is an open source programming language that makes it easy to build simple, 
-	reliable, and efficient software. It is designed for building large-scale concurrent systems, 
-	with garbage collection, structural typing, and CSP-style concurrency.`
-
-	return chatService.AddDocument(context.Background(), "golang_intro", demoText)
 }
 
 // waitForPostgres attempts to connect to PostgreSQL with retries
@@ -111,4 +96,4 @@ func waitForPostgres(connStr string) error {
 	}
 
 	return fmt.Errorf("failed to connect to PostgreSQL after %d attempts", maxRetries)
-} 
+}
