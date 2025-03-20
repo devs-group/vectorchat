@@ -30,7 +30,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Initialize components
-	database, err := db.NewPgVectorDB(pgConnStr)
+	database, err := db.NewChatStore(pgConnStr)
 	require.NoError(t, err)
 	defer database.Close()
 

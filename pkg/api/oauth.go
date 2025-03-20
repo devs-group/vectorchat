@@ -1,0 +1,393 @@
+package api
+
+import (
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/google/uuid"
+	"github.com/yourusername/vectorchat/pkg/db"
+	apperrors "github.com/yourusername/vectorchat/pkg/errors"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
+)
+
+// OAuthConfig holds the OAuth configuration
+type OAuthConfig struct {
+	GitHubClientID     string
+	GitHubClientSecret string
+	RedirectURL        string
+	Store              *session.Store
+	UserStore          *db.UserStore
+}
+
+// OAuthHandler handles OAuth authentication
+type OAuthHandler struct {
+	config      *OAuthConfig
+	githubOAuth *oauth2.Config
+	store       *session.Store
+	userStore   *db.UserStore
+}
+
+// NewOAuthHandler creates a new OAuth handler
+func NewOAuthHandler(config *OAuthConfig) *OAuthHandler {
+	githubOAuth := &oauth2.Config{
+		ClientID:     config.GitHubClientID,
+		ClientSecret: config.GitHubClientSecret,
+		RedirectURL:  config.RedirectURL + "/auth/github/callback",
+		Scopes:       []string{"user:email"},
+		Endpoint:     github.Endpoint,
+	}
+
+	return &OAuthHandler{
+		config:      config,
+		githubOAuth: githubOAuth,
+		store:       config.Store,
+		userStore:   config.UserStore,
+	}
+}
+
+// RegisterRoutes registers the OAuth routes
+func (h *OAuthHandler) RegisterRoutes(app *fiber.App) {
+	auth := app.Group("/auth")
+
+	// GitHub OAuth routes
+	auth.Get("/github", h.GET_GitHubLogin)
+	auth.Get("/github/callback", h.GET_GitHubCallback)
+
+	// Session management
+	auth.Get("/session", h.GET_Session)
+	auth.Post("/logout", h.POST_Logout)
+
+	// API key management
+	auth.Post("/apikey", h.POST_GenerateAPIKey)
+	auth.Get("/apikey", h.GET_ListAPIKeys)
+	auth.Delete("/apikey/:id", h.DELETE_RevokeAPIKey)
+}
+
+// GET_GitHubLogin initiates the GitHub OAuth flow
+func (h *OAuthHandler) GET_GitHubLogin(c *fiber.Ctx) error {
+	// Generate a random state
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to generate state",
+		})
+	}
+	state := base64.StdEncoding.EncodeToString(b)
+
+	// Store state in session
+	sess, err := h.store.Get(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to get session",
+		})
+	}
+	sess.Set("oauth_state", state)
+	if err := sess.Save(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to save session",
+		})
+	}
+
+	// Redirect to GitHub
+	url := h.githubOAuth.AuthCodeURL(state)
+	return c.Redirect(url)
+}
+
+// GET_GitHubCallback handles the GitHub OAuth callback
+func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
+	// Get state from session
+	sess, err := h.store.Get(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to get session",
+		})
+	}
+
+	// Verify state
+	expectedState := sess.Get("oauth_state")
+	if expectedState == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid OAuth state",
+		})
+	}
+
+	state := c.Query("state")
+	if state != expectedState.(string) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid OAuth state",
+		})
+	}
+
+	// Exchange code for token
+	code := c.Query("code")
+	token, err := h.githubOAuth.Exchange(c.Context(), code)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to exchange code for token: %v", err),
+		})
+	}
+
+	// Get user info from GitHub
+	client := h.githubOAuth.Client(c.Context(), token)
+	resp, err := client.Get("https://api.github.com/user")
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to get user info: %v", err),
+		})
+	}
+	defer resp.Body.Close()
+
+	// Parse user info
+	var githubUser struct {
+		ID    int    `json:"id"`
+		Login string `json:"login"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&githubUser); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to parse user info: %v", err),
+		})
+	}
+
+	// If email is not provided, get it from the emails API
+	if githubUser.Email == "" {
+		emails, err := h.getGitHubEmails(client)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": fmt.Sprintf("Failed to get user emails: %v", err),
+			})
+		}
+
+		for _, email := range emails {
+			if email.Primary {
+				githubUser.Email = email.Email
+				break
+			}
+		}
+	}
+
+	// Check if user exists
+	user, err := h.userStore.FindUserByEmail(c.Context(), githubUser.Email)
+	if err != nil && !apperrors.Is(err, apperrors.ErrUserNotFound) {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to find user: %v", err),
+		})
+	}
+
+	// Create user if not exists
+	if user == nil {
+		user = &db.User{
+			ID:        uuid.New().String(),
+			Name:      githubUser.Name,
+			Email:     githubUser.Email,
+			Provider:  "github",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		if err := h.userStore.CreateUser(c.Context(), user); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": fmt.Sprintf("Failed to create user: %v", err),
+			})
+		}
+	}
+
+	// Set user in session
+	sess.Set("user_id", user.ID)
+	if err := sess.Save(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to save session",
+		})
+	}
+
+	// Redirect to home page
+	return c.Redirect("/")
+}
+
+// getGitHubEmails gets the user's emails from GitHub
+func (h *OAuthHandler) getGitHubEmails(client *http.Client) ([]struct {
+	Email    string `json:"email"`
+	Primary  bool   `json:"primary"`
+	Verified bool   `json:"verified"`
+}, error) {
+	resp, err := client.Get("https://api.github.com/user/emails")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var emails []struct {
+		Email    string `json:"email"`
+		Primary  bool   `json:"primary"`
+		Verified bool   `json:"verified"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
+		return nil, err
+	}
+
+	return emails, nil
+}
+
+// GET_Session gets the current session
+func (h *OAuthHandler) GET_Session(c *fiber.Ctx) error {
+	sess, err := h.store.Get(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to get session",
+		})
+	}
+
+	userID := sess.Get("user_id")
+	if userID == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Not authenticated",
+		})
+	}
+
+	user, err := h.userStore.FindUserByID(c.Context(), userID.(string))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to find user: %v", err),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"user": user,
+	})
+}
+
+// POST_Logout logs out the user
+func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
+	sess, err := h.store.Get(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to get session",
+		})
+	}
+
+	if err := sess.Destroy(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to destroy session",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Logged out successfully",
+	})
+}
+
+// POST_GenerateAPIKey generates a new API key
+func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
+	sess, err := h.store.Get(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to get session",
+		})
+	}
+
+	userID := sess.Get("user_id")
+	if userID == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Not authenticated",
+		})
+	}
+
+	// Generate API key
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to generate API key",
+		})
+	}
+	key := base64.URLEncoding.EncodeToString(b)
+
+	// Store API key
+	apiKey := &db.APIKey{
+		ID:        uuid.New().String(),
+		UserID:    userID.(string),
+		Key:       key,
+		CreatedAt: time.Now(),
+	}
+
+	if err := h.userStore.CreateAPIKey(c.Context(), apiKey); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to create API key: %v", err),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"api_key": apiKey,
+	})
+}
+
+// GET_ListAPIKeys lists the user's API keys
+func (h *OAuthHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
+	sess, err := h.store.Get(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to get session",
+		})
+	}
+
+	userID := sess.Get("user_id")
+	if userID == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Not authenticated",
+		})
+	}
+
+	apiKeys, err := h.userStore.GetAPIKeys(c.Context(), userID.(string))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to get API keys: %v", err),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"api_keys": apiKeys,
+	})
+}
+
+// DELETE_RevokeAPIKey revokes an API key
+func (h *OAuthHandler) DELETE_RevokeAPIKey(c *fiber.Ctx) error {
+	sess, err := h.store.Get(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to get session",
+		})
+	}
+
+	userID := sess.Get("user_id")
+	if userID == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Not authenticated",
+		})
+	}
+
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "API key ID is required",
+		})
+	}
+
+	if err := h.userStore.RevokeAPIKey(c.Context(), id, userID.(string)); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to revoke API key: %v", err),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "API key revoked successfully",
+	})
+}

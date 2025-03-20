@@ -16,13 +16,13 @@ import (
 
 // ChatService handles chat interactions with context from vector database
 type ChatService struct {
-	db         db.VectorDB
+	chatStore         *db.ChatStore
 	vectorizer vectorize.Vectorizer
 	llm        llms.LLM
 }
 
 // NewChatService creates a new chat service
-func NewChatService(database *db.PgVectorDB, vectorizer vectorize.Vectorizer, openaiKey string) *ChatService {
+func NewChatService(chatStore *db.ChatStore, vectorizer vectorize.Vectorizer, openaiKey string) *ChatService {
 	llm, err := openai.New(
 		openai.WithToken(openaiKey),
 		openai.WithModel("gpt-3.5-turbo"),
@@ -33,7 +33,7 @@ func NewChatService(database *db.PgVectorDB, vectorizer vectorize.Vectorizer, op
 	}
 
 	return &ChatService{
-		db:         database,
+		chatStore:         chatStore,
 		vectorizer: vectorizer,
 		llm:        llm,
 	}
@@ -52,7 +52,7 @@ func (c *ChatService) AddDocument(ctx context.Context, id string, content string
 		Embedding: embedding,
 	}
 
-	return c.db.StoreDocument(ctx, doc)
+	return c.chatStore.StoreDocument(ctx, doc)
 }
 
 // AddFile adds a file to the vector database
@@ -74,7 +74,7 @@ func (c *ChatService) AddFile(ctx context.Context, id string, filePath string) e
 		Embedding: embedding,
 	}
 
-	return c.db.StoreDocument(ctx, doc)
+	return c.chatStore.StoreDocument(ctx, doc)
 }
 
 // Chat sends a message to the LLM with relevant context from the vector database
@@ -91,7 +91,7 @@ func (c *ChatService) ChatWithID(ctx context.Context, chatID string, message str
 	}
 
 	// Find relevant documents
-	docs, err := c.db.FindSimilarDocumentsByChatID(ctx, queryEmbedding, chatID, 3)
+	docs, err := c.chatStore.FindSimilarDocumentsByChatID(ctx, queryEmbedding, chatID, 3)
 	if err != nil {
 		return "", apperrors.Wrapf(apperrors.ErrDatabaseOperation, "find similar documents: %v", err)
 	}

@@ -33,7 +33,7 @@ func main() {
 	}
 
 	// Initialize database
-	database, err := db.NewPgVectorDB(pgConnStr)
+	database, err := db.NewChatStore(pgConnStr)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -61,10 +61,10 @@ func main() {
 	app.Use(cors.New())
 
 	// Initialize API handlers
-	handler := api.NewHandler(chatService, database, uploadsDir)
+	chatHandler := api.NewChatHandler(chatService, database, uploadsDir)
 
 	// Register routes
-	handler.RegisterRoutes(app)
+	chatHandler.RegisterRoutes(app)
 
 	// Start the server
 	port := os.Getenv("PORT")
@@ -84,7 +84,7 @@ func waitForPostgres(connStr string) error {
 	retryInterval := 2 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
-		db, err := db.NewPgVectorDB(connStr)
+		db, err := db.NewChatStore(connStr)
 		if err == nil {
 			db.Close()
 			log.Println("Successfully connected to PostgreSQL")

@@ -20,6 +20,12 @@ var (
 	
 	// ErrDatabaseOperation is returned when a database operation fails
 	ErrDatabaseOperation = errors.New("database operation failed")
+	
+	// ErrUserNotFound is returned when a user is not found
+	ErrUserNotFound = errors.New("user not found")
+	
+	// ErrAPIKeyNotFound is returned when an API key is not found
+	ErrAPIKeyNotFound = errors.New("API key not found")
 )
 
 // WithDetails adds context details to an error

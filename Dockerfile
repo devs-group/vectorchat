@@ -1,4 +1,4 @@
-FROM golang:1.20-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -10,6 +10,9 @@ RUN go mod download
 
 # Copy source code
 COPY . .
+
+# Install goose
+RUN go install github.com/pressly/goose/v3/cmd/goose@latest
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -o /vectorchat ./cmd/main.go
@@ -24,7 +27,9 @@ WORKDIR /root/
 # Create uploads directory
 RUN mkdir -p /root/uploads
 
-# Copy the binary from the builder stage
+# Copy the binary and other needed resources from the builder stage
+COPY --from=builder /app/pkg/db/migrations /migrations
+COPY --from=builder /go/bin/goose /usr/local/bin/
 COPY --from=builder /vectorchat .
 
 # Command to run the executable

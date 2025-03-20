@@ -28,3 +28,4 @@ postgres-data/
 .vscode/
 *.swp
 *.swo
+.qodo

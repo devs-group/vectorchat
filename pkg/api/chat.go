@@ -15,43 +15,42 @@ import (
 )
 
 // Handler contains all the dependencies needed for API handlers
-type Handler struct {
+type ChatHandler struct {
 	ChatService *chat.ChatService
-	Database    db.VectorDB
+	ChatStore    *db.ChatStore
 	UploadsDir  string
 }
 
-// NewHandler creates a new API handler
-func NewHandler(chatService *chat.ChatService, database db.VectorDB, uploadsDir string) *Handler {
-	return &Handler{
+// NewChatHandler creates a new API handler
+func NewChatHandler(chatService *chat.ChatService, chatStore *db.ChatStore, uploadsDir string) *ChatHandler {
+	return &ChatHandler{
 		ChatService: chatService,
-		Database:    database,
+		ChatStore:    chatStore,
 		UploadsDir:  uploadsDir,
 	}
 }
 
 // RegisterRoutes registers all API routes
-func (h *Handler) RegisterRoutes(app *fiber.App) {
-	// Add a simple root route for testing
-	app.Get("/", h.GET_HealthCheck)
+func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
+	chat := app.Group("/chat")
 
 	// File upload and management
-	app.Post("/upload", h.POST_UploadFile)
-	app.Delete("/files/:chatID/:filename", h.DELETE_ChatFile)
-	app.Put("/files/:chatID/:filename", h.PUT_UpdateFile)
-	app.Get("/files/:chatID", h.GET_ChatFiles)
+	chat.Post("/upload", h.POST_UploadFile)
+	chat.Delete("/:chatID/files/:filename", h.DELETE_ChatFile)
+	chat.Put("/:chatID/files/:filename", h.PUT_UpdateFile)
+	chat.Get("/:chatID/files", h.GET_ChatFiles)
 
 	// Chat
-	app.Post("/chat", h.POST_ChatMessage)
+	chat.Post("/message", h.POST_ChatMessage)
 }
 
 // GET_HealthCheck handles the health check endpoint
-func (h *Handler) GET_HealthCheck(c *fiber.Ctx) error {
+func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
 	return c.SendString("VectorChat API is running")
 }
 
 // POST_UploadFile handles file uploads
-func (h *Handler) POST_UploadFile(c *fiber.Ctx) error {
+func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 	// Get chat ID from form
 	chatID := c.FormValue("chat_id", fmt.Sprintf("chat-%d", time.Now().Unix()))
 
@@ -90,7 +89,7 @@ func (h *Handler) POST_UploadFile(c *fiber.Ctx) error {
 }
 
 // DELETE_ChatFile handles file deletion from a chat session
-func (h *Handler) DELETE_ChatFile(c *fiber.Ctx) error {
+func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
 	filename := c.Params("filename")
 	
@@ -104,7 +103,7 @@ func (h *Handler) DELETE_ChatFile(c *fiber.Ctx) error {
 	docID := fmt.Sprintf("%s-%s", chatID, filename)
 	
 	// Remove from database
-	if err := h.Database.DeleteDocument(c.Context(), docID); err != nil {
+	if err := h.ChatStore.DeleteDocument(c.Context(), docID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to delete document: %v", err),
 		})
@@ -127,7 +126,7 @@ func (h *Handler) DELETE_ChatFile(c *fiber.Ctx) error {
 }
 
 // PUT_UpdateFile handles updating files in a chat session
-func (h *Handler) PUT_UpdateFile(c *fiber.Ctx) error {
+func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
 	filename := c.Params("filename")
 	
@@ -179,7 +178,7 @@ func (h *Handler) PUT_UpdateFile(c *fiber.Ctx) error {
 }
 
 // GET_ChatFiles handles listing all files in a chat session
-func (h *Handler) GET_ChatFiles(c *fiber.Ctx) error {
+func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
 	
 	if chatID == "" {
@@ -189,7 +188,7 @@ func (h *Handler) GET_ChatFiles(c *fiber.Ctx) error {
 	}
 	
 	// Get documents for this chat from the database
-	docs, err := h.Database.GetDocumentsByPrefix(c.Context(), chatID+"-")
+	docs, err := h.ChatStore.GetDocumentsByPrefix(c.Context(), chatID+"-")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to retrieve documents: %v", err),
@@ -214,7 +213,7 @@ func (h *Handler) GET_ChatFiles(c *fiber.Ctx) error {
 }
 
 // POST_ChatMessage handles sending messages to the chat system
-func (h *Handler) POST_ChatMessage(c *fiber.Ctx) error {
+func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 	// Parse request
 	var req struct {
 		ChatID string `json:"chat_id"`
