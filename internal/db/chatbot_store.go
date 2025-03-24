@@ -3,25 +3,10 @@ package db
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
-
-// Chatbot represents a configurable AI assistant
-type Chatbot struct {
-	ID                 string    `json:"id"`
-	UserID             string    `json:"user_id"`
-	Name               string    `json:"name"`
-	Description        string    `json:"description"`
-	SystemInstructions string    `json:"system_instructions"`
-	ModelName          string    `json:"model_name"`
-	TemperatureParam   float64   `json:"temperature_param"`
-	MaxTokens          int       `json:"max_tokens"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
-}
 
 // ChatbotStore handles database operations for chatbots
 type ChatbotStore struct {

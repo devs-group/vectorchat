@@ -13,25 +13,6 @@ type UserStore struct {
 	pool *pgxpool.Pool
 }
 
-// User represents an authenticated user
-type User struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	Provider  string    `json:"provider"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-// APIKey represents an API key for a user
-type APIKey struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Key       string    `json:"key"`
-	CreatedAt time.Time `json:"created_at"`
-	RevokedAt *time.Time `json:"revoked_at,omitempty"`
-}
-
 // NewUserStore creates a new user store
 func NewUserStore(pool *pgxpool.Pool) *UserStore {
 	return &UserStore{

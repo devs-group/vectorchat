@@ -15,14 +15,6 @@ type DocumentStore struct {
 	pool *pgxpool.Pool
 }
 
-// Document represents a document with its vector embedding
-type Document struct {
-	ID        string
-	Content   string
-	Embedding []float32
-	ChatbotID string
-}
-
 // NewDocumentStore creates a new connection to PostgreSQL with pgvector
 func NewDocumentStore(pool *pgxpool.Pool) (*DocumentStore) {
 	return &DocumentStore{
