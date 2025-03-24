@@ -55,4 +55,36 @@ type LoginResponse struct {
 // SessionResponse represents the current session information
 type SessionResponse struct {
 	User User `json:"user"`
+}
+
+// ChatMessage represents a chat message request
+type ChatMessage struct {
+	ChatID string `json:"chat_id" example:"test-session"`
+	Query  string `json:"query" example:"What is this project about?"`
+}
+
+// ChatResponse represents a chat response
+type ChatResponse struct {
+	Message  string `json:"message"`
+	ChatID   string `json:"chat_id"`
+	Context  string `json:"context,omitempty"`
+}
+
+// FileUploadResponse represents a file upload response
+type FileUploadResponse struct {
+	Filename string `json:"filename"`
+	ChatID   string `json:"chat_id"`
+	Size     int64  `json:"size"`
+}
+
+// ChatFilesResponse represents the response for listing chat files
+type ChatFilesResponse struct {
+	Files []ChatFile `json:"files"`
+}
+
+// ChatFile represents a chat file
+type ChatFile struct {
+	Filename  string    `json:"filename"`
+	Size      int64     `json:"size"`
+	UpdatedAt time.Time `json:"updated_at"`
 } 

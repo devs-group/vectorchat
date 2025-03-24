@@ -14,7 +14,7 @@ import (
 	"github.com/yourusername/vectorchat/internal/services"
 )
 
-// Handler contains all the dependencies needed for API handlers
+// ChatHandler contains all the dependencies needed for API handlers
 type ChatHandler struct {
 	ChatService *services.ChatService
 	DocumentStore *db.DocumentStore
@@ -46,12 +46,29 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Post("/message", h.POST_ChatMessage)
 }
 
-// GET_HealthCheck handles the health check endpoint
+// @Summary Health check endpoint
+// @Description Check if the API is running
+// @Tags health
+// @Accept json
+// @Produce plain
+// @Success 200 {string} string "VectorChat API is running"
+// @Router /health [get]
 func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
 	return c.SendString("VectorChat API is running")
 }
 
-// POST_UploadFile handles file uploads
+// @Summary Upload file
+// @Description Upload a file to be used for chat context
+// @Tags chat
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "File to upload"
+// @Param chat_id formData string true "Chat session ID"
+// @Success 200 {object} FileUploadResponse
+// @Failure 400 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/upload [post]
 func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 	// Get chat ID and chatbot ID from form
 	chatID := c.FormValue("chat_id", fmt.Sprintf("chat-%d", time.Now().Unix()))
@@ -109,7 +126,19 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 	})
 }
 
-// DELETE_ChatFile handles file deletion from a chat session
+// @Summary Delete chat file
+// @Description Delete a file from a chat session
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Param filename path string true "File name"
+// @Success 200 {object} MessageResponse
+// @Failure 400 {object} APIResponse
+// @Failure 404 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/{chatID}/files/{filename} [delete]
 func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
 	filename := c.Params("filename")
@@ -146,7 +175,20 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 	})
 }
 
-// PUT_UpdateFile handles updating files in a chat session
+// @Summary Update chat file
+// @Description Update a file in a chat session
+// @Tags chat
+// @Accept multipart/form-data
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Param filename path string true "File name"
+// @Param file formData file true "Updated file"
+// @Success 200 {object} FileUploadResponse
+// @Failure 400 {object} APIResponse
+// @Failure 404 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/{chatID}/files/{filename} [put]
 func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
 	filename := c.Params("filename")
@@ -216,7 +258,17 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 	})
 }
 
-// GET_ChatFiles handles listing all files in a chat session
+// @Summary List chat files
+// @Description List all files in a chat session
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Success 200 {object} ChatFilesResponse
+// @Failure 404 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/{chatID}/files [get]
 func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
 	
@@ -251,7 +303,17 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 	})
 }
 
-// POST_ChatMessage handles sending messages to the chat system
+// @Summary Send chat message
+// @Description Send a message and get a response with context from uploaded files
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param message body ChatMessage true "Chat message"
+// @Success 200 {object} ChatResponse
+// @Failure 400 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/message [post]
 func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 	// Parse request
 	var req struct {
