@@ -26,7 +26,7 @@ test-db-in-container:
 
 # Run migrations
 migrate:
-	docker compose exec -it app sh -c 'goose -dir /app/pkg/db/migrations postgres "$$PG_CONNECTION_STRING" up'
+	docker compose exec -it app sh -c 'goose -dir /app/internal/db/migrations postgres "$$PG_CONNECTION_STRING" up'
 
 # Stop and remove containers
 stop:
