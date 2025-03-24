@@ -70,7 +70,14 @@ func (h *OAuthHandler) RegisterRoutes(app *fiber.App) {
 	auth.Delete("/apikey/:id", h.DELETE_RevokeAPIKey)
 }
 
-// GET_GitHubLogin initiates the GitHub OAuth flow
+// @Summary Initiate GitHub OAuth login
+// @Description Redirects to GitHub for OAuth authentication
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Success 302 {object} LoginResponse
+// @Failure 500 {object} APIResponse
+// @Router /auth/github [get]
 func (h *OAuthHandler) GET_GitHubLogin(c *fiber.Ctx) error {
 	// Generate a random state
 	b := make([]byte, 32)
@@ -100,7 +107,17 @@ func (h *OAuthHandler) GET_GitHubLogin(c *fiber.Ctx) error {
 	return c.Redirect(url)
 }
 
-// GET_GitHubCallback handles the GitHub OAuth callback
+// @Summary GitHub OAuth callback
+// @Description Handles the GitHub OAuth callback
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param code query string true "OAuth code"
+// @Param state query string true "OAuth state"
+// @Success 302 {object} SessionResponse
+// @Failure 400 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Router /auth/github/callback [get]
 func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 	// Get state from session
 	sess, err := h.store.Get(c)
@@ -238,7 +255,15 @@ func (h *OAuthHandler) getGitHubEmails(client *http.Client) ([]struct {
 	return emails, nil
 }
 
-// GET_Session gets the current session
+// @Summary Get current session
+// @Description Returns current session information
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Success 200 {object} SessionResponse
+// @Failure 401 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Router /auth/session [get]
 func (h *OAuthHandler) GET_Session(c *fiber.Ctx) error {
 	sess, err := h.store.Get(c)
 	if err != nil {
@@ -261,12 +286,25 @@ func (h *OAuthHandler) GET_Session(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"user": user,
+	return c.JSON(SessionResponse{
+		User: User{
+			ID:        user.ID,
+			Email:     user.Email,
+			Name:      user.Name,
+			Provider:  user.Provider,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+		},
 	})
 }
 
-// POST_Logout logs out the user
+// @Summary Logout user
+// @Description Logs out the current user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Success 200 {object} MessageResponse
+// @Router /auth/logout [post]
 func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
 	sess, err := h.store.Get(c)
 	if err != nil {
@@ -281,12 +319,20 @@ func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Logged out successfully",
+	return c.JSON(MessageResponse{
+		Message: "Logged out successfully",
 	})
 }
 
-// POST_GenerateAPIKey generates a new API key
+// @Summary Generate API key
+// @Description Generates a new API key for the authenticated user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} APIKeyResponse
+// @Failure 401 {object} APIResponse
+// @Router /auth/apikey [post]
 func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 	sess, err := h.store.Get(c)
 	if err != nil {
@@ -325,12 +371,25 @@ func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"api_key": apiKey,
+	return c.JSON(APIKeyResponse{
+		APIKey: APIKey{
+			ID:        apiKey.ID,
+			UserID:    apiKey.UserID,
+			Key:       apiKey.Key,
+			CreatedAt: apiKey.CreatedAt,
+		},
 	})
 }
 
-// GET_ListAPIKeys lists the user's API keys
+// @Summary List API keys
+// @Description Lists all API keys for the authenticated user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} APIKeysResponse
+// @Failure 401 {object} APIResponse
+// @Router /auth/apikey [get]
 func (h *OAuthHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 	sess, err := h.store.Get(c)
 	if err != nil {
@@ -353,12 +412,31 @@ func (h *OAuthHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"api_keys": apiKeys,
+	var keys []APIKey
+	for _, k := range apiKeys {
+		keys = append(keys, APIKey{
+			ID:        k.ID,
+			UserID:    k.UserID,
+			Key:       k.Key,
+			CreatedAt: k.CreatedAt,
+		})
+	}
+	return c.JSON(APIKeysResponse{
+		APIKeys: keys,
 	})
 }
 
-// DELETE_RevokeAPIKey revokes an API key
+// @Summary Revoke API key
+// @Description Revokes an API key
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param id path string true "API key ID"
+// @Success 200 {object} MessageResponse
+// @Failure 401 {object} APIResponse
+// @Failure 400 {object} APIResponse
+// @Router /auth/apikey/{id} [delete]
 func (h *OAuthHandler) DELETE_RevokeAPIKey(c *fiber.Ctx) error {
 	sess, err := h.store.Get(c)
 	if err != nil {
@@ -387,7 +465,7 @@ func (h *OAuthHandler) DELETE_RevokeAPIKey(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "API key revoked successfully",
+	return c.JSON(MessageResponse{
+		Message: "API key revoked successfully",
 	})
 }

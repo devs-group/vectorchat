@@ -59,4 +59,12 @@ test-update-file:
 
 # Test deleting a file
 test-delete-file:
-	curl -X DELETE http://localhost:8080/files/test-session/README.md 
+	curl -X DELETE http://localhost:8080/files/test-session/README.md
+
+# Install swag
+install-swag:
+	go install github.com/swaggo/swag/cmd/swag@latest
+
+# Generate swagger documentation
+swagger: install-swag
+	./scripts/generate-swagger.sh 

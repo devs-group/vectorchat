@@ -26,42 +26,48 @@ func (h *HomeHandler) RegisterRoutes(app *fiber.App) {
 	app.Get("/", h.GET_Home)
 }
 
-// GET_Home handles the home route and returns user information if authenticated
+// @Summary Get user information
+// @Description Returns authenticated user information
+// @Tags home
+// @Accept json
+// @Produce json
+// @Success 200 {object} UserResponse
+// @Failure 401 {object} APIResponse
+// @Failure 404 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Router / [get]
 func (h *HomeHandler) GET_Home(c *fiber.Ctx) error {
-	// Get session
 	sess, err := h.store.Get(c)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get session",
+		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
+			Error: "Failed to get session",
 		})
 	}
 
-	// Check if user is authenticated
 	userID := sess.Get("user_id")
 	if userID == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Not authenticated",
+		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
+			Error: "Not authenticated",
 		})
 	}
 
-	// Get user information
 	user, err := h.userStore.FindUserByID(c.Context(), userID.(string))
 	if err != nil {
 		if err == apperrors.ErrUserNotFound {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "User not found",
+			return c.Status(fiber.StatusNotFound).JSON(APIResponse{
+				Error: "User not found",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get user information",
+		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
+			Error: "Failed to get user information",
 		})
 	}
 
-	// Return user information
-	return c.JSON(fiber.Map{
-		"user": fiber.Map{
-			"id":       user.ID,
-			"email":    user.Email,
+	return c.JSON(UserResponse{
+		User: User{
+			ID:    user.ID,
+			Email: user.Email,
+			Name:  user.Name,
 		},
 	})
 } 

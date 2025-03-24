@@ -29,3 +29,6 @@ postgres-data/
 *.swp
 *.swo
 .qodo
+
+# Swagger generated files
+docs/swagger.*

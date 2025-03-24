@@ -10,12 +10,28 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/swagger"
+
+	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
 	"github.com/yourusername/vectorchat/internal/api"
 	"github.com/yourusername/vectorchat/internal/db"
 	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/internal/vectorize"
 )
 
+// @title VectorChat API
+// @version 1.0
+// @description A Go application that vectorizes text and files into PostgreSQL with pgvector
+// @host localhost:8080
+// @BasePath /
+// @schemes http https
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-API-Key
+// @securityDefinitions.oauth2.accessCode OAuth2Application
+// @tokenUrl https://github.com/login/oauth/access_token
+// @authorizationUrl https://github.com/login/oauth/authorize
+// @scope.user:email Grants access to email
 func main() {
 	// Load environment variables
 	pgConnStr := os.Getenv("PG_CONNECTION_STRING")
@@ -102,6 +118,9 @@ func main() {
 	homeHandler.RegisterRoutes(app)  // Register home routes first
 	chatbotHandler.RegisterRoutes(app)
 	oAuthHandler.RegisterRoutes(app)
+
+	// Add swagger route
+	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Start the server
 	port := os.Getenv("PORT")
