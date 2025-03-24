@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/yourusername/vectorchat/internal/api"
 	"github.com/yourusername/vectorchat/internal/db"
 	"github.com/yourusername/vectorchat/internal/services"
@@ -40,7 +41,7 @@ func main() {
 	defer pool.Close()
 
 	// Initialize user store with the same pool
-	// userStore := db.NewUserStore(pool)
+	userStore := db.NewUserStore(pool)
 	
 	// Initialize chatbot store with the same pool
 	chatbotStore := db.NewChatbotStore(pool)
@@ -63,6 +64,26 @@ func main() {
 		log.Fatalf("Failed to create uploads directory: %v", err)
 	}
 
+	// Get GitHub OAuth credentials from environment variables
+	githubID := os.Getenv("GITHUB_ID")
+	githubSecret := os.Getenv("GITHUB_SECRET")
+
+	if githubID == "" || githubSecret == "" {
+		log.Fatal("GITHUB_ID and GITHUB_SECRET environment variables are required")
+	}
+
+	// Initialize stores
+	sessionStore := session.New()
+
+	// Initialize OAuth configuration
+	oAuthConfig := &api.OAuthConfig{
+		GitHubClientID:     githubID,
+		GitHubClientSecret: githubSecret,
+		RedirectURL:        "http://localhost:8080", // Base URL without the callback path
+		Store:             sessionStore,
+		UserStore:         userStore,
+	}
+
 	// Set up Fiber app
 	app := fiber.New(fiber.Config{
 		BodyLimit: 10 * 1024 * 1024, // 10MB limit for file uploads
@@ -74,9 +95,13 @@ func main() {
 
 	// Initialize API handlers
 	chatbotHandler := api.NewChatHandler(chatService, documentStore, chatbotStore, uploadsDir)
+	oAuthHandler := api.NewOAuthHandler(oAuthConfig)
+	homeHandler := api.NewHomeHandler(sessionStore, userStore)
 
 	// Register routes
+	homeHandler.RegisterRoutes(app)  // Register home routes first
 	chatbotHandler.RegisterRoutes(app)
+	oAuthHandler.RegisterRoutes(app)
 
 	// Start the server
 	port := os.Getenv("PORT")

@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
       target: builder
     container_name: vectorchat-app
-    command: go run ./cmd/main.go
+    command: air
     environment:
       - PG_CONNECTION_STRING=postgres://postgres:postgres@postgres:5432/vectordb?sslmode=disable
       - OPENAI_API_KEY
@@ -15,8 +15,9 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./uploads:/root/uploads
       - ./:/app
+      - ./uploads:/root/uploads
+      - ./.air.toml:/app/.air.toml
     networks:
       - vectorchat-network
     env_file:
