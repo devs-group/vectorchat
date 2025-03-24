@@ -3,7 +3,7 @@ package auth
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
-	"github.com/yourusername/vectorchat/pkg/db"
+	"github.com/yourusername/vectorchat/internal/db"
 )
 
 // AuthMiddleware is a middleware for authentication

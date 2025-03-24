@@ -9,10 +9,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/yourusername/vectorchat/pkg/api"
-	"github.com/yourusername/vectorchat/pkg/chat"
-	"github.com/yourusername/vectorchat/pkg/db"
-	"github.com/yourusername/vectorchat/pkg/vectorize"
+	"github.com/yourusername/vectorchat/internal/api"
+	"github.com/yourusername/vectorchat/internal/db"
+	"github.com/yourusername/vectorchat/internal/services"
+	"github.com/yourusername/vectorchat/internal/vectorize"
 )
 
 func main() {
@@ -33,17 +33,29 @@ func main() {
 	}
 
 	// Initialize database
-	database, err := db.NewChatStore(pgConnStr)
+	pool, err := db.New(pgConnStr)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer database.Close()
+	defer pool.Close()
 
+	// Initialize user store with the same pool
+	// userStore := db.NewUserStore(pool)
+	
+	// Initialize chatbot store with the same pool
+	chatbotStore := db.NewChatbotStore(pool)
+
+	// Initialize document store
+	documentStore := db.NewDocumentStore(pool)
+
+	// Initialize auth middleware
+	// authMiddleware := auth.NewAuthMiddleware(session.New(), userStore)
+	
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
-
-	// Initialize chat service
-	chatService := chat.NewChatService(database, vectorizer, openaiKey)
+	
+	// Initialize chatbot service
+	chatService := services.NewChatService(documentStore, vectorizer, openaiKey, chatbotStore)
 
 	// Create uploads directory if it doesn't exist
 	uploadsDir := "uploads"
@@ -61,10 +73,10 @@ func main() {
 	app.Use(cors.New())
 
 	// Initialize API handlers
-	chatHandler := api.NewChatHandler(chatService, database, uploadsDir)
+	chatbotHandler := api.NewChatHandler(chatService, documentStore, chatbotStore, uploadsDir)
 
 	// Register routes
-	chatHandler.RegisterRoutes(app)
+	chatbotHandler.RegisterRoutes(app)
 
 	// Start the server
 	port := os.Getenv("PORT")
@@ -84,7 +96,7 @@ func waitForPostgres(connStr string) error {
 	retryInterval := 2 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
-		db, err := db.NewChatStore(connStr)
+		db, err := db.New(connStr)
 		if err == nil {
 			db.Close()
 			log.Println("Successfully connected to PostgreSQL")

@@ -9,23 +9,25 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/yourusername/vectorchat/pkg/chat"
-	"github.com/yourusername/vectorchat/pkg/db"
-	apperrors "github.com/yourusername/vectorchat/pkg/errors"
+	"github.com/yourusername/vectorchat/internal/db"
+	apperrors "github.com/yourusername/vectorchat/internal/errors"
+	"github.com/yourusername/vectorchat/internal/services"
 )
 
 // Handler contains all the dependencies needed for API handlers
 type ChatHandler struct {
-	ChatService *chat.ChatService
-	ChatStore    *db.ChatStore
+	ChatService *services.ChatService
+	DocumentStore *db.DocumentStore
+	ChatbotStore *db.ChatbotStore
 	UploadsDir  string
 }
 
 // NewChatHandler creates a new API handler
-func NewChatHandler(chatService *chat.ChatService, chatStore *db.ChatStore, uploadsDir string) *ChatHandler {
+func NewChatHandler(chatService *services.ChatService, documentStore *db.DocumentStore, chatbotStore *db.ChatbotStore, uploadsDir string) *ChatHandler {
 	return &ChatHandler{
 		ChatService: chatService,
-		ChatStore:    chatStore,
+		DocumentStore: documentStore,
+		ChatbotStore: chatbotStore,
 		UploadsDir:  uploadsDir,
 	}
 }
@@ -51,8 +53,26 @@ func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
 
 // POST_UploadFile handles file uploads
 func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
-	// Get chat ID from form
+	// Get chat ID and chatbot ID from form
 	chatID := c.FormValue("chat_id", fmt.Sprintf("chat-%d", time.Now().Unix()))
+	chatbotID := c.FormValue("chatbot_id", "")
+	
+	// If chatbotID is provided and user is authenticated, verify ownership
+	if chatbotID != "" {
+		if user, ok := c.Locals("user").(*db.User); ok {
+			isOwner, err := h.ChatbotStore.CheckChatbotOwnership(c.Context(), chatbotID, user.ID)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": fmt.Sprintf("Failed to verify chatbot ownership: %v", err),
+				})
+			}
+			if !isOwner {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+					"error": "You don't have permission to access this chatbot",
+				})
+			}
+		}
+	}
 
 	// Get uploaded file
 	file, err := c.FormFile("file")
@@ -75,7 +95,7 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 
 	// Add file to vector database
 	docID := fmt.Sprintf("%s-%s", chatID, file.Filename)
-	if err := h.ChatService.AddFile(c.Context(), docID, uploadPath); err != nil {
+	if err := h.ChatService.AddFile(c.Context(), docID, uploadPath, chatbotID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to vectorize file: %v", err),
 		})
@@ -84,7 +104,8 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "File uploaded and vectorized successfully",
 		"chat_id": chatID,
-		"file":    file.Filename,
+		"chatbot_id": chatbotID,
+		"file": file.Filename,
 	})
 }
 
@@ -103,7 +124,7 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 	docID := fmt.Sprintf("%s-%s", chatID, filename)
 	
 	// Remove from database
-	if err := h.ChatStore.DeleteDocument(c.Context(), docID); err != nil {
+	if err := h.DocumentStore.DeleteDocument(c.Context(), docID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to delete document: %v", err),
 		})
@@ -129,6 +150,24 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
 	filename := c.Params("filename")
+	chatbotID := c.FormValue("chatbot_id", "")
+	
+	// If chatbotID is provided and user is authenticated, verify ownership
+	if chatbotID != "" {
+		if user, ok := c.Locals("user").(*db.User); ok {
+			isOwner, err := h.ChatbotStore.CheckChatbotOwnership(c.Context(), chatbotID, user.ID)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": fmt.Sprintf("Failed to verify chatbot ownership: %v", err),
+				})
+			}
+			if !isOwner {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+					"error": "You don't have permission to access this chatbot",
+				})
+			}
+		}
+	}
 	
 	if chatID == "" || filename == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -144,9 +183,8 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 		})
 	}
 	
-	// Create a unique filename
-	storedFilename := fmt.Sprintf("%s-%s", chatID, filename)
-	uploadPath := filepath.Join(h.UploadsDir, storedFilename)
+	// Create file path
+	uploadPath := filepath.Join(h.UploadsDir, fmt.Sprintf("%s-%s", chatID, filename))
 	
 	// Remove old file if it exists
 	if err := os.Remove(uploadPath); err != nil && !os.IsNotExist(err) {
@@ -164,7 +202,7 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 	docID := fmt.Sprintf("%s-%s", chatID, filename)
 	
 	// Update in vector database
-	if err := h.ChatService.AddFile(c.Context(), docID, uploadPath); err != nil {
+	if err := h.ChatService.AddFile(c.Context(), docID, uploadPath, chatbotID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to vectorize file: %v", err),
 		})
@@ -173,6 +211,7 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "File updated successfully",
 		"chat_id": chatID,
+		"chatbot_id": chatbotID,
 		"file": filename,
 	})
 }
@@ -188,7 +227,7 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 	}
 	
 	// Get documents for this chat from the database
-	docs, err := h.ChatStore.GetDocumentsByPrefix(c.Context(), chatID+"-")
+	docs, err := h.DocumentStore.GetDocumentsByPrefix(c.Context(), chatID+"-")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Failed to retrieve documents: %v", err),
@@ -216,38 +255,69 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 	// Parse request
 	var req struct {
-		ChatID string `json:"chat_id"`
-		Query  string `json:"query"`
+		ChatID    string `json:"chat_id"`
+		ChatbotID string `json:"chatbot_id"`
+		Query     string `json:"query"`
 	}
-
+	
 	if err := c.BodyParser(&req); err != nil {
 		// Try to get query from form data if JSON parsing fails
 		req.Query = c.FormValue("query")
 		req.ChatID = c.FormValue("chat_id", "default")
+		req.ChatbotID = c.FormValue("chatbot_id", "")
 		
 		if req.Query == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Query parameter is required",
 			})
 		}
+		if req.ChatID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Chat ID is required",
+			})
+		}
 	}
-
-	// Get response from chat service
-	response, err := h.ChatService.ChatWithID(c.Context(), req.ChatID, req.Query)
+	
+	// Get user ID from context if authenticated
+	var userID string
+	if user, ok := c.Locals("user").(*db.User); ok {
+		userID = user.ID
+	}
+	
+	response, err := h.ChatService.ChatWithChatbot(c.Context(), req.ChatbotID, userID, req.Query)
+	
 	if err != nil {
 		if apperrors.Is(err, apperrors.ErrNoDocumentsFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "No documents found for this chat ID. Please upload some files first.",
+				"error": "No documents found for this chat. Please upload some files first.",
 				"chat_id": req.ChatID,
+				"chatbot_id": req.ChatbotID,
+			})
+		} else if apperrors.Is(err, apperrors.ErrUnauthorizedChatbotAccess) {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "You don't have permission to access this chatbot",
+			})
+		} else if apperrors.Is(err, apperrors.ErrChatbotNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Chatbot not found",
 			})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("Chat error: %v", err),
 		})
 	}
-
-	return c.JSON(fiber.Map{
+	
+	responseObj := fiber.Map{
 		"response": response,
-		"chat_id":  req.ChatID,
-	})
+	}
+	
+	if req.ChatID != "" {
+		responseObj["chat_id"] = req.ChatID
+	}
+	
+	if req.ChatbotID != "" {
+		responseObj["chatbot_id"] = req.ChatbotID
+	}
+	
+	return c.JSON(responseObj)
 } 

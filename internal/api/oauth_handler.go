@@ -11,8 +11,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/google/uuid"
-	"github.com/yourusername/vectorchat/pkg/db"
-	apperrors "github.com/yourusername/vectorchat/pkg/errors"
+	"github.com/yourusername/vectorchat/internal/db"
+	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 )

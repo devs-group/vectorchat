@@ -16,7 +16,7 @@ var (
 	ErrDocumentNotFound = errors.New("document not found")
 	
 	// ErrVectorizationFailed is returned when document vectorization fails
-	ErrVectorizationFailed = errors.New("failed to vectorize document")
+	ErrVectorizationFailed = errors.New("failed to vectorize content")
 	
 	// ErrDatabaseOperation is returned when a database operation fails
 	ErrDatabaseOperation = errors.New("database operation failed")
@@ -26,6 +26,11 @@ var (
 	
 	// ErrAPIKeyNotFound is returned when an API key is not found
 	ErrAPIKeyNotFound = errors.New("API key not found")
+	
+	// Add new errors
+	ErrChatbotNotFound        = errors.New("chatbot not found")
+	ErrInvalidChatbotParameters = errors.New("invalid chatbot parameters")
+	ErrUnauthorizedChatbotAccess = errors.New("unauthorized access to chatbot")
 )
 
 // WithDetails adds context details to an error

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
-	apperrors "github.com/yourusername/vectorchat/pkg/errors"
+	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
 // UserStore implements auth.UserStore
