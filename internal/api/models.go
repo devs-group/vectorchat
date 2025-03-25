@@ -1,6 +1,10 @@
 package api
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // User represents a user in the system
 type User struct {
@@ -87,4 +91,28 @@ type ChatFile struct {
 	Filename  string    `json:"filename"`
 	Size      int64     `json:"size"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ChatbotCreateRequest represents the request to create a new chatbot
+type ChatbotCreateRequest struct {
+	Name              string  `json:"name" example:"My AI Assistant"`
+	Description       string  `json:"description" example:"A helpful AI assistant for my project"`
+	SystemInstructions string  `json:"system_instructions" example:"You are a helpful AI assistant"`
+	ModelName         string  `json:"model_name" example:"gpt-4"`
+	TemperatureParam  float64 `json:"temperature_param" example:"0.7"`
+	MaxTokens        int     `json:"max_tokens" example:"2000"`
+}
+
+// ChatbotResponse represents a chatbot in responses
+type ChatbotResponse struct {
+	ID                uuid.UUID `json:"id"`
+	UserID            string    `json:"user_id"`
+	Name              string    `json:"name"`
+	Description       string    `json:"description"`
+	SystemInstructions string    `json:"system_instructions"`
+	ModelName         string    `json:"model_name"`
+	TemperatureParam  float64   `json:"temperature_param"`
+	MaxTokens         int       `json:"max_tokens"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 } 

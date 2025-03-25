@@ -1,6 +1,10 @@
 package db
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // User represents an authenticated user
 type User struct {
@@ -26,12 +30,12 @@ type Document struct {
 	ID        string
 	Content   string
 	Embedding []float32
-	ChatbotID string
+	ChatbotID uuid.UUID
 }
 
 // Chatbot represents a configurable AI assistant
 type Chatbot struct {
-	ID                 string    `json:"id"`
+	ID                 uuid.UUID `json:"id"`
 	UserID             string    `json:"user_id"`
 	Name               string    `json:"name"`
 	Description        string    `json:"description"`

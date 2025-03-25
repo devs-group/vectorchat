@@ -309,6 +309,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/chat/chatbot": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create a new chatbot with specified configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Create a new chatbot",
+                "parameters": [
+                    {
+                        "description": "Chatbot configuration",
+                        "name": "chatbot",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ChatbotCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ChatbotResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/chat/message": {
             "post": {
                 "security": [
@@ -715,6 +772,70 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_api.ChatbotCreateRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "A helpful AI assistant for my project"
+                },
+                "max_tokens": {
+                    "type": "integer",
+                    "example": 2000
+                },
+                "model_name": {
+                    "type": "string",
+                    "example": "gpt-4"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My AI Assistant"
+                },
+                "system_instructions": {
+                    "type": "string",
+                    "example": "You are a helpful AI assistant"
+                },
+                "temperature_param": {
+                    "type": "number",
+                    "example": 0.7
+                }
+            }
+        },
+        "internal_api.ChatbotResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "max_tokens": {
+                    "type": "integer"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "system_instructions": {
+                    "type": "string"
+                },
+                "temperature_param": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }

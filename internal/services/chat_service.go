@@ -45,7 +45,7 @@ func (c *ChatService) AddDocument(ctx context.Context, id string, content string
 		ID:        id,
 		Content:   content,
 		Embedding: embedding,
-		ChatbotID: chatbotID,
+		ChatbotID: uuid.MustParse(chatbotID),
 	}
 
 	return c.documentStore.StoreDocument(ctx, doc)
@@ -68,7 +68,7 @@ func (c *ChatService) AddFile(ctx context.Context, id string, filePath string, c
 		ID:        id,
 		Content:   string(content),
 		Embedding: embedding,
-		ChatbotID: chatbotID,
+		ChatbotID: uuid.MustParse(chatbotID),
 	}
 
 	return c.documentStore.StoreDocument(ctx, doc)
@@ -84,7 +84,7 @@ func (c *ChatService) ChatWithID(ctx context.Context, chatID string, userID stri
 	// Check if chatID is actually a chatbot ID (uuid format)
 	if len(chatID) == 36 { // Simple UUID format check
 		// Try to find the chatbot (will fail if not a valid chatbot ID)
-		chatbot, err := c.chatbotStore.FindChatbotByIDAndUserID(ctx, chatID, userID)
+		chatbot, err := c.chatbotStore.FindChatbotByIDAndUserID(ctx, uuid.MustParse(chatID), userID)
 		if err == nil && chatbot != nil {
 			// If successful, use ChatWithChatbot instead
 			return c.ChatWithChatbot(ctx, chatID, chatbot.UserID, message)
@@ -157,7 +157,7 @@ func (c *ChatService) ChatWithID(ctx context.Context, chatID string, userID stri
 // ChatWithChatbot sends a message to the LLM with relevant context from a specific chatbot
 func (c *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, message string) (string, error) {
 	// Retrieve the chatbot with authorization check
-	chatbot, err := c.chatbotStore.FindChatbotByIDAndUserID(ctx, chatbotID, userID)
+	chatbot, err := c.chatbotStore.FindChatbotByIDAndUserID(ctx, uuid.MustParse(chatbotID), userID)
 	if err != nil {
 		return "", err // Already wrapped
 	}
@@ -240,7 +240,6 @@ func (c *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, me
 
 // CreateChatbot creates a new chatbot with default settings
 func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions string) (*db.Chatbot, error) {
-	// Validate inputs
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
@@ -255,7 +254,6 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 
 	now := time.Now()
 	chatbot := db.Chatbot{
-		ID:                 uuid.New().String(),
 		UserID:             userID,
 		Name:               name,
 		Description:        description,
@@ -277,7 +275,7 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 
 // GetChatbot retrieves a chatbot by ID and validates ownership
 func (s *ChatService) GetChatbot(ctx context.Context, chatbotID, userID string) (*db.Chatbot, error) {
-	chatbot, err := s.chatbotStore.FindChatbotByIDAndUserID(ctx, chatbotID, userID)
+	chatbot, err := s.chatbotStore.FindChatbotByIDAndUserID(ctx, uuid.MustParse(chatbotID), userID)
 	if err != nil {
 		return nil, err // Already wrapped in the store
 	}
@@ -402,5 +400,5 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 		return apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
 	}
 
-	return s.chatbotStore.DeleteChatbot(ctx, chatbotID, userID)
+	return s.chatbotStore.DeleteChatbot(ctx, uuid.MustParse(chatbotID), userID)
 } 

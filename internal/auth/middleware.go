@@ -37,7 +37,7 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 		c.Locals("user", user)
 		return c.Next()
 	}
-	
+
 	// Check for session
 	sess, err := m.store.Get(c)
 	if err != nil {

@@ -33,4 +33,5 @@ postgres-data/
 # Swagger generated files
 docs/swagger.*
 
-upload/*
+uploads/*
+tmp/*

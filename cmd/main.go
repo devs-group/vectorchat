@@ -14,6 +14,7 @@ import (
 
 	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
 	"github.com/yourusername/vectorchat/internal/api"
+	"github.com/yourusername/vectorchat/internal/auth"
 	"github.com/yourusername/vectorchat/internal/db"
 	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/internal/vectorize"
@@ -64,9 +65,6 @@ func main() {
 
 	// Initialize document store
 	documentStore := db.NewDocumentStore(pool)
-
-	// Initialize auth middleware
-	// authMiddleware := auth.NewAuthMiddleware(session.New(), userStore)
 	
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
@@ -89,7 +87,10 @@ func main() {
 	}
 
 	// Initialize stores
-	sessionStore := session.New()
+	sessionStore := session.New() // shared session store between OAuthConfig and auth middlware
+
+	// Initialize auth middleware
+	authMiddleware := auth.NewAuthMiddleware(sessionStore, userStore)
 
 	// Initialize OAuth configuration
 	oAuthConfig := &api.OAuthConfig{
@@ -97,7 +98,6 @@ func main() {
 		GitHubClientSecret: githubSecret,
 		RedirectURL:        "http://localhost:8080", // Base URL without the callback path
 		Store:             sessionStore,
-		UserStore:         userStore,
 	}
 
 	// Set up Fiber app
@@ -110,8 +110,8 @@ func main() {
 	app.Use(cors.New())
 
 	// Initialize API handlers
-	chatbotHandler := api.NewChatHandler(chatService, documentStore, chatbotStore, uploadsDir)
-	oAuthHandler := api.NewOAuthHandler(oAuthConfig)
+	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, documentStore, chatbotStore, uploadsDir)
+	oAuthHandler := api.NewOAuthHandler(oAuthConfig, userStore, authMiddleware)
 	homeHandler := api.NewHomeHandler(sessionStore, userStore)
 
 	// Register routes

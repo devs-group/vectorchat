@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/google/uuid"
+	"github.com/yourusername/vectorchat/internal/auth"
 	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"golang.org/x/oauth2"
@@ -23,7 +24,6 @@ type OAuthConfig struct {
 	GitHubClientSecret string
 	RedirectURL        string
 	Store              *session.Store
-	UserStore          *db.UserStore
 }
 
 // OAuthHandler handles OAuth authentication
@@ -32,10 +32,11 @@ type OAuthHandler struct {
 	githubOAuth *oauth2.Config
 	store       *session.Store
 	userStore   *db.UserStore
+	authMiddleware *auth.AuthMiddleware
 }
 
 // NewOAuthHandler creates a new OAuth handler
-func NewOAuthHandler(config *OAuthConfig) *OAuthHandler {
+func NewOAuthHandler(config *OAuthConfig, userStore *db.UserStore, authMiddleware *auth.AuthMiddleware) *OAuthHandler {
 	githubOAuth := &oauth2.Config{
 		ClientID:     config.GitHubClientID,
 		ClientSecret: config.GitHubClientSecret,
@@ -48,7 +49,8 @@ func NewOAuthHandler(config *OAuthConfig) *OAuthHandler {
 		config:      config,
 		githubOAuth: githubOAuth,
 		store:       config.Store,
-		userStore:   config.UserStore,
+		userStore:   userStore,
+		authMiddleware: authMiddleware,
 	}
 }
 
@@ -61,13 +63,13 @@ func (h *OAuthHandler) RegisterRoutes(app *fiber.App) {
 	auth.Get("/github/callback", h.GET_GitHubCallback)
 
 	// Session management
-	auth.Get("/session", h.GET_Session)
-	auth.Post("/logout", h.POST_Logout)
+	auth.Get("/session", h.authMiddleware.RequireAuth, h.GET_Session)
+	auth.Post("/logout", h.authMiddleware.RequireAuth, h.POST_Logout)
 
 	// API key management
-	auth.Post("/apikey", h.POST_GenerateAPIKey)
-	auth.Get("/apikey", h.GET_ListAPIKeys)
-	auth.Delete("/apikey/:id", h.DELETE_RevokeAPIKey)
+	auth.Post("/apikey", h.authMiddleware.RequireAuth, h.POST_GenerateAPIKey)
+	auth.Get("/apikey", h.authMiddleware.RequireAuth, h.GET_ListAPIKeys)
+	auth.Delete("/apikey/:id", h.authMiddleware.RequireAuth, h.DELETE_RevokeAPIKey)
 }
 
 // @Summary Initiate GitHub OAuth login

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"log/slog"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/yourusername/vectorchat/internal/db"
@@ -37,6 +39,8 @@ func (h *HomeHandler) RegisterRoutes(app *fiber.App) {
 // @Failure 500 {object} APIResponse
 // @Router / [get]
 func (h *HomeHandler) GET_Home(c *fiber.Ctx) error {
+	u := c.Locals("user")
+	slog.Info("c.Locals", "user", u)
 	sess, err := h.store.Get(c)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{

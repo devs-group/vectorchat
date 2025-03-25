@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
@@ -22,17 +23,23 @@ func NewChatbotStore(pool *pgxpool.Pool) *ChatbotStore {
 
 // CreateChatbot creates a new chatbot in the database
 func (s *ChatbotStore) CreateChatbot(ctx context.Context, chatbot *Chatbot) error {
+	// Initialize a new UUID if not set
+	if chatbot.ID == uuid.Nil {
+		chatbot.ID = uuid.New()
+	}
+
 	query := `
 		INSERT INTO chatbots (
-			user_id, name, description, system_prompt, 
-			model_name, model_temperature, max_tokens, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) 
-		RETURNING id, created_at, updated_at
+			id, user_id, name, description, system_instructions, 
+			model_name, temperature_param, max_tokens
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+		RETURNING created_at, updated_at
 	`
 	
 	return s.pool.QueryRow(
 		ctx, 
 		query,
+		chatbot.ID,
 		chatbot.UserID,
 		chatbot.Name,
 		chatbot.Description,
@@ -40,15 +47,14 @@ func (s *ChatbotStore) CreateChatbot(ctx context.Context, chatbot *Chatbot) erro
 		chatbot.ModelName,
 		chatbot.TemperatureParam,
 		chatbot.MaxTokens,
-	).Scan(&chatbot.ID, &chatbot.CreatedAt, &chatbot.UpdatedAt)
+	).Scan(&chatbot.CreatedAt, &chatbot.UpdatedAt)
 }
 
-
 // FindChatbotByIDAndUserID retrieves a chatbot by its ID and user ID
-func (s *ChatbotStore) FindChatbotByIDAndUserID(ctx context.Context, id string, userID string) (*Chatbot, error) {
+func (s *ChatbotStore) FindChatbotByIDAndUserID(ctx context.Context, id uuid.UUID, userID string) (*Chatbot, error) {
 	query := `
-		SELECT id, user_id, name, description, system_prompt, 
-		       model_name, model_temperature, max_tokens, 
+		SELECT id, user_id, name, description, system_instructions, 
+		       model_name, temperature_param, max_tokens, 
 		       created_at, updated_at
 		FROM chatbots
 		WHERE id = $1 AND user_id = $2
@@ -137,7 +143,7 @@ func (s *ChatbotStore) UpdateChatbot(ctx context.Context, chatbot Chatbot) error
 }
 
 // DeleteChatbot deletes a chatbot by ID and owner
-func (s *ChatbotStore) DeleteChatbot(ctx context.Context, id, userID string) error {
+func (s *ChatbotStore) DeleteChatbot(ctx context.Context, id uuid.UUID, userID string) error {
 	result, err := s.pool.Exec(ctx, `
 		DELETE FROM chatbots
 		WHERE id = $1 AND user_id = $2
@@ -147,7 +153,6 @@ func (s *ChatbotStore) DeleteChatbot(ctx context.Context, id, userID string) err
 		return apperrors.Wrapf(apperrors.ErrDatabaseOperation, "failed to delete chatbot: %v", err)
 	}
 
-	// Check if any row was actually deleted
 	rowsAffected := result.RowsAffected()
 	if rowsAffected == 0 {
 		return apperrors.Wrapf(apperrors.ErrChatbotNotFound, 
@@ -158,7 +163,7 @@ func (s *ChatbotStore) DeleteChatbot(ctx context.Context, id, userID string) err
 }
 
 // CheckChatbotOwnership verifies if a user owns a specific chatbot
-func (s *ChatbotStore) CheckChatbotOwnership(ctx context.Context, chatbotID, userID string) (bool, error) {
+func (s *ChatbotStore) CheckChatbotOwnership(ctx context.Context, chatbotID uuid.UUID, userID string) (bool, error) {
 	var exists bool
 	err := s.pool.QueryRow(ctx, `
 		SELECT EXISTS (
