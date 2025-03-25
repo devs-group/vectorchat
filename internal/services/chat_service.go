@@ -18,7 +18,7 @@ import (
 
 // ChatService handles chat interactions with context from vector database
 type ChatService struct {
-	documentStore     *db.DocumentStore
+	documentStore *db.DocumentStore
 	vectorizer    vectorize.Vectorizer
 	openaiKey     string
 	chatbotStore  *db.ChatbotStore
@@ -27,7 +27,7 @@ type ChatService struct {
 // NewChatService creates a new chat service
 func NewChatService(documentStore *db.DocumentStore, vectorizer vectorize.Vectorizer, openaiKey string, chatbotStore *db.ChatbotStore) *ChatService {
 	return &ChatService{
-		documentStore:     documentStore,
+		documentStore: documentStore,
 		vectorizer:    vectorizer,
 		openaiKey:     openaiKey,
 		chatbotStore:  chatbotStore,
@@ -52,7 +52,7 @@ func (c *ChatService) AddDocument(ctx context.Context, id string, content string
 }
 
 // AddFile adds a file to the vector database
-func (c *ChatService) AddFile(ctx context.Context, id string, filePath string, chatbotID string) error {
+func (c *ChatService) AddFile(ctx context.Context, id string, filePath string, chatbotID uuid.UUID) error {
 	embedding, err := c.vectorizer.VectorizeFile(ctx, filePath)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to vectorize file")
@@ -68,7 +68,7 @@ func (c *ChatService) AddFile(ctx context.Context, id string, filePath string, c
 		ID:        id,
 		Content:   string(content),
 		Embedding: embedding,
-		ChatbotID: uuid.MustParse(chatbotID),
+		ChatbotID: chatbotID,
 	}
 
 	return c.documentStore.StoreDocument(ctx, doc)
@@ -80,7 +80,7 @@ func (c *ChatService) Chat(ctx context.Context, userID string, message string) (
 }
 
 // ChatWithID sends a message to the LLM with relevant context from the specified chat session
-func (c *ChatService) ChatWithID(ctx context.Context, chatID string, userID string,message string) (string, error) {
+func (c *ChatService) ChatWithID(ctx context.Context, chatID string, userID string, message string) (string, error) {
 	// Check if chatID is actually a chatbot ID (uuid format)
 	if len(chatID) == 36 { // Simple UUID format check
 		// Try to find the chatbot (will fail if not a valid chatbot ID)
@@ -102,7 +102,7 @@ func (c *ChatService) ChatWithID(ctx context.Context, chatID string, userID stri
 	if err != nil {
 		return "", apperrors.Wrapf(apperrors.ErrDatabaseOperation, "find similar documents: %v", err)
 	}
-	
+
 	// Check if any documents were found for this chat ID
 	if len(docs) == 0 {
 		return "", apperrors.Wrapf(apperrors.ErrNoDocumentsFound, "chat ID: %s", chatID)
@@ -164,7 +164,7 @@ func (c *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, me
 
 	// Check if user has access to this chatbot
 	if chatbot.UserID != userID && userID != "" {
-		return "", apperrors.Wrapf(apperrors.ErrUnauthorizedChatbotAccess, 
+		return "", apperrors.Wrapf(apperrors.ErrUnauthorizedChatbotAccess,
 			"user %s does not own chatbot %s", userID, chatbotID)
 	}
 
@@ -194,7 +194,7 @@ func (c *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, me
 
 	// Create custom prompt with chatbot's system instructions
 	promptTemplate := prompts.NewPromptTemplate(
-		chatbot.SystemInstructions + "\n\n" +
+		chatbot.SystemInstructions+"\n\n"+
 			"Context information is below.\n"+
 			"---------------------\n"+
 			"{{.context}}\n"+
@@ -401,4 +401,4 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 	}
 
 	return s.chatbotStore.DeleteChatbot(ctx, uuid.MustParse(chatbotID), userID)
-} 
+}
