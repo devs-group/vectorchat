@@ -3,7 +3,7 @@ description:
 globs: 
 alwaysApply: true
 ---
-# .cursor Rules for VectorChat Go Project Structure
+# Rules for VectorChat Go Project Structure
 
 ## Project Structure
 
@@ -13,16 +13,11 @@ alwaysApply: true
 
 📁 pkg                        # Application code (shared across services/packages)
 ├── 📁 api                    # HTTP handlers and route definitions
-│   ├── 📄 chat_handler.go    # Handlers for chat-related HTTP routes 
-│   └── 📄 oauth_handler.go   # OAuth-related handlers (e.g., login with GitHub)
 ├── 📁 auth                   # Authentication logic
 │   └── 📄 middleware.go      # Middleware to protect routes, check tokens, etc.
-├── 📁 chat                   # Core chat logic / business layer
-│   └── 📄 service.go         # Core use cases and orchestration of chat feature
+├── 📁 services               # Core chat logic / business layer
 ├── 📁 db                     # Database-related code (data access layer)
 │   ├── 📁 migrations         # DB migration files (SQL or migration tool files)
-│   ├── 📄 chat_store.go      # DB queries for chat (e.g., saving messages, getting history)
-│   └── 📄 user_store.go      # DB queries for user info (e.g., find user by email)
 ├── 📁 errors                 # Centralized error types and helpers
 │   └── 📄 errors.go          # Custom error types, wrappers, mappers
 └── 📁 vectorize              # Vectorization / embedding logic (e.g., NLP or ML)
@@ -72,49 +67,17 @@ alwaysApply: true
   - HTTP-specific error handling
 - **Does not contain**: Business logic, database operations
 
-### `/pkg/api/chat_handler.go`
-- **Contains**: All chat-related HTTP route handlers
-- **Type**: `ChatHandler` struct with appropriate dependencies
-- **Methods**:
-  - `RegisterRoutes(app *fiber.App)`: Registers all chat-related routes
-  - HTTP Handlers following pattern: `[METHOD]_[Resource]`
-  - Example: `POST_UploadFile`, `DELETE_ChatFile`, `GET_ChatFiles`
-- **Dependencies**: Injected in constructor (`NewChatHandler`)
-  - Chat service, stores, configuration values
+### `/pkg/services`
+- **Contains**: Core business logic
+- **Responsibilities**: 
+  - Holding golang business logic
+  - Handles specific logic for creation
+  - Any third party interactions
 
-### `/pkg/api/oauth_handler.go`
-- **Contains**: All authentication and OAuth-related HTTP route handlers
-- **Type**: `OAuthHandler` struct with OAuth config and dependencies
-- **Methods**:
-  - `RegisterRoutes(app *fiber.App)`: Registers all auth-related routes
-  - Auth-specific handlers: `GET_GitHubLogin`, `GET_GitHubCallback`, etc.
-  - Session management: `GET_Session`, `POST_Logout`
-  - API key management: `POST_GenerateAPIKey`, `GET_ListAPIKeys`, etc.
-- **Dependencies**: OAuth config, session store, user store
-
-### `/pkg/chat/service.go`
-- **Contains**: Core chat business logic
-- **Type**: `ChatService` struct
-- **Methods**: 
-  - Core chat operations: `ChatWithID`, `AddFile`, etc.
-  - File processing logic
-  - Vector search/query operations
-- **Dependencies**: Vectorizer, stores
-
-### `/pkg/db/chat_store.go`
-- **Contains**: Database operations for chat entities
-- **Type**: `ChatStore` struct
-- **Methods**:
-  - CRUD operations for chat messages and documents
-  - `GetDocumentsByPrefix`, `DeleteDocument`, etc.
-- **Dependencies**: Database connection
-
-### `/pkg/db/user_store.go`
-- **Contains**: Database operations for user entities
-- **Type**: `UserStore` struct
-- **Methods**:
-  - User CRUD operations: `FindUserByEmail`, `FindUserByID`, `CreateUser`
-  - API key operations: `CreateAPIKey`, `GetAPIKeys`, `RevokeAPIKey`
+### `/pkg/db`
+- **Contains**: Database operations for entities
+- **Responsibilities**: 
+  - Only handling db errors and making db queries
 - **Dependencies**: Database connection
 
 ### `/pkg/errors/errors.go`
