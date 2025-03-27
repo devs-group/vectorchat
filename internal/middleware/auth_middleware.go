@@ -44,6 +44,12 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 			})
 		}
 
+		if apiKeyRecord.RevokedAt != nil && apiKeyRecord.RevokedAt.Before(time.Now()) {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "API key revoked",
+			})
+		}
+
 		// Verify key hash
 		if err := bcrypt.CompareHashAndPassword([]byte(apiKeyRecord.Key), []byte(apiKey)); err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

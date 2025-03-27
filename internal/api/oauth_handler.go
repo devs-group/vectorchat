@@ -391,11 +391,13 @@ func (h *OAuthHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 
 	var keys []APIKey
 	for _, k := range apiKeys {
+
 		keys = append(keys, APIKey{
 			ID:        k.ID,
 			UserID:    k.UserID,
 			CreatedAt: k.CreatedAt,
 			ExpiresAt: k.ExpiresAt,
+			RevokedAt: k.RevokedAt,
 		})
 	}
 	return c.JSON(APIKeysResponse{

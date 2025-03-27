@@ -18,18 +18,19 @@ type User struct {
 
 // APIKey represents an API key
 type APIKey struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Key       string    `json:"key"`
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt time.Time `json:"expires_at"`
+	ID        string     `json:"id"`
+	UserID    string     `json:"user_id"`
+	Key       string     `json:"key"`
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	RevokedAt *time.Time `json:"revoked_at"`
 }
 
 // APIResponse represents a standard API response
 type APIResponse struct {
-	Error   string      `json:"error,omitempty"`
-	Message string      `json:"message,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Message string `json:"message,omitempty"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // UserResponse represents the response for user-related endpoints

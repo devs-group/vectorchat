@@ -731,6 +731,9 @@ const docTemplate = `{
                 "key": {
                     "type": "string"
                 },
+                "revoked_at": {
+                    "type": "string"
+                },
                 "user_id": {
                     "type": "string"
                 }
