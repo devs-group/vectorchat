@@ -42,11 +42,9 @@ func (h *HomeHandler) RegisterRoutes(app *fiber.App) {
 // @Failure 500 {object} APIResponse
 // @Router / [get]
 func (h *HomeHandler) GET_Home(c *fiber.Ctx) error {
-	_, ok := c.Locals("user").(*store.User)
-	if !ok {
-		return c.JSON(fiber.Map{
-			"message": "no user found in request context",
-		})
+	_, err := GetUser(c)
+	if err != nil {
+		return err
 	}
 	return c.Redirect("/swagger")
 }

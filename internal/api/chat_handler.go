@@ -198,18 +198,20 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 	}
 	filename := c.Params("filename")
 
-	if user, ok := c.Locals("user").(*store.User); ok {
-		isOwner, err := h.ChatbotStore.CheckChatbotOwnership(c.Context(), chatID, user.ID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": fmt.Sprintf("Failed to verify chatbot ownership: %v", err),
-			})
-		}
-		if !isOwner {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "You don't have permission to access this chatbot",
-			})
-		}
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+	isOwner, err := h.ChatbotStore.CheckChatbotOwnership(c.Context(), chatID, user.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to verify chatbot ownership: %v", err),
+		})
+	}
+	if !isOwner {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You don't have permission to access this chatbot",
+		})
 	}
 
 	if filename == "" {
@@ -337,9 +339,12 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 
 	// Get user ID from context if authenticated
 	var userID string
-	if user, ok := c.Locals("user").(*store.User); ok {
-		userID = user.ID
+	user, err := GetUser(c)
+	if err != nil {
+		return err
 	}
+
+	userID = user.ID
 
 	response, err := h.ChatService.ChatWithChatbot(c.Context(), chatID, userID, req.Query)
 
@@ -381,12 +386,9 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /chat/chatbot [post]
 func (h *ChatHandler) POST_CreateChatbot(c *fiber.Ctx) error {
-	// Get user from context
-	user, ok := c.Locals("user").(*store.User)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
-			Error: "Authentication required",
-		})
+	user, err := GetUser(c)
+	if err != nil {
+		return err
 	}
 
 	// Parse request body
