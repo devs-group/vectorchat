@@ -84,14 +84,11 @@ type FileUploadResponse struct {
 
 // ChatFilesResponse represents the response for listing chat files
 type ChatFilesResponse struct {
-	Files []ChatFile `json:"files"`
-}
-
-// ChatFile represents a chat file
-type ChatFile struct {
-	Filename  string    `json:"filename"`
-	Size      int64     `json:"size"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Files []struct {
+		Filename  string    `json:"filename"`
+		Size      int64     `json:"size"`
+		UpdatedAt time.Time `json:"updated_at"`
+	} `json:"files"`
 }
 
 // ChatbotCreateRequest represents the request to create a new chatbot
