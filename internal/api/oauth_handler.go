@@ -12,9 +12,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/storage/postgres"
 	"github.com/google/uuid"
-	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
+	"github.com/yourusername/vectorchat/internal/store"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -34,12 +34,12 @@ type OAuthHandler struct {
 	config         *OAuthConfig
 	githubOAuth    *oauth2.Config
 	store          *postgres.Storage
-	userStore      *db.UserStore
+	userStore      *store.UserStore
 	authMiddleware *middleware.AuthMiddleware
 }
 
 // NewOAuthHandler creates a new OAuth handler with validation
-func NewOAuthHandler(config *OAuthConfig, userStore *db.UserStore, authMiddleware *middleware.AuthMiddleware) *OAuthHandler {
+func NewOAuthHandler(config *OAuthConfig, userStore *store.UserStore, authMiddleware *middleware.AuthMiddleware) *OAuthHandler {
 	if config.GitHubClientID == "" || config.GitHubClientSecret == "" {
 		panic("Missing required OAuth configuration")
 	}
@@ -210,7 +210,7 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 	}
 
 	if user == nil {
-		user = &db.User{
+		user = &store.User{
 			ID:        uuid.New().String(),
 			Name:      githubUser.Name,
 			Email:     githubUser.Email,
@@ -259,7 +259,7 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /auth/session [get]
 func (h *OAuthHandler) GET_Session(c *fiber.Ctx) error {
-	user := c.Locals("user").(*db.User)
+	user := c.Locals("user").(*store.User)
 	return c.JSON(SessionResponse{
 		User: User{
 			ID:        user.ID,
@@ -324,7 +324,7 @@ func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /auth/apikey [post]
 func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
-	user := c.Locals("user").(*db.User)
+	user := c.Locals("user").(*store.User)
 
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -342,7 +342,7 @@ func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 		})
 	}
 
-	apiKey := &db.APIKey{
+	apiKey := &store.APIKey{
 		ID:        uuid.New().String(),
 		UserID:    user.ID,
 		Key:       string(hashedKey),
@@ -379,7 +379,7 @@ func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /auth/apikey [get]
 func (h *OAuthHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
-	user := c.Locals("user").(*db.User)
+	user := c.Locals("user").(*store.User)
 
 	apiKeys, err := h.userStore.GetAPIKeys(c.Context(), user.ID)
 	if err != nil {
@@ -418,7 +418,7 @@ func (h *OAuthHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /auth/apikey/{id} [delete]
 func (h *OAuthHandler) DELETE_RevokeAPIKey(c *fiber.Ctx) error {
-	user := c.Locals("user").(*db.User)
+	user := c.Locals("user").(*store.User)
 
 	id := c.Params("id")
 	if id == "" {

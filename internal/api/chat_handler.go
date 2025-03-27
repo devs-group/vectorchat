@@ -10,24 +10,24 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
+	"github.com/yourusername/vectorchat/internal/store"
 )
 
 // ChatHandler contains all the dependencies needed for API handlers
 type ChatHandler struct {
 	ChatService        *services.ChatService
-	DocumentStore      *db.DocumentStore
-	ChatbotStore       *db.ChatbotStore
+	DocumentStore      *store.DocumentStore
+	ChatbotStore       *store.ChatbotStore
 	UploadsDir         string
 	AuthMiddleware     *middleware.AuthMiddleware
 	OwershipMiddleware *middleware.OwnershipMiddleware
 }
 
 // NewChatHandler creates a new API handler
-func NewChatHandler(authMiddleware *middleware.AuthMiddleware, chatService *services.ChatService, documentStore *db.DocumentStore, chatbotStore *db.ChatbotStore, uploadsDir string, ownershipMiddlware *middleware.OwnershipMiddleware) *ChatHandler {
+func NewChatHandler(authMiddleware *middleware.AuthMiddleware, chatService *services.ChatService, documentStore *store.DocumentStore, chatbotStore *store.ChatbotStore, uploadsDir string, ownershipMiddlware *middleware.OwnershipMiddleware) *ChatHandler {
 	return &ChatHandler{
 		ChatService:        chatService,
 		DocumentStore:      documentStore,
@@ -189,7 +189,7 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 	}
 	filename := c.Params("filename")
 
-	if user, ok := c.Locals("user").(*db.User); ok {
+	if user, ok := c.Locals("user").(*store.User); ok {
 		isOwner, err := h.ChatbotStore.CheckChatbotOwnership(c.Context(), chatID, user.ID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -328,7 +328,7 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 
 	// Get user ID from context if authenticated
 	var userID string
-	if user, ok := c.Locals("user").(*db.User); ok {
+	if user, ok := c.Locals("user").(*store.User); ok {
 		userID = user.ID
 	}
 
@@ -373,7 +373,7 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 // @Router /chat/chatbot [post]
 func (h *ChatHandler) POST_CreateChatbot(c *fiber.Ctx) error {
 	// Get user from context
-	user, ok := c.Locals("user").(*db.User)
+	user, ok := c.Locals("user").(*store.User)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
 			Error: "Authentication required",

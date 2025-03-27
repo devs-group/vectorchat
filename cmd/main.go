@@ -15,9 +15,9 @@ import (
 	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
 	"github.com/yourusername/vectorchat/internal/api"
 	"github.com/yourusername/vectorchat/internal/config"
-	"github.com/yourusername/vectorchat/internal/db"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
+	"github.com/yourusername/vectorchat/internal/store"
 	"github.com/yourusername/vectorchat/internal/vectorize"
 )
 
@@ -58,20 +58,20 @@ func main() {
 	}
 
 	// Initialize database
-	pool, err := db.New(pgConnStr)
+	pool, err := store.New(pgConnStr)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer pool.Close()
 
 	// Initialize user store with the same pool
-	userStore := db.NewUserStore(pool)
+	userStore := store.NewUserStore(pool)
 
 	// Initialize chatbot store with the same pool
-	chatbotStore := db.NewChatbotStore(pool)
+	chatbotStore := store.NewChatbotStore(pool)
 
 	// Initialize document store
-	documentStore := db.NewDocumentStore(pool)
+	documentStore := store.NewDocumentStore(pool)
 
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
@@ -157,9 +157,9 @@ func waitForPostgres(connStr string) error {
 	retryInterval := 2 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
-		db, err := db.New(connStr)
+		store, err := store.New(connStr)
 		if err == nil {
-			db.Close()
+			store.Close()
 			log.Println("Successfully connected to PostgreSQL")
 			return nil
 		}

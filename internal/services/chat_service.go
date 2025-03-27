@@ -11,21 +11,21 @@ import (
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/prompts"
-	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
+	"github.com/yourusername/vectorchat/internal/store"
 	"github.com/yourusername/vectorchat/internal/vectorize"
 )
 
 // ChatService handles chat interactions with context from vector database
 type ChatService struct {
-	documentStore *db.DocumentStore
+	documentStore *store.DocumentStore
 	vectorizer    vectorize.Vectorizer
 	openaiKey     string
-	chatbotStore  *db.ChatbotStore
+	chatbotStore  *store.ChatbotStore
 }
 
 // NewChatService creates a new chat service
-func NewChatService(documentStore *db.DocumentStore, vectorizer vectorize.Vectorizer, openaiKey string, chatbotStore *db.ChatbotStore) *ChatService {
+func NewChatService(documentStore *store.DocumentStore, vectorizer vectorize.Vectorizer, openaiKey string, chatbotStore *store.ChatbotStore) *ChatService {
 	return &ChatService{
 		documentStore: documentStore,
 		vectorizer:    vectorizer,
@@ -41,7 +41,7 @@ func (c *ChatService) AddDocument(ctx context.Context, id string, content string
 		return apperrors.Wrap(err, "failed to vectorize document")
 	}
 
-	doc := db.Document{
+	doc := store.Document{
 		ID:        id,
 		Content:   content,
 		Embedding: embedding,
@@ -64,7 +64,7 @@ func (c *ChatService) AddFile(ctx context.Context, id string, filePath string, c
 		return apperrors.Wrap(err, "failed to read file")
 	}
 
-	doc := db.Document{
+	doc := store.Document{
 		ID:        id,
 		Content:   string(content),
 		Embedding: embedding,
@@ -239,7 +239,7 @@ func (c *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, me
 }
 
 // CreateChatbot creates a new chatbot with default settings
-func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions string) (*db.Chatbot, error) {
+func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions string) (*store.Chatbot, error) {
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
@@ -253,7 +253,7 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 	}
 
 	now := time.Now()
-	chatbot := db.Chatbot{
+	chatbot := store.Chatbot{
 		UserID:             userID,
 		Name:               name,
 		Description:        description,
@@ -274,7 +274,7 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 }
 
 // GetChatbot retrieves a chatbot by ID and validates ownership
-func (s *ChatService) GetChatbot(ctx context.Context, chatbotID, userID string) (*db.Chatbot, error) {
+func (s *ChatService) GetChatbot(ctx context.Context, chatbotID, userID string) (*store.Chatbot, error) {
 	chatbot, err := s.chatbotStore.FindChatbotByIDAndUserID(ctx, uuid.MustParse(chatbotID), userID)
 	if err != nil {
 		return nil, err // Already wrapped in the store
@@ -290,7 +290,7 @@ func (s *ChatService) GetChatbot(ctx context.Context, chatbotID, userID string) 
 }
 
 // ListChatbots lists all chatbots owned by a user
-func (s *ChatService) ListChatbots(ctx context.Context, userID string) ([]db.Chatbot, error) {
+func (s *ChatService) ListChatbots(ctx context.Context, userID string) ([]store.Chatbot, error) {
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
@@ -299,7 +299,7 @@ func (s *ChatService) ListChatbots(ctx context.Context, userID string) ([]db.Cha
 }
 
 // UpdateChatbot updates a chatbot's basic information
-func (s *ChatService) UpdateChatbot(ctx context.Context, chatbotID, userID, name, description string) (*db.Chatbot, error) {
+func (s *ChatService) UpdateChatbot(ctx context.Context, chatbotID, userID, name, description string) (*store.Chatbot, error) {
 	// Validate inputs
 	if chatbotID == "" || userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
@@ -329,7 +329,7 @@ func (s *ChatService) UpdateChatbot(ctx context.Context, chatbotID, userID, name
 }
 
 // UpdateSystemInstructions updates a chatbot's system instructions
-func (s *ChatService) UpdateSystemInstructions(ctx context.Context, chatbotID, userID, instructions string) (*db.Chatbot, error) {
+func (s *ChatService) UpdateSystemInstructions(ctx context.Context, chatbotID, userID, instructions string) (*store.Chatbot, error) {
 	// Validate inputs
 	if chatbotID == "" || userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
@@ -358,7 +358,7 @@ func (s *ChatService) UpdateSystemInstructions(ctx context.Context, chatbotID, u
 }
 
 // UpdateModelSettings updates a chatbot's LLM model settings
-func (s *ChatService) UpdateModelSettings(ctx context.Context, chatbotID, userID, modelName string, temperature float64, maxTokens int) (*db.Chatbot, error) {
+func (s *ChatService) UpdateModelSettings(ctx context.Context, chatbotID, userID, modelName string, temperature float64, maxTokens int) (*store.Chatbot, error) {
 	// Validate inputs
 	if chatbotID == "" || userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")

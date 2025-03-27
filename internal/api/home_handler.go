@@ -3,19 +3,19 @@ package api
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/storage/postgres"
-	"github.com/yourusername/vectorchat/internal/db"
 	"github.com/yourusername/vectorchat/internal/middleware"
+	"github.com/yourusername/vectorchat/internal/store"
 )
 
 // HomeHandler handles home-related routes
 type HomeHandler struct {
 	store          *postgres.Storage
-	userStore      *db.UserStore
+	userStore      *store.UserStore
 	authMiddleware *middleware.AuthMiddleware
 }
 
 // NewHomeHandler creates a new home handler
-func NewHomeHandler(store *postgres.Storage, userStore *db.UserStore, authMiddleware *middleware.AuthMiddleware) *HomeHandler {
+func NewHomeHandler(store *postgres.Storage, userStore *store.UserStore, authMiddleware *middleware.AuthMiddleware) *HomeHandler {
 	return &HomeHandler{
 		store:          store,
 		userStore:      userStore,
@@ -38,7 +38,7 @@ func (h *HomeHandler) RegisterRoutes(app *fiber.App) {
 // @Failure 500 {object} APIResponse
 // @Router / [get]
 func (h *HomeHandler) GET_Home(c *fiber.Ctx) error {
-	_, ok := c.Locals("user").(*db.User)
+	_, ok := c.Locals("user").(*store.User)
 	if !ok {
 		return c.JSON(fiber.Map{
 			"message": "no user found in request context",

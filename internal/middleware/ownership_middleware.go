@@ -5,16 +5,16 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/yourusername/vectorchat/internal/db"
+	"github.com/yourusername/vectorchat/internal/store"
 )
 
 // OwnershipMiddleware checks chatbot ownership
 type OwnershipMiddleware struct {
-	chatbotStore *db.ChatbotStore
+	chatbotStore *store.ChatbotStore
 }
 
 // NewOwnershipMiddleware creates a new ownership middleware
-func NewOwnershipMiddleware(chatbotStore *db.ChatbotStore) *OwnershipMiddleware {
+func NewOwnershipMiddleware(chatbotStore *store.ChatbotStore) *OwnershipMiddleware {
 	return &OwnershipMiddleware{
 		chatbotStore: chatbotStore,
 	}
@@ -23,7 +23,7 @@ func NewOwnershipMiddleware(chatbotStore *db.ChatbotStore) *OwnershipMiddleware 
 // IsChatbotOwner verifies if the authenticated user owns the specified chatbot
 func (m *OwnershipMiddleware) IsChatbotOwner(c *fiber.Ctx) error {
 	// Get user from context (set by AuthMiddleware)
-	user, ok := c.Locals("user").(*db.User)
+	user, ok := c.Locals("user").(*store.User)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Authentication required",

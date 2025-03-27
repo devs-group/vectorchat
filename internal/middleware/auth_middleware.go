@@ -6,18 +6,18 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/storage/postgres"
-	"github.com/yourusername/vectorchat/internal/db"
+	"github.com/yourusername/vectorchat/internal/store"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // AuthMiddleware is a middleware for authentication
 type AuthMiddleware struct {
 	store     *postgres.Storage
-	userStore *db.UserStore
+	userStore *store.UserStore
 }
 
 // NewAuthMiddleware creates a new auth middleware
-func NewAuthMiddleware(store *postgres.Storage, userStore *db.UserStore) *AuthMiddleware {
+func NewAuthMiddleware(store *postgres.Storage, userStore *store.UserStore) *AuthMiddleware {
 	return &AuthMiddleware{
 		store:     store,
 		userStore: userStore,
