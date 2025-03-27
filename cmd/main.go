@@ -9,13 +9,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/storage/postgres"
 	"github.com/gofiber/swagger"
 
 	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
 	"github.com/yourusername/vectorchat/internal/api"
-	"github.com/yourusername/vectorchat/internal/auth"
+	"github.com/yourusername/vectorchat/internal/config"
 	"github.com/yourusername/vectorchat/internal/db"
+	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/internal/vectorize"
 )
@@ -34,13 +35,19 @@ import (
 // @authorizationUrl https://github.com/login/oauth/authorize
 // @scope.user:email Grants access to email
 func main() {
+	var appCfg config.AppConfig
+	err := config.Load(&appCfg)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
 	// Load environment variables
-	pgConnStr := os.Getenv("PG_CONNECTION_STRING")
+	pgConnStr := appCfg.PGConnection
 	if pgConnStr == "" {
 		pgConnStr = "postgres://postgres:postgres@localhost:5432/vectordb?sslmode=disable"
 	}
 
-	openaiKey := os.Getenv("OPENAI_API_KEY")
+	openaiKey := appCfg.OpenAIKey
 	if openaiKey == "" {
 		log.Fatal("OPENAI_API_KEY environment variable is required")
 	}
@@ -59,16 +66,16 @@ func main() {
 
 	// Initialize user store with the same pool
 	userStore := db.NewUserStore(pool)
-	
+
 	// Initialize chatbot store with the same pool
 	chatbotStore := db.NewChatbotStore(pool)
 
 	// Initialize document store
 	documentStore := db.NewDocumentStore(pool)
-	
+
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
-	
+
 	// Initialize chatbot service
 	chatService := services.NewChatService(documentStore, vectorizer, openaiKey, chatbotStore)
 
@@ -79,25 +86,35 @@ func main() {
 	}
 
 	// Get GitHub OAuth credentials from environment variables
-	githubID := os.Getenv("GITHUB_ID")
-	githubSecret := os.Getenv("GITHUB_SECRET")
+	githubID := appCfg.GithubID
+	githubSecret := appCfg.GithubSecret
 
 	if githubID == "" || githubSecret == "" {
 		log.Fatal("GITHUB_ID and GITHUB_SECRET environment variables are required")
 	}
 
 	// Initialize stores
-	sessionStore := session.New() // shared session store between OAuthConfig and auth middlware
+
+	// Initialize postgres sotrage with new config
+	sessionStore := postgres.New(postgres.Config{
+		ConnectionURI: pgConnStr,
+		Table:         "fiber_storage",
+		Reset:         false,
+		GCInterval:    10 * time.Second,
+	})
 
 	// Initialize auth middleware
-	authMiddleware := auth.NewAuthMiddleware(sessionStore, userStore)
+	authMiddleware := middleware.NewAuthMiddleware(sessionStore, userStore)
+
+	// Initialize ownership middleware
+	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatbotStore)
 
 	// Initialize OAuth configuration
 	oAuthConfig := &api.OAuthConfig{
 		GitHubClientID:     githubID,
 		GitHubClientSecret: githubSecret,
 		RedirectURL:        "http://localhost:8080", // Base URL without the callback path
-		Store:             sessionStore,
+		Store:              sessionStore,
 	}
 
 	// Set up Fiber app
@@ -110,12 +127,12 @@ func main() {
 	app.Use(cors.New())
 
 	// Initialize API handlers
-	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, documentStore, chatbotStore, uploadsDir)
+	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, documentStore, chatbotStore, uploadsDir, ownershipMiddleware)
 	oAuthHandler := api.NewOAuthHandler(oAuthConfig, userStore, authMiddleware)
-	homeHandler := api.NewHomeHandler(sessionStore, userStore)
+	homeHandler := api.NewHomeHandler(sessionStore, userStore, authMiddleware)
 
 	// Register routes
-	homeHandler.RegisterRoutes(app)  // Register home routes first
+	homeHandler.RegisterRoutes(app) // Register home routes first
 	chatbotHandler.RegisterRoutes(app)
 	oAuthHandler.RegisterRoutes(app)
 

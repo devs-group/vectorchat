@@ -1,77 +1,48 @@
 package api
 
 import (
-	"log/slog"
-
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/storage/postgres"
 	"github.com/yourusername/vectorchat/internal/db"
-	apperrors "github.com/yourusername/vectorchat/internal/errors"
+	"github.com/yourusername/vectorchat/internal/middleware"
 )
 
 // HomeHandler handles home-related routes
 type HomeHandler struct {
-	store     *session.Store
-	userStore *db.UserStore
+	store          *postgres.Storage
+	userStore      *db.UserStore
+	authMiddleware *middleware.AuthMiddleware
 }
 
 // NewHomeHandler creates a new home handler
-func NewHomeHandler(store *session.Store, userStore *db.UserStore) *HomeHandler {
+func NewHomeHandler(store *postgres.Storage, userStore *db.UserStore, authMiddleware *middleware.AuthMiddleware) *HomeHandler {
 	return &HomeHandler{
-		store:     store,
-		userStore: userStore,
+		store:          store,
+		userStore:      userStore,
+		authMiddleware: authMiddleware,
 	}
 }
 
 // RegisterRoutes registers the home routes
 func (h *HomeHandler) RegisterRoutes(app *fiber.App) {
-	app.Get("/", h.GET_Home)
+	app.Get("/", h.authMiddleware.RequireAuth, h.GET_Home)
 }
 
 // @Summary Get user information
-// @Description Returns authenticated user information
+// @Description Returns authenticated user information if logged in, otherwise redirects to swagger
 // @Tags home
 // @Accept json
 // @Produce json
 // @Success 200 {object} UserResponse
-// @Failure 401 {object} APIResponse
-// @Failure 404 {object} APIResponse
+// @Failure 307 {string} string "Redirect to /swagger"
 // @Failure 500 {object} APIResponse
 // @Router / [get]
 func (h *HomeHandler) GET_Home(c *fiber.Ctx) error {
-	u := c.Locals("user")
-	slog.Info("c.Locals", "user", u)
-	sess, err := h.store.Get(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
-			Error: "Failed to get session",
+	_, ok := c.Locals("user").(*db.User)
+	if !ok {
+		return c.JSON(fiber.Map{
+			"message": "no user found in request context",
 		})
 	}
-
-	userID := sess.Get("user_id")
-	if userID == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
-			Error: "Not authenticated",
-		})
-	}
-
-	user, err := h.userStore.FindUserByID(c.Context(), userID.(string))
-	if err != nil {
-		if err == apperrors.ErrUserNotFound {
-			return c.Status(fiber.StatusNotFound).JSON(APIResponse{
-				Error: "User not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
-			Error: "Failed to get user information",
-		})
-	}
-
-	return c.JSON(UserResponse{
-		User: User{
-			ID:    user.ID,
-			Email: user.Email,
-			Name:  user.Name,
-		},
-	})
-} 
+	return c.Redirect("/swagger")
+}

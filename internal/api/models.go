@@ -22,6 +22,7 @@ type APIKey struct {
 	UserID    string    `json:"user_id"`
 	Key       string    `json:"key"`
 	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 // APIResponse represents a standard API response
@@ -62,16 +63,15 @@ type SessionResponse struct {
 }
 
 // ChatMessage represents a chat message request
-type ChatMessage struct {
-	ChatID string `json:"chat_id" example:"test-session"`
-	Query  string `json:"query" example:"What is this project about?"`
+type ChatMessageRequest struct {
+	Query string `json:"query" example:"What is this project about?"`
 }
 
 // ChatResponse represents a chat response
 type ChatResponse struct {
-	Message  string `json:"message"`
-	ChatID   string `json:"chat_id"`
-	Context  string `json:"context,omitempty"`
+	Message string `json:"message"`
+	ChatID  string `json:"chat_id"`
+	Context string `json:"context,omitempty"`
 }
 
 // FileUploadResponse represents a file upload response
@@ -95,24 +95,24 @@ type ChatFile struct {
 
 // ChatbotCreateRequest represents the request to create a new chatbot
 type ChatbotCreateRequest struct {
-	Name              string  `json:"name" example:"My AI Assistant"`
-	Description       string  `json:"description" example:"A helpful AI assistant for my project"`
+	Name               string  `json:"name" example:"My AI Assistant"`
+	Description        string  `json:"description" example:"A helpful AI assistant for my project"`
 	SystemInstructions string  `json:"system_instructions" example:"You are a helpful AI assistant"`
-	ModelName         string  `json:"model_name" example:"gpt-4"`
-	TemperatureParam  float64 `json:"temperature_param" example:"0.7"`
-	MaxTokens        int     `json:"max_tokens" example:"2000"`
+	ModelName          string  `json:"model_name" example:"gpt-4"`
+	TemperatureParam   float64 `json:"temperature_param" example:"0.7"`
+	MaxTokens          int     `json:"max_tokens" example:"2000"`
 }
 
 // ChatbotResponse represents a chatbot in responses
 type ChatbotResponse struct {
-	ID                uuid.UUID `json:"id"`
-	UserID            string    `json:"user_id"`
-	Name              string    `json:"name"`
-	Description       string    `json:"description"`
+	ID                 uuid.UUID `json:"id"`
+	UserID             string    `json:"user_id"`
+	Name               string    `json:"name"`
+	Description        string    `json:"description"`
 	SystemInstructions string    `json:"system_instructions"`
-	ModelName         string    `json:"model_name"`
-	TemperatureParam  float64   `json:"temperature_param"`
-	MaxTokens         int       `json:"max_tokens"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
-} 
+	ModelName          string    `json:"model_name"`
+	TemperatureParam   float64   `json:"temperature_param"`
+	MaxTokens          int       `json:"max_tokens"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}

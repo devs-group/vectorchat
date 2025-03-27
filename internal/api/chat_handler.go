@@ -9,29 +9,32 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/yourusername/vectorchat/internal/auth"
+	"github.com/google/uuid"
 	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
+	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
 )
 
 // ChatHandler contains all the dependencies needed for API handlers
 type ChatHandler struct {
-	ChatService    *services.ChatService
-	DocumentStore  *db.DocumentStore
-	ChatbotStore   *db.ChatbotStore
-	UploadsDir     string
-	AuthMiddleware *auth.AuthMiddleware
+	ChatService        *services.ChatService
+	DocumentStore      *db.DocumentStore
+	ChatbotStore       *db.ChatbotStore
+	UploadsDir         string
+	AuthMiddleware     *middleware.AuthMiddleware
+	OwershipMiddleware *middleware.OwnershipMiddleware
 }
 
 // NewChatHandler creates a new API handler
-func NewChatHandler(authMiddleware *auth.AuthMiddleware, chatService *services.ChatService, documentStore *db.DocumentStore, chatbotStore *db.ChatbotStore, uploadsDir string) *ChatHandler {
+func NewChatHandler(authMiddleware *middleware.AuthMiddleware, chatService *services.ChatService, documentStore *db.DocumentStore, chatbotStore *db.ChatbotStore, uploadsDir string, ownershipMiddlware *middleware.OwnershipMiddleware) *ChatHandler {
 	return &ChatHandler{
-		ChatService:    chatService,
-		DocumentStore:  documentStore,
-		ChatbotStore:   chatbotStore,
-		UploadsDir:     uploadsDir,
-		AuthMiddleware: authMiddleware,
+		ChatService:        chatService,
+		DocumentStore:      documentStore,
+		ChatbotStore:       chatbotStore,
+		UploadsDir:         uploadsDir,
+		AuthMiddleware:     authMiddleware,
+		OwershipMiddleware: ownershipMiddlware,
 	}
 }
 
@@ -40,16 +43,14 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat := app.Group("/chat", h.AuthMiddleware.RequireAuth)
 
 	// File upload and management
-	chat.Post("/upload", h.POST_UploadFile)
-	chat.Delete("/:chatID/files/:filename", h.DELETE_ChatFile)
-	chat.Put("/:chatID/files/:filename", h.PUT_UpdateFile)
-	chat.Get("/:chatID/files", h.GET_ChatFiles)
+	chat.Post("/chatbot", h.POST_CreateChatbot)
+	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
+	chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
+	chat.Put("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateFile)
+	chat.Get("/:chatID/files", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatFiles)
 
 	// Chat
-	chat.Post("/message", h.POST_ChatMessage)
-
-	// Chatbot management
-	chat.Post("/chatbot", h.POST_CreateChatbot)
+	chat.Post("/:chatID/message", h.OwershipMiddleware.IsChatbotOwner, h.POST_ChatMessage)
 }
 
 // @Summary Health check endpoint
@@ -58,6 +59,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 // @Accept json
 // @Produce plain
 // @Success 200 {string} string "VectorChat API is running"
+// @Security ApiKeyAuth
 // @Router /health [get]
 func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
 	return c.SendString("VectorChat API is running")
@@ -68,35 +70,21 @@ func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
 // @Tags chat
 // @Accept multipart/form-data
 // @Produce json
+// @Param chatID path string true "Chat session ID"
 // @Param file formData file true "File to upload"
-// @Param chat_id formData string true "Chat session ID"
 // @Success 200 {object} FileUploadResponse
 // @Failure 400 {object} APIResponse
 // @Failure 500 {object} APIResponse
 // @Security ApiKeyAuth
-// @Router /chat/upload [post]
+// @Router /chat/{chatID}/upload [post]
 func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
-	// Get chat ID and chatbot ID from form
-	chatID, err := getUUIDFormValue(c, "chat_id")
+	chatID, err := uuid.Parse(c.Params("chatID"))
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid chat ID format",
+		})
 	}
 
-	if user, ok := c.Locals("user").(*db.User); ok {
-		isOwner, err := h.ChatbotStore.CheckChatbotOwnership(c.Context(), chatID, user.ID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": fmt.Sprintf("Failed to verify chatbot ownership: %v", err),
-			})
-		}
-		if !isOwner {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "You don't have permission to access this chatbot",
-			})
-		}
-	}
-
-	// Get uploaded file
 	file, err := c.FormFile("file")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -274,7 +262,6 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 // @Router /chat/{chatID}/files [get]
 func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
-
 	if chatID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Chat ID is required",
@@ -311,32 +298,30 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 // @Tags chat
 // @Accept json
 // @Produce json
-// @Param message body ChatMessage true "Chat message"
+// @Param message body ChatMessageRequest true "Chat message"
+// @Param chatID path string true "Chat session ID"
 // @Success 200 {object} ChatResponse
 // @Failure 400 {object} APIResponse
 // @Failure 500 {object} APIResponse
 // @Security ApiKeyAuth
-// @Router /chat/message [post]
+// @Router /chat/{chatID}/message [post]
 func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
-	// Parse request
-	var req struct {
-		ChatID string `json:"chat_id"`
-		Query  string `json:"query"`
+	var req ChatMessageRequest
+
+	chatID := c.Params("chatID")
+	if chatID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Chat ID is required",
+		})
 	}
 
 	if err := c.BodyParser(&req); err != nil {
 		// Try to get query from form data if JSON parsing fails
 		req.Query = c.FormValue("query")
-		req.ChatID = c.FormValue("chat_id")
 
 		if req.Query == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Query parameter is required",
-			})
-		}
-		if req.ChatID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Chat ID is required",
 			})
 		}
 	}
@@ -347,14 +332,13 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 		userID = user.ID
 	}
 
-	response, err := h.ChatService.ChatWithChatbot(c.Context(), req.ChatID, userID, req.Query)
+	response, err := h.ChatService.ChatWithChatbot(c.Context(), chatID, userID, req.Query)
 
 	if err != nil {
 		if apperrors.Is(err, apperrors.ErrNoDocumentsFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":      "No documents found for this chat. Please upload some files first.",
-				"chat_id":    req.ChatID,
-				"chatbot_id": req.ChatID,
+				"error":   "No documents found for this chat. Please upload some files first.",
+				"chat_id": chatID,
 			})
 		} else if apperrors.Is(err, apperrors.ErrUnauthorizedChatbotAccess) {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
@@ -370,19 +354,9 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 		})
 	}
 
-	responseObj := fiber.Map{
+	return c.JSON(fiber.Map{
 		"response": response,
-	}
-
-	if req.ChatID != "" {
-		responseObj["chat_id"] = req.ChatID
-	}
-
-	if req.ChatID != "" {
-		responseObj["chatbot_id"] = req.ChatID
-	}
-
-	return c.JSON(responseObj)
+	})
 }
 
 // @Summary Create a new chatbot

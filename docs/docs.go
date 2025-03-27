@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/": {
             "get": {
-                "description": "Returns authenticated user information",
+                "description": "Returns authenticated user information if logged in, otherwise redirects to swagger",
                 "consumes": [
                     "application/json"
                 ],
@@ -32,25 +32,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.UserResponse"
+                            "$ref": "#/definitions/api.UserResponse"
                         }
                     },
-                    "401": {
-                        "description": "Unauthorized",
+                    "307": {
+                        "description": "Redirect to /swagger",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "type": "string"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -78,13 +72,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIKeysResponse"
+                            "$ref": "#/definitions/api.APIKeysResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -110,13 +110,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIKeyResponse"
+                            "$ref": "#/definitions/api.APIKeyResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -129,7 +135,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Revokes an API key",
+                "description": "Revokes an API key for the authenticated user",
                 "consumes": [
                     "application/json"
                 ],
@@ -153,19 +159,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.MessageResponse"
+                            "$ref": "#/definitions/api.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -186,15 +198,15 @@ const docTemplate = `{
                 "summary": "Initiate GitHub OAuth login",
                 "responses": {
                     "302": {
-                        "description": "Found",
+                        "description": "Redirect to GitHub OAuth",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.LoginResponse"
+                            "type": "string"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -202,7 +214,7 @@ const docTemplate = `{
         },
         "/auth/github/callback": {
             "get": {
-                "description": "Handles the GitHub OAuth callback",
+                "description": "Handles the GitHub OAuth callback and sets session",
                 "consumes": [
                     "application/json"
                 ],
@@ -231,21 +243,21 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "302": {
-                        "description": "Found",
+                        "description": "Redirect to /",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.SessionResponse"
+                            "type": "string"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -253,7 +265,12 @@ const docTemplate = `{
         },
         "/auth/logout": {
             "post": {
-                "description": "Logs out the current user",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Logs out the current user and clears the session",
                 "consumes": [
                     "application/json"
                 ],
@@ -263,12 +280,24 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Logout user",
+                "summary": "Logout",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.MessageResponse"
+                            "$ref": "#/definitions/api.MessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -276,7 +305,12 @@ const docTemplate = `{
         },
         "/auth/session": {
             "get": {
-                "description": "Returns current session information",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns information about the current authenticated session",
                 "consumes": [
                     "application/json"
                 ],
@@ -291,19 +325,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.SessionResponse"
+                            "$ref": "#/definitions/api.SessionResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -334,7 +362,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api.ChatbotCreateRequest"
+                            "$ref": "#/definitions/api.ChatbotCreateRequest"
                         }
                     }
                 ],
@@ -342,132 +370,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.ChatbotResponse"
+                            "$ref": "#/definitions/api.ChatbotResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/chat/message": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Send a message and get a response with context from uploaded files",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "chat"
-                ],
-                "summary": "Send chat message",
-                "parameters": [
-                    {
-                        "description": "Chat message",
-                        "name": "message",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_api.ChatMessage"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_api.ChatResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/chat/upload": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Upload a file to be used for chat context",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "chat"
-                ],
-                "summary": "Upload file",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "File to upload",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Chat session ID",
-                        "name": "chat_id",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_api.FileUploadResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -504,19 +425,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.ChatFilesResponse"
+                            "$ref": "#/definitions/api.ChatFilesResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -567,25 +488,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.FileUploadResponse"
+                            "$ref": "#/definitions/api.FileUploadResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -627,25 +548,139 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.MessageResponse"
+                            "$ref": "#/definitions/api.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal_api.APIResponse"
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/{chatID}/message": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Send a message and get a response with context from uploaded files",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Send chat message",
+                "parameters": [
+                    {
+                        "description": "Chat message",
+                        "name": "message",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ChatMessageRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Chat session ID",
+                        "name": "chatID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ChatResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/{chatID}/upload": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Upload a file to be used for chat context",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Upload file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chat session ID",
+                        "name": "chatID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "File to upload",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.FileUploadResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     }
                 }
@@ -653,6 +688,11 @@ const docTemplate = `{
         },
         "/health": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Check if the API is running",
                 "consumes": [
                     "application/json"
@@ -676,10 +716,13 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "internal_api.APIKey": {
+        "api.APIKey": {
             "type": "object",
             "properties": {
                 "created_at": {
+                    "type": "string"
+                },
+                "expires_at": {
                     "type": "string"
                 },
                 "id": {
@@ -693,26 +736,26 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api.APIKeyResponse": {
+        "api.APIKeyResponse": {
             "type": "object",
             "properties": {
                 "api_key": {
-                    "$ref": "#/definitions/internal_api.APIKey"
+                    "$ref": "#/definitions/api.APIKey"
                 }
             }
         },
-        "internal_api.APIKeysResponse": {
+        "api.APIKeysResponse": {
             "type": "object",
             "properties": {
                 "api_keys": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/internal_api.APIKey"
+                        "$ref": "#/definitions/api.APIKey"
                     }
                 }
             }
         },
-        "internal_api.APIResponse": {
+        "api.APIResponse": {
             "type": "object",
             "properties": {
                 "data": {},
@@ -724,7 +767,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api.ChatFile": {
+        "api.ChatFile": {
             "type": "object",
             "properties": {
                 "filename": {
@@ -738,31 +781,27 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api.ChatFilesResponse": {
+        "api.ChatFilesResponse": {
             "type": "object",
             "properties": {
                 "files": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/internal_api.ChatFile"
+                        "$ref": "#/definitions/api.ChatFile"
                     }
                 }
             }
         },
-        "internal_api.ChatMessage": {
+        "api.ChatMessageRequest": {
             "type": "object",
             "properties": {
-                "chat_id": {
-                    "type": "string",
-                    "example": "test-session"
-                },
                 "query": {
                     "type": "string",
                     "example": "What is this project about?"
                 }
             }
         },
-        "internal_api.ChatResponse": {
+        "api.ChatResponse": {
             "type": "object",
             "properties": {
                 "chat_id": {
@@ -776,7 +815,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api.ChatbotCreateRequest": {
+        "api.ChatbotCreateRequest": {
             "type": "object",
             "properties": {
                 "description": {
@@ -805,7 +844,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api.ChatbotResponse": {
+        "api.ChatbotResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -840,7 +879,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api.FileUploadResponse": {
+        "api.FileUploadResponse": {
             "type": "object",
             "properties": {
                 "chat_id": {
@@ -854,15 +893,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api.LoginResponse": {
-            "type": "object",
-            "properties": {
-                "redirect_url": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_api.MessageResponse": {
+        "api.MessageResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -870,15 +901,15 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api.SessionResponse": {
+        "api.SessionResponse": {
             "type": "object",
             "properties": {
                 "user": {
-                    "$ref": "#/definitions/internal_api.User"
+                    "$ref": "#/definitions/api.User"
                 }
             }
         },
-        "internal_api.User": {
+        "api.User": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -901,11 +932,11 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api.UserResponse": {
+        "api.UserResponse": {
             "type": "object",
             "properties": {
                 "user": {
-                    "$ref": "#/definitions/internal_api.User"
+                    "$ref": "#/definitions/api.User"
                 }
             }
         }

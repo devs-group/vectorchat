@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// User represents an authenticated user
+// User represents a user in the system
 type User struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
@@ -16,12 +16,13 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// APIKey represents an API key for a user
+// APIKey represents an API key in the system
 type APIKey struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Key       string    `json:"key"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string     `json:"id"`
+	UserID    string     `json:"user_id"`
+	Key       string     `json:"key"` // Stored as hashed value
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt time.Time  `json:"expires_at"`
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 }
 

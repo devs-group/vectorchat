@@ -5,7 +5,8 @@ WORKDIR /app
 # Install Air and required build tools
 RUN apk add --no-cache gcc musl-dev git \
     && go install github.com/air-verse/air@latest \
-    && go install github.com/pressly/goose/v3/cmd/goose@latest
+    && go install github.com/pressly/goose/v3/cmd/goose@latest \
+    && go install github.com/swaggo/swag/cmd/swag@latest
 
 # Copy go mod and sum files
 COPY go.mod go.sum ./
