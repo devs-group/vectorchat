@@ -24,7 +24,7 @@ import (
 // []string, []int, []int64, []bool, []float64.
 //
 // The `cfg` argument must be a pointer to a struct.
-func Load(cfg interface{}) error {
+func Load(cfg any) error {
 	// 1. Validate input: Must be a non-nil pointer to a struct.
 	val := reflect.ValueOf(cfg)
 	if val.Kind() != reflect.Ptr || val.IsNil() {
@@ -39,7 +39,7 @@ func Load(cfg interface{}) error {
 	typ := elem.Type()
 
 	// 2. Iterate over struct fields.
-	for i := 0; i < elem.NumField(); i++ {
+	for i := range elem.NumField() {
 		field := elem.Field(i)
 		fieldType := typ.Field(i)
 
