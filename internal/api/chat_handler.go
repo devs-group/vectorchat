@@ -190,9 +190,11 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/files/{filename} [put]
 func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
-	chatID, err := getUUIDParam(c, "chatID")
+	chatID, err := uuid.Parse(c.Params("chatID"))
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to parse chat ID: %v", err),
+		})
 	}
 	filename := c.Params("filename")
 
