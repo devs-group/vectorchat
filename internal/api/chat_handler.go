@@ -27,7 +27,14 @@ type ChatHandler struct {
 }
 
 // NewChatHandler creates a new API handler
-func NewChatHandler(authMiddleware *middleware.AuthMiddleware, chatService *services.ChatService, documentStore *store.DocumentStore, chatbotStore *store.ChatbotStore, uploadsDir string, ownershipMiddlware *middleware.OwnershipMiddleware) *ChatHandler {
+func NewChatHandler(
+	authMiddleware *middleware.AuthMiddleware,
+	chatService *services.ChatService,
+	documentStore *store.DocumentStore,
+	chatbotStore *store.ChatbotStore,
+	uploadsDir string,
+	ownershipMiddlware *middleware.OwnershipMiddleware,
+) *ChatHandler {
 	return &ChatHandler{
 		ChatService:        chatService,
 		DocumentStore:      documentStore,

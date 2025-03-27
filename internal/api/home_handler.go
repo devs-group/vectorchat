@@ -9,15 +9,19 @@ import (
 
 // HomeHandler handles home-related routes
 type HomeHandler struct {
-	store          *postgres.Storage
+	sessionStore   *postgres.Storage
 	userStore      *store.UserStore
 	authMiddleware *middleware.AuthMiddleware
 }
 
 // NewHomeHandler creates a new home handler
-func NewHomeHandler(store *postgres.Storage, userStore *store.UserStore, authMiddleware *middleware.AuthMiddleware) *HomeHandler {
+func NewHomeHandler(
+	sessionStore *postgres.Storage,
+	userStore *store.UserStore,
+	authMiddleware *middleware.AuthMiddleware,
+) *HomeHandler {
 	return &HomeHandler{
-		store:          store,
+		sessionStore:   sessionStore,
 		userStore:      userStore,
 		authMiddleware: authMiddleware,
 	}

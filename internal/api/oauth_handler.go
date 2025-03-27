@@ -25,7 +25,7 @@ type OAuthConfig struct {
 	GitHubClientID     string
 	GitHubClientSecret string
 	RedirectURL        string
-	Store              *postgres.Storage
+	SessionStore              *postgres.Storage
 	Env                string
 }
 
@@ -39,7 +39,11 @@ type OAuthHandler struct {
 }
 
 // NewOAuthHandler creates a new OAuth handler with validation
-func NewOAuthHandler(config *OAuthConfig, userStore *store.UserStore, authMiddleware *middleware.AuthMiddleware) *OAuthHandler {
+func NewOAuthHandler(
+	config *OAuthConfig,
+	userStore *store.UserStore,
+	authMiddleware *middleware.AuthMiddleware,
+) *OAuthHandler {
 	if config.GitHubClientID == "" || config.GitHubClientSecret == "" {
 		panic("Missing required OAuth configuration")
 	}
@@ -55,7 +59,7 @@ func NewOAuthHandler(config *OAuthConfig, userStore *store.UserStore, authMiddle
 	return &OAuthHandler{
 		config:         config,
 		githubOAuth:    githubOAuth,
-		store:          config.Store,
+		store:          config.SessionStore,
 		userStore:      userStore,
 		authMiddleware: authMiddleware,
 	}

@@ -12,15 +12,15 @@ import (
 
 // AuthMiddleware is a middleware for authentication
 type AuthMiddleware struct {
-	store     *postgres.Storage
-	userStore *store.UserStore
+	sessionStore *postgres.Storage
+	userStore    *store.UserStore
 }
 
 // NewAuthMiddleware creates a new auth middleware
-func NewAuthMiddleware(store *postgres.Storage, userStore *store.UserStore) *AuthMiddleware {
+func NewAuthMiddleware(sessionStore *postgres.Storage, userStore *store.UserStore) *AuthMiddleware {
 	return &AuthMiddleware{
-		store:     store,
-		userStore: userStore,
+		sessionStore: sessionStore,
+		userStore:    userStore,
 	}
 }
 
@@ -80,7 +80,7 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 
 	// Match the session key format from OAuthHandler
 	sessionKey := "session_" + sessionID
-	userIDBytes, err := m.store.Get(sessionKey)
+	userIDBytes, err := m.sessionStore.Get(sessionKey)
 	if err != nil || userIDBytes == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid or expired session",
@@ -96,7 +96,7 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 	}
 
 	// Refresh session expiration
-	if err := m.store.Set(sessionKey, userIDBytes, 8*time.Hour); err != nil {
+	if err := m.sessionStore.Set(sessionKey, userIDBytes, 8*time.Hour); err != nil {
 		// Log error but don't fail request
 		slog.Error("Failed to refresh session", "error", err)
 	}

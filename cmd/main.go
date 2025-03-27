@@ -114,7 +114,7 @@ func main() {
 		GitHubClientID:     githubID,
 		GitHubClientSecret: githubSecret,
 		RedirectURL:        "http://localhost:8080", // Base URL without the callback path
-		Store:              sessionStore,
+		SessionStore:       sessionStore,
 	}
 
 	// Set up Fiber app
