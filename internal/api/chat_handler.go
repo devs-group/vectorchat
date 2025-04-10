@@ -226,11 +226,10 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Failed to vectorize file", err)
 	}
 
-	return c.JSON(FileUploadResponse{
-		Message:   "File updated successfully",
-		ChatID:    chatID.String(),
-		ChatbotID: chatID.String(),
-		File:      filename,
+	return c.JSON(fiber.Map{
+		"message": "File updated successfully",
+		"chat_id": chatID,
+		"file":    filename,
 	})
 }
 
@@ -268,9 +267,9 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(ChatFilesResponse{
-		ChatID: chatID,
-		Files:  files,
+	return c.JSON(fiber.Map{
+		"chat_id": chatID,
+		"files":   files,
 	})
 }
 
