@@ -8,25 +8,9 @@ build:
 run:
 	docker compose up -d
 
-# Run tests locally
-test:
-	go test -v ./...
-
-# Run tests inside the container
-test-in-container:
-	docker compose run --rm app go test -v ./...
-
-# Run integration tests inside the container
-test-integration-in-container:
-	docker compose run --rm -e TEST_INTEGRATION=true app go test -v ./integration_test.go
-
-# Run database tests inside the container
-test-db-in-container:
-	docker compose run --rm -e TEST_DATABASE=true app go test -v ./pkg/db/...
-
 # Run migrations
 migrate:
-	docker compose exec -it app sh -c 'goose -dir /app/internal/db/migrations postgres "$$PG_CONNECTION_STRING" up'
+	docker compose exec -it app sh -c 'goose -dir /app/internal/store/migrations postgres "$$PG_CONNECTION_STRING" up'
 
 # Stop and remove containers
 stop:
@@ -67,4 +51,4 @@ install-swag:
 
 # Generate swagger documentation
 swagger: install-swag
-	./scripts/generate-swagger.sh 
+	./scripts/generate-swagger.sh

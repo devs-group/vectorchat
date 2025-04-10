@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"log/slog"
+
 	"github.com/jackc/pgx/v4/pgxpool"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"golang.org/x/crypto/bcrypt"
@@ -71,20 +73,22 @@ func (s *UserStore) FindAPIKey(ctx context.Context, key string) (*APIKey, error)
 	}
 	defer rows.Close()
 
+	var apiKey APIKey
 	for rows.Next() {
-		var apiKey APIKey
 		err := rows.Scan(&apiKey.ID, &apiKey.UserID, &apiKey.Key, &apiKey.CreatedAt, &apiKey.ExpiresAt, &apiKey.RevokedAt)
 		if err != nil {
 			return nil, apperrors.Wrap(err, "failed to scan API key")
 		}
 
+		slog.Info("checking what is api key", "apiKey.Key", apiKey.Key, "key", key)
 		// Check if the provided key matches the stored hash
-		if err := bcrypt.CompareHashAndPassword([]byte(apiKey.Key), []byte(key)); err == nil {
-			return &apiKey, nil
+		err = bcrypt.CompareHashAndPassword([]byte(apiKey.Key), []byte(key))
+		if err != nil {
+			slog.Error("password has compare failed", "err", err)
+			return nil, apperrors.ErrInvalidAPIKey
 		}
 	}
-
-	return nil, apperrors.ErrUserNotFound
+	return &apiKey, nil
 }
 
 // CreateUser creates a new user with transaction support

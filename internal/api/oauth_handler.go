@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -25,7 +24,7 @@ type OAuthConfig struct {
 	GitHubClientID     string
 	GitHubClientSecret string
 	RedirectURL        string
-	SessionStore              *postgres.Storage
+	SessionStore       *postgres.Storage
 	Env                string
 }
 
@@ -88,20 +87,14 @@ func (h *OAuthHandler) RegisterRoutes(app *fiber.App) {
 func (h *OAuthHandler) GET_GitHubLogin(c *fiber.Ctx) error {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
-		slog.Error("Failed to generate state", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		return ErrorResponse(c, "failed to generate state", err)
 	}
 	state := base64.URLEncoding.EncodeToString(b)
 	stateKey := fmt.Sprintf("oauth_state_%s", uuid.New().String())
 
 	err := h.store.Set(stateKey, []byte(state), time.Hour)
 	if err != nil {
-		slog.Error("Failed to save state", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		return ErrorResponse(c, "failed to save state", err)
 	}
 
 	url := h.githubOAuth.AuthCodeURL(state)
@@ -131,41 +124,29 @@ func (h *OAuthHandler) GET_GitHubLogin(c *fiber.Ctx) error {
 func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 	stateKey := c.Cookies("oauth_state_key")
 	if stateKey == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid authentication state",
-		})
+		return ErrorResponse(c, "auth state is invalid", nil, http.StatusBadRequest)
 	}
 
 	expectedState, err := h.store.Get(stateKey)
 	if err != nil || expectedState == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid authentication state",
-		})
+		return ErrorResponse(c, "auth state is invalid", err, http.StatusBadRequest)
 	}
 	defer h.store.Delete(stateKey)
 
 	if c.Query("state") != string(expectedState) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid authentication state",
-		})
+		return ErrorResponse(c, "auth state is invalid", nil, http.StatusBadRequest)
 	}
 
 	code := c.Query("code")
 	token, err := h.githubOAuth.Exchange(c.Context(), code)
 	if err != nil {
-		slog.Error("Failed to exchange OAuth code", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Authentication failed",
-		})
+		return ErrorResponse(c, "failed to exchange oauth code", err)
 	}
 
 	client := h.githubOAuth.Client(c.Context(), token)
 	resp, err := client.Get("https://api.github.com/user")
 	if err != nil {
-		slog.Error("Failed to get user info", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Authentication failed",
-		})
+		return ErrorResponse(c, "failed to get use info", err)
 	}
 	defer resp.Body.Close()
 
@@ -177,19 +158,13 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&githubUser); err != nil {
-		slog.Error("Failed to parse user info", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Authentication failed",
-		})
+		return ErrorResponse(c, "failed to parse user info", err)
 	}
 
 	if githubUser.Email == "" {
 		emails, err := h.getGitHubEmails(client)
 		if err != nil {
-			slog.Error("Failed to get emails", "error", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Authentication failed",
-			})
+			return ErrorResponse(c, "failed to get email", err)
 		}
 		for _, email := range emails {
 			if email.Primary && email.Verified {
@@ -200,17 +175,12 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 	}
 
 	if len(githubUser.Email) > 255 || len(githubUser.Name) > 100 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user data",
-		})
+		return ErrorResponse(c, "invalid user data", nil, http.StatusBadRequest)
 	}
 
 	user, err := h.userStore.FindUserByEmail(c.Context(), githubUser.Email)
 	if err != nil && !apperrors.Is(err, apperrors.ErrUserNotFound) {
-		slog.Error("Failed to find user", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		return ErrorResponse(c, "failed to find user", err)
 	}
 
 	if user == nil {
@@ -223,21 +193,14 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 			UpdatedAt: time.Now(),
 		}
 		if err := h.userStore.CreateUser(c.Context(), user); err != nil {
-			slog.Error("Failed to create user", "error", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
+			return ErrorResponse(c, "failed to create user", err)
 		}
-		slog.Info("User created", "email", user.Email)
 	}
 
 	sessionID := uuid.New().String()
 	sessionKey := fmt.Sprintf("session_%s", sessionID)
 	if err := h.store.Set(sessionKey, []byte(user.ID), 8*time.Hour); err != nil {
-		slog.Error("Failed to save session", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		return ErrorResponse(c, "failed to save session", err)
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -289,17 +252,12 @@ func (h *OAuthHandler) GET_Session(c *fiber.Ctx) error {
 func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
 	sessionID := c.Cookies("session_id")
 	if sessionID == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Not authenticated",
-		})
+		return ErrorResponse(c, "no session id found in cookie", nil, http.StatusUnauthorized)
 	}
 
 	sessionKey := fmt.Sprintf("session_%s", sessionID)
 	if err := h.store.Delete(sessionKey); err != nil {
-		slog.Error("Failed to delete session", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		return ErrorResponse(c, "failed to get session", err)
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -332,18 +290,12 @@ func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
-		slog.Error("Failed to generate API key", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		return ErrorResponse(c, "failed to generate API key", err)
 	}
 	key := "vc_" + base64.URLEncoding.EncodeToString(b)
 	hashedKey, err := bcrypt.GenerateFromPassword([]byte(key), bcrypt.DefaultCost)
 	if err != nil {
-		slog.Error("Failed to hash API key", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		return ErrorResponse(c, "unable to hash API key", err)
 	}
 
 	apiKey := &store.APIKey{
@@ -355,10 +307,7 @@ func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 	}
 
 	if err := h.userStore.CreateAPIKey(c.Context(), apiKey); err != nil {
-		slog.Error("Failed to create API key", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		return ErrorResponse(c, "failed to save API key", err)
 	}
 
 	return c.JSON(APIKeyResponse{
@@ -387,15 +336,11 @@ func (h *OAuthHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 
 	apiKeys, err := h.userStore.GetAPIKeys(c.Context(), user.ID)
 	if err != nil {
-		slog.Error("Failed to get API keys", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		return ErrorResponse(c, "failed to get API keys", err)
 	}
 
 	var keys []APIKey
 	for _, k := range apiKeys {
-
 		keys = append(keys, APIKey{
 			ID:        k.ID,
 			UserID:    k.UserID,
@@ -426,16 +371,11 @@ func (h *OAuthHandler) DELETE_RevokeAPIKey(c *fiber.Ctx) error {
 
 	id := c.Params("id")
 	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "API key ID is required",
-		})
+		return ErrorResponse(c, "API key is required", nil, http.StatusBadRequest)
 	}
 
 	if err := h.userStore.RevokeAPIKey(c.Context(), id, user.ID); err != nil {
-		slog.Error("Failed to revoke API key", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
-		})
+		return ErrorResponse(c, "failed to revoke API key", err, http.StatusBadRequest)
 	}
 
 	return c.JSON(MessageResponse{

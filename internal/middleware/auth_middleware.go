@@ -3,11 +3,13 @@ package middleware
 import (
 	"log/slog"
 	"time"
+	"errors"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/storage/postgres"
 	"github.com/yourusername/vectorchat/internal/store"
 	"golang.org/x/crypto/bcrypt"
+	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
 // AuthMiddleware is a middleware for authentication
@@ -32,8 +34,13 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 		// Validate API key
 		apiKeyRecord, err := m.userStore.FindAPIKey(c.Context(), apiKey)
 		if err != nil {
+			if errors.Is(err, apperrors.ErrInvalidAPIKey) {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+					"error": "Invalid API key",
+				})
+			}
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Invalid API key",
+				"error": "Unknown API Key validation error",
 			})
 		}
 
