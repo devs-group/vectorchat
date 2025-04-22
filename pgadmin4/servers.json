@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "VectorChat Database",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "vectordb",
+      "Username": "postgres",
+      "Password": "postgres",
+      "SSLMode": "prefer",
+      "Comment": "VectorChat PostgreSQL database"
+    }
+  }
+}

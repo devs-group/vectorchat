@@ -79,6 +79,9 @@ func main() {
 	// Initialize chatbot service
 	chatService := services.NewChatService(documentStore, vectorizer, openaiKey, chatbotStore)
 
+	// Initialize api key service
+	apiKeyService := services.NewAPIKeyService()
+
 	// Create uploads directory if it doesn't exist
 	uploadsDir := "uploads"
 	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
@@ -104,7 +107,7 @@ func main() {
 	})
 
 	// Initialize auth middleware
-	authMiddleware := middleware.NewAuthMiddleware(sessionStore, userStore)
+	authMiddleware := middleware.NewAuthMiddleware(sessionStore, userStore, apiKeyService)
 
 	// Initialize ownership middleware
 	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatbotStore)
@@ -128,7 +131,7 @@ func main() {
 
 	// Initialize API handlers
 	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, documentStore, chatbotStore, uploadsDir, ownershipMiddleware)
-	oAuthHandler := api.NewOAuthHandler(oAuthConfig, userStore, authMiddleware)
+	oAuthHandler := api.NewOAuthHandler(oAuthConfig, userStore, authMiddleware, apiKeyService)
 	homeHandler := api.NewHomeHandler(sessionStore, userStore, authMiddleware)
 
 	// Register routes

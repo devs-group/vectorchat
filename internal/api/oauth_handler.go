@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
+	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/internal/store"
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 )
@@ -35,6 +35,7 @@ type OAuthHandler struct {
 	store          *postgres.Storage
 	userStore      *store.UserStore
 	authMiddleware *middleware.AuthMiddleware
+	apiKeyService  *services.APIKeyService
 }
 
 // NewOAuthHandler creates a new OAuth handler with validation
@@ -42,6 +43,7 @@ func NewOAuthHandler(
 	config *OAuthConfig,
 	userStore *store.UserStore,
 	authMiddleware *middleware.AuthMiddleware,
+	apiKeyService *services.APIKeyService,
 ) *OAuthHandler {
 	if config.GitHubClientID == "" || config.GitHubClientSecret == "" {
 		panic("Missing required OAuth configuration")
@@ -288,14 +290,9 @@ func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
 func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 	user := c.Locals("user").(*store.User)
 
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return ErrorResponse(c, "failed to generate API key", err)
-	}
-	key := "vc_" + base64.URLEncoding.EncodeToString(b)
-	hashedKey, err := bcrypt.GenerateFromPassword([]byte(key), bcrypt.DefaultCost)
+	plainTextKey, hashedKey, err := h.apiKeyService.CreateNewAPIKey()
 	if err != nil {
-		return ErrorResponse(c, "unable to hash API key", err)
+		return ErrorResponse(c, "failed to generate new api key", err)
 	}
 
 	apiKey := &store.APIKey{
@@ -314,7 +311,7 @@ func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 		APIKey: APIKey{
 			ID:        apiKey.ID,
 			UserID:    apiKey.UserID,
-			Key:       key,
+			Key:       plainTextKey,
 			CreatedAt: apiKey.CreatedAt,
 			ExpiresAt: apiKey.ExpiresAt,
 		},

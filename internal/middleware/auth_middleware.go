@@ -3,48 +3,50 @@ package middleware
 import (
 	"log/slog"
 	"time"
-	"errors"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/storage/postgres"
+	"github.com/yourusername/vectorchat/internal/errors"
+	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/internal/store"
-	"golang.org/x/crypto/bcrypt"
-	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
 // AuthMiddleware is a middleware for authentication
 type AuthMiddleware struct {
-	sessionStore *postgres.Storage
-	userStore    *store.UserStore
+	sessionStore  *postgres.Storage
+	userStore     *store.UserStore
+	APIKeyService *services.APIKeyService
 }
 
 // NewAuthMiddleware creates a new auth middleware
-func NewAuthMiddleware(sessionStore *postgres.Storage, userStore *store.UserStore) *AuthMiddleware {
+func NewAuthMiddleware(sessionStore *postgres.Storage, userStore *store.UserStore, apiKeyService *services.APIKeyService) *AuthMiddleware {
 	return &AuthMiddleware{
-		sessionStore: sessionStore,
-		userStore:    userStore,
+		sessionStore:  sessionStore,
+		userStore:     userStore,
+		APIKeyService: apiKeyService,
 	}
 }
 
 // RequireAuth requires authentication for a route
 func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
-	// Check for API key in header first
 	apiKey := c.Get("X-API-Key")
 	if apiKey != "" {
-		// Validate API key
-		apiKeyRecord, err := m.userStore.FindAPIKey(c.Context(), apiKey)
-		if err != nil {
-			if errors.Is(err, apperrors.ErrInvalidAPIKey) {
-				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-					"error": "Invalid API key",
-				})
+		apiKeyRecord, err := m.userStore.FindAPIKey(c.Context(), func(hashedKey string) (bool, error) {
+			isValid, err := m.APIKeyService.IsAPIKeyValid(hashedKey, apiKey)
+			if err != nil {
+				return false, errors.Wrap(err, "failed to verify api key")
 			}
+			if !isValid {
+				return false, errors.Wrap(err, "provided api key is invalid")
+			}
+			return true, nil
+		})
+		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Unknown API Key validation error",
+				"error": err.Error(),
 			})
 		}
 
-		// Check expiration
 		if apiKeyRecord.ExpiresAt.Before(time.Now()) {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "API key expired",
@@ -57,13 +59,6 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 			})
 		}
 
-		// Verify key hash
-		if err := bcrypt.CompareHashAndPassword([]byte(apiKeyRecord.Key), []byte(apiKey)); err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Invalid API key",
-			})
-		}
-
 		// Get user associated with API key
 		user, err := m.userStore.FindUserByID(c.Context(), apiKeyRecord.UserID)
 		if err != nil {
@@ -71,8 +66,6 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 				"error": "Internal server error",
 			})
 		}
-
-		// Set user in context
 		c.Locals("user", user)
 		return c.Next()
 	}

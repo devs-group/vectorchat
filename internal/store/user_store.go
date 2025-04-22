@@ -4,11 +4,9 @@ import (
 	"context"
 	"time"
 
-	"log/slog"
-
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/yourusername/vectorchat/internal/errors"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // UserStore implements auth.UserStore
@@ -62,11 +60,10 @@ func (s *UserStore) FindUserByEmail(ctx context.Context, email string) (*User, e
 }
 
 // FindAPIKey finds an API key by its unhashed value
-func (s *UserStore) FindAPIKey(ctx context.Context, key string) (*APIKey, error) {
+func (s *UserStore) FindAPIKey(ctx context.Context, compareFunc func(hashedKey string) (bool, error)) (*APIKey, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, user_id, key, created_at, expires_at, revoked_at
 		FROM api_keys
-		WHERE revoked_at IS NULL AND expires_at > NOW()
 	`)
 	if err != nil {
 		return nil, apperrors.Wrap(err, "failed to query API keys")
@@ -80,15 +77,17 @@ func (s *UserStore) FindAPIKey(ctx context.Context, key string) (*APIKey, error)
 			return nil, apperrors.Wrap(err, "failed to scan API key")
 		}
 
-		slog.Info("checking what is api key", "apiKey.Key", apiKey.Key, "key", key)
-		// Check if the provided key matches the stored hash
-		err = bcrypt.CompareHashAndPassword([]byte(apiKey.Key), []byte(key))
+		isValid, err := compareFunc(apiKey.Key)
 		if err != nil {
-			slog.Error("password has compare failed", "err", err)
-			return nil, apperrors.ErrInvalidAPIKey
+			return nil, err
+		}
+		if isValid {
+			return &apiKey, nil
+		} else {
+			continue
 		}
 	}
-	return &apiKey, nil
+	return nil, errors.Wrap(err, "compared all keys and no valid has been found")
 }
 
 // CreateUser creates a new user with transaction support

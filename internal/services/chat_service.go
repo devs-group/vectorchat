@@ -24,7 +24,6 @@ type ChatService struct {
 	chatbotStore  *store.ChatbotStore
 }
 
-// NewChatService creates a new chat service
 func NewChatService(documentStore *store.DocumentStore, vectorizer vectorize.Vectorizer, openaiKey string, chatbotStore *store.ChatbotStore) *ChatService {
 	return &ChatService{
 		documentStore: documentStore,

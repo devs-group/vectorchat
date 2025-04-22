@@ -37,3 +37,5 @@ A Go application that vectorizes text and files into PostgreSQL with pgvector, a
    ```
 
 4. The application will be available at http://localhost:8080
+
+5. To interact with pgadmin, access http://localhost:5050 and log in with the default password `admin` and the db password: `postgres`.
