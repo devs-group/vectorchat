@@ -1,0 +1,75 @@
+image: docker:git
+
+services:
+  - docker:dind
+
+stages:
+  - build
+  - deploy
+
+variables:
+  GITLAB_REGISTRY: registry.gitlab.com
+
+build_vectorchat_staging:
+  stage: build
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
+    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat:staging
+    - docker build -t $CONTAINER_PATH -f Dockerfile .
+    - docker push $CONTAINER_PATH
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+
+build_vectorchat_production:
+  stage: build
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
+    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat:latest
+    - docker build -t $CONTAINER_PATH -f Dockerfile .
+    - docker push $CONTAINER_PATH
+  rules:
+    - if: "$CI_COMMIT_TAG != null"
+
+deploy_staging:
+  stage: deploy
+  image: alpine:latest
+  environment:
+    name: staging
+    url: https://vectorchat.staging.devs-group.com/
+  when: on_success
+  before_script:
+    - apk add curl
+  script:
+    - |
+      if [ -f ./deploy/staging-webhook-deployment.sh ]; then
+        sh ./deploy/staging-webhook-deployment.sh
+      else
+        echo "No deployment script found. Create a webhook script or customize this job."
+        # Example webhook call:
+        # curl -X POST -F token=${STAGING_DEPLOY_TOKEN} ${STAGING_DEPLOY_URL}
+      fi
+  only:
+    - main
+
+deploy_production:
+  stage: deploy
+  image: alpine:latest
+  environment:
+    name: production
+    url: https://vectorchat.devs-group.com/
+  when: on_success
+  before_script:
+    - apk add curl
+  script:
+    - |
+      if [ -f ./deploy/production-webhook-deployment.sh ]; then
+        sh ./deploy/production-webhook-deployment.sh
+      else
+        echo "No deployment script found. Create a webhook script or customize this job."
+        # Example webhook call:
+        # curl -X POST -F token=${PRODUCTION_DEPLOY_TOKEN} ${PRODUCTION_DEPLOY_URL}
+      fi
+  only:
+    - tags
