@@ -31,10 +31,10 @@ WORKDIR /root/
 RUN mkdir -p /root/uploads
 
 # Copy the binary and other needed resources from the builder stage
-COPY --from=builder /app/pkg/db/migrations /migrations
+COPY --from=builder /app/internal/store/migrations /migrations
 COPY --from=builder /go/bin/goose /usr/local/bin/
 COPY --from=builder /go/bin/air /usr/local/bin/
 COPY --from=builder /vectorchat .
 
 # Command to run the executable
-CMD ["./vectorchat"] 
+CMD ["./vectorchat"]
