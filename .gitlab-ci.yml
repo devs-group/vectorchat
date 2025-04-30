@@ -43,13 +43,8 @@ deploy_staging:
     - apk add curl
   script:
     - |
-      if [ -f ./deploy/staging-webhook-deployment.sh ]; then
-        sh ./deploy/staging-webhook-deployment.sh
-      else
-        echo "No deployment script found. Create a webhook script or customize this job."
-        # Example webhook call:
-        # curl -X POST -F token=${STAGING_DEPLOY_TOKEN} ${STAGING_DEPLOY_URL}
-      fi
+      # I know but im still doing this.
+      curl -X GET "https://sloth.podseidon.io/v1/hook/1" -H "X-Access-Token: pi8emapx8x8q"
   only:
     - main
 
