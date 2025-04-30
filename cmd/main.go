@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"time"
+	"context"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -43,14 +44,14 @@ func main() {
 			{
 				Name:  "run",
 				Usage: "Run the vectorchat application",
-				Action: func(ctx context.Context) error {
+				Action: func(context.Context, *cli.Command) error {
 					return runApplication()
 				},
 			},
 		},
 	}
 
-	if err := app.Run(); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatalf("Error running application: %v", err)
 	}
 }
