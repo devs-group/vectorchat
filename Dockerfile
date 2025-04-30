@@ -37,4 +37,4 @@ COPY --from=builder /go/bin/air /usr/local/bin/
 COPY --from=builder /vectorchat .
 
 # Command to run the executable
-CMD ["./vectorchat run"]
+CMD ["./vectorchat", "run"]
