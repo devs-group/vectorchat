@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/storage/postgres"
 	"github.com/gofiber/swagger"
+	"github.com/urfave/cli/v3"
 
 	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
 	"github.com/yourusername/vectorchat/internal/api"
@@ -35,10 +36,31 @@ import (
 // @authorizationUrl https://github.com/login/oauth/authorize
 // @scope.user:email Grants access to email
 func main() {
+	app := &cli.Command{
+		Name:  "vectorchat",
+		Usage: "A Go application that vectorizes text and files into PostgreSQL with pgvector",
+		Commands: []*cli.Command{
+			{
+				Name:  "run",
+				Usage: "Run the vectorchat application",
+				Action: func(ctx context.Context) error {
+					return runApplication()
+				},
+			},
+		},
+	}
+
+	if err := app.Run(); err != nil {
+		log.Fatalf("Error running application: %v", err)
+	}
+}
+
+// runApplication starts the vectorchat application
+func runApplication() error {
 	var appCfg config.AppConfig
 	err := config.Load(&appCfg)
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		return fmt.Errorf("failed to load config: %v", err)
 	}
 
 	// Load environment variables
@@ -49,18 +71,18 @@ func main() {
 
 	openaiKey := appCfg.OpenAIKey
 	if openaiKey == "" {
-		log.Fatal("OPENAI_API_KEY environment variable is required")
+		return fmt.Errorf("OPENAI_API_KEY environment variable is required")
 	}
 
 	// Wait for PostgreSQL to be ready
 	if err := waitForPostgres(pgConnStr); err != nil {
-		log.Fatalf("Failed to connect to PostgreSQL: %v", err)
+		return fmt.Errorf("failed to connect to PostgreSQL: %v", err)
 	}
 
 	// Initialize database
 	pool, err := store.New(pgConnStr)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		return fmt.Errorf("failed to connect to database: %v", err)
 	}
 	defer pool.Close()
 
@@ -85,7 +107,7 @@ func main() {
 	// Create uploads directory if it doesn't exist
 	uploadsDir := "uploads"
 	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
-		log.Fatalf("Failed to create uploads directory: %v", err)
+		return fmt.Errorf("failed to create uploads directory: %v", err)
 	}
 
 	// Initialize postgres sotrage with new config
@@ -139,9 +161,7 @@ func main() {
 	}
 
 	log.Printf("Server starting on port %s", port)
-	if err := app.Listen(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
+	return app.Listen(":" + port)
 }
 
 // waitForPostgres attempts to connect to PostgreSQL with retries

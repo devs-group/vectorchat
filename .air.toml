@@ -3,8 +3,8 @@ tmp_dir = "tmp"
 
 [build]
 cmd = "swag init -g cmd/main.go --output docs && go build -o ./tmp/main ./cmd/main.go"
-bin = "./tmp/main"
-full_bin = "./tmp/main"
+bin = "./tmp/main run"
+full_bin = "./tmp/main run"
 include_ext = ["go", "tpl", "tmpl", "html"]
 exclude_dir = ["assets", "tmp", "vendor", "uploads", "docs"]
 include_dir = []
@@ -25,4 +25,4 @@ build = "yellow"
 runner = "green"
 
 [misc]
-clean_on_exit = true 
+clean_on_exit = true
