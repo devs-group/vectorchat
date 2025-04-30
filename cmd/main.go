@@ -88,16 +88,6 @@ func main() {
 		log.Fatalf("Failed to create uploads directory: %v", err)
 	}
 
-	// Get GitHub OAuth credentials from environment variables
-	githubID := appCfg.GithubID
-	githubSecret := appCfg.GithubSecret
-
-	if githubID == "" || githubSecret == "" {
-		log.Fatal("GITHUB_ID and GITHUB_SECRET environment variables are required")
-	}
-
-	// Initialize stores
-
 	// Initialize postgres sotrage with new config
 	sessionStore := postgres.New(postgres.Config{
 		ConnectionURI: pgConnStr,
@@ -114,9 +104,9 @@ func main() {
 
 	// Initialize OAuth configuration
 	oAuthConfig := &api.OAuthConfig{
-		GitHubClientID:     githubID,
-		GitHubClientSecret: githubSecret,
-		RedirectURL:        "http://localhost:8080", // Base URL without the callback path
+		GitHubClientID:     appCfg.GithubID,
+		GitHubClientSecret: appCfg.GithubSecret,
+		RedirectURL:        appCfg.BaseURL,
 		SessionStore:       sessionStore,
 	}
 
