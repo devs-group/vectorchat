@@ -7,4 +7,5 @@ type AppConfig struct {
 	PGConnection string `env:"PG_CONNECTION_STRING" envRequired:"true"`
 	OpenAIKey    string `env:"OPENAI_API_KEY" envRequired:"true"`
 	BaseURL      string `env:"BASE_URL" envRequired:"true"`
+	MigrationsPath string `env:"MIGRATIONS_PATH" envRequired:"true"`
 }

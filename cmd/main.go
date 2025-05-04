@@ -1,19 +1,23 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
-	"context"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/storage/postgres"
 	"github.com/gofiber/swagger"
+	"github.com/pressly/goose/v3"
 	"github.com/urfave/cli/v3"
 
+	_ "github.com/lib/pq"                       // PostgreSQL driver
 	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
 	"github.com/yourusername/vectorchat/internal/api"
 	"github.com/yourusername/vectorchat/internal/config"
@@ -78,6 +82,11 @@ func runApplication() error {
 	// Wait for PostgreSQL to be ready
 	if err := waitForPostgres(pgConnStr); err != nil {
 		return fmt.Errorf("failed to connect to PostgreSQL: %v", err)
+	}
+
+	// Run database migrations
+	if err := runMigrations(pgConnStr, appCfg.MigrationsPath); err != nil {
+		return fmt.Errorf("failed to run migrations: %v", err)
 	}
 
 	// Initialize database
@@ -183,4 +192,58 @@ func waitForPostgres(connStr string) error {
 	}
 
 	return fmt.Errorf("failed to connect to PostgreSQL after %d attempts", maxRetries)
+}
+
+// runMigrations executes database migrations using goose
+func runMigrations(connStr, migrationsPath string) error {
+	if migrationsPath == "" {
+		return fmt.Errorf("migrations path is not specified in config")
+	}
+
+	// Ensure the path is absolute
+	migrationDir := migrationsPath
+	if !filepath.IsAbs(migrationsPath) {
+		absPath, err := filepath.Abs(migrationsPath)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path: %v", err)
+		}
+		migrationDir = absPath
+	}
+
+	log.Printf("Running migrations from %s", migrationDir)
+
+	// Setup goose and get the database connection
+	db, err := setupGoose(connStr, migrationDir)
+	if err != nil {
+		return err
+	}
+
+	// Run up migrations
+	if err := goose.Up(db, migrationDir); err != nil {
+		return fmt.Errorf("failed to run migrations: %v", err)
+	}
+
+	log.Printf("Migrations completed successfully")
+	return nil
+}
+
+// setupGoose configures goose to use the specified database and migration directory
+func setupGoose(connStr, migrationDir string) (*sql.DB, error) {
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database for migrations: %v", err)
+	}
+
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %v", err)
+	}
+
+	goose.SetBaseFS(nil)
+
+	// Check if migration directory exists
+	if _, err := os.Stat(migrationDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("migration directory does not exist: %s", migrationDir)
+	}
+
+	return db, nil
 }
