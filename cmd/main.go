@@ -30,7 +30,6 @@ import (
 // @title VectorChat API
 // @version 1.0
 // @description A Go application that vectorizes text and files into PostgreSQL with pgvector
-// @host localhost:8080
 // @BasePath /
 // @schemes http https
 // @securityDefinitions.apikey ApiKeyAuth
@@ -40,6 +39,9 @@ import (
 // @tokenUrl https://github.com/login/oauth/access_token
 // @authorizationUrl https://github.com/login/oauth/authorize
 // @scope.user:email Grants access to email
+// @securityDefinitions.apiCookie CookieAuth
+// @in cookie
+// @name session
 func main() {
 	app := &cli.Command{
 		Name:  "vectorchat",
