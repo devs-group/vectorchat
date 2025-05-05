@@ -19,6 +19,7 @@ import (
 
 	_ "github.com/lib/pq"                       // PostgreSQL driver
 	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
+	swaggerDocs "github.com/yourusername/vectorchat/docs"
 	"github.com/yourusername/vectorchat/internal/api"
 	"github.com/yourusername/vectorchat/internal/config"
 	"github.com/yourusername/vectorchat/internal/middleware"
@@ -41,7 +42,7 @@ import (
 // @scope.user:email Grants access to email
 // @securityDefinitions.apiCookie CookieAuth
 // @in cookie
-// @name session
+// @name session_id
 func main() {
 	app := &cli.Command{
 		Name:  "vectorchat",
@@ -51,7 +52,14 @@ func main() {
 				Name:  "run",
 				Usage: "Run the vectorchat application",
 				Action: func(context.Context, *cli.Command) error {
-					return runApplication()
+					var appCfg config.AppConfig
+					err := config.Load(&appCfg)
+					if err != nil {
+						return err
+					}
+					swaggerDocs.SwaggerInfo.BasePath = "/"
+					swaggerDocs.SwaggerInfo.Host = appCfg.BaseURL
+					return runApplication(&appCfg)
 				},
 			},
 		},
@@ -63,13 +71,7 @@ func main() {
 }
 
 // runApplication starts the vectorchat application
-func runApplication() error {
-	var appCfg config.AppConfig
-	err := config.Load(&appCfg)
-	if err != nil {
-		return fmt.Errorf("failed to load config: %v", err)
-	}
-
+func runApplication(appCfg *config.AppConfig) error {
 	// Load environment variables
 	pgConnStr := appCfg.PGConnection
 	if pgConnStr == "" {
@@ -136,11 +138,15 @@ func runApplication() error {
 	// Initialize ownership middleware
 	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatbotStore)
 
+	redirectURL := fmt.Sprintf("http://%s", appCfg.BaseURL)
+	if appCfg.IsSSL {
+		redirectURL = fmt.Sprintf("https://%s", appCfg.BaseURL)
+	}
 	// Initialize OAuth configuration
 	oAuthConfig := &api.OAuthConfig{
 		GitHubClientID:     appCfg.GithubID,
 		GitHubClientSecret: appCfg.GithubSecret,
-		RedirectURL:        appCfg.BaseURL,
+		RedirectURL:        redirectURL,
 		SessionStore:       sessionStore,
 	}
 
@@ -151,7 +157,16 @@ func runApplication() error {
 
 	// Add middleware
 	app.Use(logger.New())
-	app.Use(cors.New())
+
+	// Configure CORS with more permissive settings
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "*", // Allow all origins
+		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-API-Key",
+		AllowCredentials: true,
+		ExposeHeaders:    "Content-Length, Content-Type",
+		MaxAge:           86400, // 24 hours
+	}))
 
 	// Initialize API handlers
 	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, documentStore, chatbotStore, uploadsDir, ownershipMiddleware)

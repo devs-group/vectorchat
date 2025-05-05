@@ -226,6 +226,7 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 // @Success 200 {object} SessionResponse
 // @Failure 401 {object} APIResponse
 // @Security ApiKeyAuth
+// @Security CookieAuth
 // @Router /auth/session [get]
 func (h *OAuthHandler) GET_Session(c *fiber.Ctx) error {
 	user := c.Locals("user").(*store.User)

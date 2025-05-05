@@ -72,6 +72,7 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 
 	// Check for session cookie
 	sessionID := c.Cookies("session_id")
+	slog.Error("session_id", "session_id", sessionID)
 	if sessionID == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Authentication required",
