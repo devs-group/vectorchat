@@ -32,7 +32,6 @@ import (
 // @version 1.0
 // @description A Go application that vectorizes text and files into PostgreSQL with pgvector
 // @BasePath /
-// @schemes http https
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name X-API-Key
@@ -57,7 +56,11 @@ func main() {
 					if err != nil {
 						return err
 					}
-					swaggerDocs.SwaggerInfo.BasePath = "/"
+					if appCfg.IsSSL {
+						swaggerDocs.SwaggerInfo.Schemes = []string{"https"}
+					} else {
+						swaggerDocs.SwaggerInfo.Schemes = []string{"http"}
+					}
 					swaggerDocs.SwaggerInfo.Host = appCfg.BaseURL
 					return runApplication(&appCfg)
 				},

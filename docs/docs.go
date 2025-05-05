@@ -967,7 +967,7 @@ var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "",
 	BasePath:         "/",
-	Schemes:          []string{"http", "https"},
+	Schemes:          []string{},
 	Title:            "VectorChat API",
 	Description:      "A Go application that vectorizes text and files into PostgreSQL with pgvector",
 	InfoInstanceName: "swagger",
