@@ -21,6 +21,7 @@ type APIKey struct {
 	ID        string     `json:"id"`
 	UserID    string     `json:"user_id"`
 	Key       string     `json:"key"`
+	Name      string     `json:"name"`
 	CreatedAt time.Time  `json:"created_at"`
 	ExpiresAt time.Time  `json:"expires_at"`
 	RevokedAt *time.Time `json:"revoked_at"`
@@ -36,6 +37,11 @@ type APIResponse struct {
 // UserResponse represents the response for user-related endpoints
 type UserResponse struct {
 	User User `json:"user"`
+}
+
+// APIKeyRequest represents the request body to create api key
+type APIKeyRequest struct {
+	Name string `json:"name"`
 }
 
 // APIKeyResponse represents the response for API key endpoints

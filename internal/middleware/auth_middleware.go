@@ -72,7 +72,6 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 
 	// Check for session cookie
 	sessionID := c.Cookies("session_id")
-	slog.Error("session_id", "session_id", sessionID)
 	if sessionID == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Authentication required",
@@ -98,8 +97,10 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 
 	// Refresh session expiration
 	if err := m.sessionStore.Set(sessionKey, userIDBytes, 8*time.Hour); err != nil {
-		// Log error but don't fail request
 		slog.Error("Failed to refresh session", "error", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to set new session expiration",
+		})
 	}
 
 	// Set user in context

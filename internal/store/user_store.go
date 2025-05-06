@@ -62,7 +62,7 @@ func (s *UserStore) FindUserByEmail(ctx context.Context, email string) (*User, e
 // FindAPIKey finds an API key by its unhashed value
 func (s *UserStore) FindAPIKey(ctx context.Context, compareFunc func(hashedKey string) (bool, error)) (*APIKey, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, user_id, key, created_at, expires_at, revoked_at
+		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
 		FROM api_keys
 	`)
 	if err != nil {
@@ -72,7 +72,7 @@ func (s *UserStore) FindAPIKey(ctx context.Context, compareFunc func(hashedKey s
 
 	var apiKey APIKey
 	for rows.Next() {
-		err := rows.Scan(&apiKey.ID, &apiKey.UserID, &apiKey.Key, &apiKey.CreatedAt, &apiKey.ExpiresAt, &apiKey.RevokedAt)
+		err := rows.Scan(&apiKey.ID, &apiKey.UserID, &apiKey.Key, &apiKey.Name, &apiKey.CreatedAt, &apiKey.ExpiresAt, &apiKey.RevokedAt)
 		if err != nil {
 			return nil, apperrors.Wrap(err, "failed to scan API key")
 		}
@@ -117,9 +117,9 @@ func (s *UserStore) CreateUser(ctx context.Context, user *User) error {
 // CreateAPIKey creates a new API key
 func (s *UserStore) CreateAPIKey(ctx context.Context, apiKey *APIKey) error {
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO api_keys (id, user_id, key, created_at, expires_at)
-		VALUES ($1, $2, $3, $4, $5)
-	`, apiKey.ID, apiKey.UserID, apiKey.Key, apiKey.CreatedAt, apiKey.ExpiresAt)
+		INSERT INTO api_keys (id, user_id, key, name, created_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, apiKey.ID, apiKey.UserID, apiKey.Key, apiKey.Name, apiKey.CreatedAt, apiKey.ExpiresAt)
 
 	if err != nil {
 		return apperrors.Wrap(err, "failed to create API key")
@@ -131,7 +131,7 @@ func (s *UserStore) CreateAPIKey(ctx context.Context, apiKey *APIKey) error {
 // GetAPIKeys gets all API keys for a user
 func (s *UserStore) GetAPIKeys(ctx context.Context, userID string) ([]APIKey, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, user_id, key, created_at, expires_at, revoked_at
+		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
 		FROM api_keys
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -145,7 +145,7 @@ func (s *UserStore) GetAPIKeys(ctx context.Context, userID string) ([]APIKey, er
 	var apiKeys []APIKey
 	for rows.Next() {
 		var apiKey APIKey
-		err := rows.Scan(&apiKey.ID, &apiKey.UserID, &apiKey.Key, &apiKey.CreatedAt, &apiKey.ExpiresAt, &apiKey.RevokedAt)
+		err := rows.Scan(&apiKey.ID, &apiKey.UserID, &apiKey.Key, &apiKey.Name, &apiKey.CreatedAt, &apiKey.ExpiresAt, &apiKey.RevokedAt)
 		if err != nil {
 			return nil, apperrors.Wrap(err, "failed to scan API key")
 		}

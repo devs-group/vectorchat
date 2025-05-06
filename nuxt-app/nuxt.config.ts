@@ -2,7 +2,11 @@ import tailwindcss from "@tailwindcss/vite";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  compatibilityDate: "2024-11-01",
+  runtimeConfig: {
+    public: {
+      apiBase: process.env.API_BASE_URL || "http://localhost:8080",
+    },
+  },
   devtools: { enabled: true },
   modules: ["@nuxt/fonts", "@nuxt/scripts", "shadcn-nuxt"],
   css: ["~/assets/css/tailwind.css"],
@@ -20,4 +24,5 @@ export default defineNuxtConfig({
      */
     componentDir: "./components/ui",
   },
+  ssr: false,
 });

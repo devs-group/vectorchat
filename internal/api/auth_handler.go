@@ -128,16 +128,16 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 	if stateKey == "" {
 		return ErrorResponse(c, "auth state is invalid", nil, http.StatusBadRequest)
 	}
-
 	expectedState, err := h.store.Get(stateKey)
 	if err != nil || expectedState == nil {
 		return ErrorResponse(c, "auth state is invalid", err, http.StatusBadRequest)
 	}
-	defer h.store.Delete(stateKey)
 
 	if c.Query("state") != string(expectedState) {
 		return ErrorResponse(c, "auth state is invalid", nil, http.StatusBadRequest)
 	}
+
+	defer h.store.Delete(stateKey)
 
 	code := c.Query("code")
 	token, err := h.githubOAuth.Exchange(c.Context(), code)
@@ -215,7 +215,9 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 		Path:     "/",
 	})
 
-	return c.Redirect("/")
+	return c.JSON(fiber.Map{
+		"success": true,
+	})
 }
 
 // @Summary Get current session
@@ -283,6 +285,7 @@ func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
 // @Tags auth
 // @Accept json
 // @Produce json
+// @Param apiKey body APIKeyRequest true "API Key Details"
 // @Success 200 {object} APIKeyResponse
 // @Failure 401 {object} APIResponse
 // @Failure 500 {object} APIResponse
@@ -296,9 +299,16 @@ func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 		return ErrorResponse(c, "failed to generate new api key", err)
 	}
 
+	// Parse request body
+	var req APIKeyRequest
+	if err := c.BodyParser(&req); err != nil {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
+
 	apiKey := &store.APIKey{
 		ID:        uuid.New().String(),
 		UserID:    user.ID,
+		Name:      &req.Name,
 		Key:       string(hashedKey),
 		CreatedAt: time.Now(),
 		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
@@ -313,6 +323,7 @@ func (h *OAuthHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 			ID:        apiKey.ID,
 			UserID:    apiKey.UserID,
 			Key:       plainTextKey,
+			Name:      *apiKey.Name,
 			CreatedAt: apiKey.CreatedAt,
 			ExpiresAt: apiKey.ExpiresAt,
 		},

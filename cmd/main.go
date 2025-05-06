@@ -141,15 +141,17 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize ownership middleware
 	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatbotStore)
 
+	/**
 	redirectURL := fmt.Sprintf("http://%s", appCfg.BaseURL)
 	if appCfg.IsSSL {
 		redirectURL = fmt.Sprintf("https://%s", appCfg.BaseURL)
 	}
+	*/
 	// Initialize OAuth configuration
 	oAuthConfig := &api.OAuthConfig{
 		GitHubClientID:     appCfg.GithubID,
 		GitHubClientSecret: appCfg.GithubSecret,
-		RedirectURL:        redirectURL,
+		RedirectURL:        "http://localhost:3000",
 		SessionStore:       sessionStore,
 	}
 
@@ -163,7 +165,7 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Configure CORS with more permissive settings
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "*", // Allow all origins
+		AllowOrigins:     "http://localhost:3000", // Allow all origins
 		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-API-Key",
 		AllowCredentials: true,

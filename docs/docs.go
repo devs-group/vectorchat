@@ -106,6 +106,17 @@ const docTemplate = `{
                     "auth"
                 ],
                 "summary": "Generate API key",
+                "parameters": [
+                    {
+                        "description": "API Key Details",
+                        "name": "apiKey",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.APIKeyRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -734,10 +745,21 @@ const docTemplate = `{
                 "key": {
                     "type": "string"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "revoked_at": {
                     "type": "string"
                 },
                 "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.APIKeyRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
                     "type": "string"
                 }
             }
