@@ -32,7 +32,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.UserResponse"
+                            "$ref": "#/definitions/internal_api.UserResponse"
                         }
                     },
                     "307": {
@@ -44,7 +44,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -65,26 +65,26 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "auth"
+                    "apiKey"
                 ],
                 "summary": "List API keys",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.APIKeysResponse"
+                            "$ref": "#/definitions/internal_api.APIKeysResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -103,7 +103,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "auth"
+                    "apiKey"
                 ],
                 "summary": "Generate API key",
                 "parameters": [
@@ -113,7 +113,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.APIKeyRequest"
+                            "$ref": "#/definitions/internal_api.APIKeyRequest"
                         }
                     }
                 ],
@@ -121,19 +121,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.APIKeyResponse"
+                            "$ref": "#/definitions/internal_api.APIKeyResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -154,7 +154,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "auth"
+                    "apiKey"
                 ],
                 "summary": "Revoke API key",
                 "parameters": [
@@ -170,25 +170,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.MessageResponse"
+                            "$ref": "#/definitions/internal_api.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -217,7 +217,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -262,13 +262,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -296,19 +296,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.MessageResponse"
+                            "$ref": "#/definitions/internal_api.MessageResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -339,13 +339,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.SessionResponse"
+                            "$ref": "#/definitions/internal_api.SessionResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -376,7 +376,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.ChatbotCreateRequest"
+                            "$ref": "#/definitions/internal_api.ChatbotCreateRequest"
                         }
                     }
                 ],
@@ -384,25 +384,68 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/api.ChatbotResponse"
+                            "$ref": "#/definitions/internal_api.ChatbotResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/chatbots": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get a list of all chatbots owned by the current user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Get list of chatbots",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_api.ChatbotResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -439,19 +482,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.ChatFilesResponse"
+                            "$ref": "#/definitions/internal_api.ChatFilesResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -502,25 +545,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.FileUploadResponse"
+                            "$ref": "#/definitions/internal_api.FileUploadResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -562,25 +605,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.MessageResponse"
+                            "$ref": "#/definitions/internal_api.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -611,7 +654,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.ChatMessageRequest"
+                            "$ref": "#/definitions/internal_api.ChatMessageRequest"
                         }
                     },
                     {
@@ -626,19 +669,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.ChatResponse"
+                            "$ref": "#/definitions/internal_api.ChatResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -682,19 +725,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.FileUploadResponse"
+                            "$ref": "#/definitions/internal_api.FileUploadResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/api.APIResponse"
+                            "$ref": "#/definitions/internal_api.APIResponse"
                         }
                     }
                 }
@@ -730,7 +773,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "api.APIKey": {
+        "internal_api.APIKey": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -756,7 +799,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.APIKeyRequest": {
+        "internal_api.APIKeyRequest": {
             "type": "object",
             "properties": {
                 "name": {
@@ -764,26 +807,26 @@ const docTemplate = `{
                 }
             }
         },
-        "api.APIKeyResponse": {
+        "internal_api.APIKeyResponse": {
             "type": "object",
             "properties": {
                 "api_key": {
-                    "$ref": "#/definitions/api.APIKey"
+                    "$ref": "#/definitions/internal_api.APIKey"
                 }
             }
         },
-        "api.APIKeysResponse": {
+        "internal_api.APIKeysResponse": {
             "type": "object",
             "properties": {
                 "api_keys": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/api.APIKey"
+                        "$ref": "#/definitions/internal_api.APIKey"
                     }
                 }
             }
         },
-        "api.APIResponse": {
+        "internal_api.APIResponse": {
             "type": "object",
             "properties": {
                 "data": {},
@@ -795,7 +838,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ChatFilesResponse": {
+        "internal_api.ChatFilesResponse": {
             "type": "object",
             "properties": {
                 "files": {
@@ -817,7 +860,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ChatMessageRequest": {
+        "internal_api.ChatMessageRequest": {
             "type": "object",
             "properties": {
                 "query": {
@@ -826,7 +869,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ChatResponse": {
+        "internal_api.ChatResponse": {
             "type": "object",
             "properties": {
                 "chat_id": {
@@ -840,7 +883,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ChatbotCreateRequest": {
+        "internal_api.ChatbotCreateRequest": {
             "type": "object",
             "properties": {
                 "description": {
@@ -869,7 +912,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ChatbotResponse": {
+        "internal_api.ChatbotResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -904,7 +947,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.FileUploadResponse": {
+        "internal_api.FileUploadResponse": {
             "type": "object",
             "properties": {
                 "chat_id": {
@@ -918,7 +961,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.MessageResponse": {
+        "internal_api.MessageResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -926,15 +969,15 @@ const docTemplate = `{
                 }
             }
         },
-        "api.SessionResponse": {
+        "internal_api.SessionResponse": {
             "type": "object",
             "properties": {
                 "user": {
-                    "$ref": "#/definitions/api.User"
+                    "$ref": "#/definitions/internal_api.User"
                 }
             }
         },
-        "api.User": {
+        "internal_api.User": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -957,11 +1000,11 @@ const docTemplate = `{
                 }
             }
         },
-        "api.UserResponse": {
+        "internal_api.UserResponse": {
             "type": "object",
             "properties": {
                 "user": {
-                    "$ref": "#/definitions/api.User"
+                    "$ref": "#/definitions/internal_api.User"
                 }
             }
         }

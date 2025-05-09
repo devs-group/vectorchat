@@ -52,6 +52,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 
 	// File upload and management
 	chat.Post("/chatbot", h.POST_CreateChatbot)
+	chat.Get("/chatbots", h.GET_ListChatbots) // New route to list all chats
 	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
 	chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
 	chat.Put("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateFile)
@@ -270,6 +271,49 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"chat_id": chatID,
 		"files":   files,
+	})
+}
+
+// @Summary Get list of chatbots
+// @Description Get a list of all chatbots owned by the current user
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Success 200 {array} ChatbotResponse
+// @Failure 401 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/chatbots [get]
+func (h *ChatHandler) GET_ListChatbots(c *fiber.Ctx) error {
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+
+	chatbots, err := h.ChatService.ListChatbots(c.Context(), user.ID)
+	if err != nil {
+		return ErrorResponse(c, "Failed to retrieve chatbots", err)
+	}
+
+	// Format the response
+	response := make([]ChatbotResponse, 0, len(chatbots))
+	for _, chatbot := range chatbots {
+		response = append(response, ChatbotResponse{
+			ID:                 chatbot.ID,
+			UserID:             chatbot.UserID,
+			Name:               chatbot.Name,
+			Description:        chatbot.Description,
+			SystemInstructions: chatbot.SystemInstructions,
+			ModelName:          chatbot.ModelName,
+			TemperatureParam:   chatbot.TemperatureParam,
+			MaxTokens:          chatbot.MaxTokens,
+			CreatedAt:          chatbot.CreatedAt,
+			UpdatedAt:          chatbot.UpdatedAt,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"chatbots": response,
 	})
 }
 
