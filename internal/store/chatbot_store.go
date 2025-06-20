@@ -179,3 +179,37 @@ func (s *ChatbotStore) CheckChatbotOwnership(ctx context.Context, chatbotID uuid
 
 	return exists, nil
 }
+
+// GetChatbot retrieves a chatbot by its ID
+func (s *ChatbotStore) GetChatbot(ctx context.Context, id uuid.UUID) (*Chatbot, error) {
+	query := `
+		SELECT id, user_id, name, description, system_instructions,
+		       model_name, temperature_param, max_tokens,
+		       created_at, updated_at
+		FROM chatbots
+		WHERE id = $1
+	`
+
+	var chatbot Chatbot
+	err := s.pool.QueryRow(ctx, query, id).Scan(
+		&chatbot.ID,
+		&chatbot.UserID,
+		&chatbot.Name,
+		&chatbot.Description,
+		&chatbot.SystemInstructions,
+		&chatbot.ModelName,
+		&chatbot.TemperatureParam,
+		&chatbot.MaxTokens,
+		&chatbot.CreatedAt,
+		&chatbot.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, apperrors.ErrChatbotNotFound
+		}
+		return nil, apperrors.Wrap(err, "failed to get chatbot")
+	}
+
+	return &chatbot, nil
+}

@@ -30,7 +30,7 @@ type APIKey struct {
 // Document represents a document with its vector embedding
 type Document struct {
 	ID        string
-	Content   string
+	Content   []byte
 	Embedding []float32
 	ChatbotID uuid.UUID
 }

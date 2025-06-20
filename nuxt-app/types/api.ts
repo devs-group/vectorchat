@@ -32,6 +32,17 @@ export interface ChatbotResponse extends ChatbotCreateRequest {
   updated_at: string;
 }
 
+export type ListChatsResponse = {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  message_count: number;
+  file_count: number;
+}[];
+
 export interface ChatMessageRequest {
   query: string;
 }

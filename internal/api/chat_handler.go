@@ -17,7 +17,7 @@ import (
 	"github.com/yourusername/vectorchat/internal/store"
 )
 
-// ChatHandler contains all the dependencies needed for API handlers
+// ChatHandler contains all the dependencies
 type ChatHandler struct {
 	ChatService        *services.ChatService
 	DocumentStore      *store.DocumentStore
@@ -27,7 +27,7 @@ type ChatHandler struct {
 	OwershipMiddleware *middleware.OwnershipMiddleware
 }
 
-// NewChatHandler creates a new API handler
+// NewChatHandler creates a new handler
 func NewChatHandler(
 	authMiddleware *middleware.AuthMiddleware,
 	chatService *services.ChatService,
@@ -52,7 +52,8 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 
 	// File upload and management
 	chat.Post("/chatbot", h.POST_CreateChatbot)
-	chat.Get("/chatbots", h.GET_ListChatbots) // New route to list all chats
+	chat.Get("/chatbots", h.GET_ListChatbots)                                            // New route to list all chats
+	chat.Get("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatbotByID) // Get a single chatbot by ID
 	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
 	chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
 	chat.Put("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateFile)
@@ -429,5 +430,66 @@ func (h *ChatHandler) POST_CreateChatbot(c *fiber.Ctx) error {
 		MaxTokens:          chatbot.MaxTokens,
 		CreatedAt:          chatbot.CreatedAt,
 		UpdatedAt:          chatbot.UpdatedAt,
+	})
+}
+
+// @Summary Get chatbot by ID
+// @Description Get details of a specific chatbot by ID
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatbotID path string true "Chatbot ID"
+// @Success 200 {object} ChatbotResponse
+// @Failure 400 {object} APIResponse
+// @Failure 401 {object} APIResponse
+// @Failure 403 {object} APIResponse
+// @Failure 404 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/chatbot/{chatbotID} [get]
+func (h *ChatHandler) GET_ChatbotByID(c *fiber.Ctx) error {
+	fmt.Println(c.Params("chatID"))
+	chatbotID, err := uuid.Parse(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chatID ID format", err, http.StatusBadRequest)
+	}
+
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+
+	// Verify ownership (this should be handled by middleware, but double-checking)
+	isOwner, err := h.ChatbotStore.CheckChatbotOwnership(c.Context(), chatbotID, user.ID)
+	if err != nil {
+		return ErrorResponse(c, "Failed to verify chatbot ownership", err)
+	}
+	if !isOwner {
+		return ErrorResponse(c, "You don't have permission to access this chatbot", nil, http.StatusForbidden)
+	}
+
+	// Get chatbot details
+	chatbot, err := h.ChatbotStore.GetChatbot(c.Context(), chatbotID)
+	if err != nil {
+		return ErrorResponse(c, "Failed to retrieve chatbot", err)
+	}
+
+	if chatbot == nil {
+		return ErrorResponse(c, "Chatbot not found", nil, http.StatusNotFound)
+	}
+
+	return c.JSON(fiber.Map{
+		"chatbot": ChatbotResponse{
+			ID:                 chatbot.ID,
+			UserID:             chatbot.UserID,
+			Name:               chatbot.Name,
+			Description:        chatbot.Description,
+			SystemInstructions: chatbot.SystemInstructions,
+			ModelName:          chatbot.ModelName,
+			TemperatureParam:   chatbot.TemperatureParam,
+			MaxTokens:          chatbot.MaxTokens,
+			CreatedAt:          chatbot.CreatedAt,
+			UpdatedAt:          chatbot.UpdatedAt,
+		},
 	})
 }

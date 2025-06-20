@@ -16,7 +16,7 @@ type DocumentStore struct {
 }
 
 // NewDocumentStore creates a new connection to PostgreSQL with pgvector
-func NewDocumentStore(pool *pgxpool.Pool) (*DocumentStore) {
+func NewDocumentStore(pool *pgxpool.Pool) *DocumentStore {
 	return &DocumentStore{
 		pool: pool,
 	}
@@ -46,7 +46,7 @@ func (db *DocumentStore) FindSimilarDocuments(ctx context.Context, embedding []f
 		ORDER BY embedding <=> $1
 		LIMIT $2
 	`, pgvector.NewVector(embedding), limit)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to query similar documents: %v", err)
 	}
@@ -56,11 +56,11 @@ func (db *DocumentStore) FindSimilarDocuments(ctx context.Context, embedding []f
 	for rows.Next() {
 		var doc Document
 		var pgvec pgvector.Vector
-		
+
 		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec); err != nil {
 			return nil, fmt.Errorf("failed to scan document row: %v", err)
 		}
-		
+
 		doc.Embedding = pgvec.Slice()
 		documents = append(documents, doc)
 	}
@@ -81,7 +81,7 @@ func (db *DocumentStore) FindSimilarDocumentsByChatID(ctx context.Context, embed
 		ORDER BY embedding <=> $2
 		LIMIT $3
 	`, chatID+"-", pgvector.NewVector(embedding), limit)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to query similar documents by chat ID: %v", err)
 	}
@@ -91,11 +91,11 @@ func (db *DocumentStore) FindSimilarDocumentsByChatID(ctx context.Context, embed
 	for rows.Next() {
 		var doc Document
 		var pgvec pgvector.Vector
-		
+
 		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec); err != nil {
 			return nil, fmt.Errorf("failed to scan document row: %v", err)
 		}
-		
+
 		doc.Embedding = pgvec.Slice()
 		documents = append(documents, doc)
 	}
@@ -128,7 +128,7 @@ func (db *DocumentStore) GetDocumentsByPrefix(ctx context.Context, prefix string
 		FROM documents
 		WHERE id LIKE $1 || '%'
 	`, prefix)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to query documents by prefix: %v", err)
 	}
@@ -138,11 +138,11 @@ func (db *DocumentStore) GetDocumentsByPrefix(ctx context.Context, prefix string
 	for rows.Next() {
 		var doc Document
 		var pgvec pgvector.Vector
-		
+
 		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec); err != nil {
 			return nil, fmt.Errorf("failed to scan document row: %v", err)
 		}
-		
+
 		doc.Embedding = pgvec.Slice()
 		documents = append(documents, doc)
 	}
@@ -161,9 +161,9 @@ func (db *DocumentStore) FindDocumentsByChatbot(ctx context.Context, chatbotID s
 		FROM documents
 		WHERE chatbot_id = $1
 	`, chatbotID)
-	
+
 	if err != nil {
-		return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation, 
+		return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation,
 			"failed to query documents by chatbot: %v", err)
 	}
 	defer rows.Close()
@@ -172,18 +172,18 @@ func (db *DocumentStore) FindDocumentsByChatbot(ctx context.Context, chatbotID s
 	for rows.Next() {
 		var doc Document
 		var pgvec pgvector.Vector
-		
+
 		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec, &doc.ChatbotID); err != nil {
-			return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation, 
+			return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation,
 				"failed to scan document row: %v", err)
 		}
-		
+
 		doc.Embedding = pgvec.Slice()
 		documents = append(documents, doc)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation, 
+		return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation,
 			"error iterating document rows: %v", err)
 	}
 
@@ -199,9 +199,9 @@ func (db *DocumentStore) FindSimilarDocumentsByChatbot(ctx context.Context, embe
 		ORDER BY embedding <=> $2
 		LIMIT $3
 	`, chatbotID, pgvector.NewVector(embedding), limit)
-	
+
 	if err != nil {
-		return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation, 
+		return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation,
 			"failed to query similar documents by chatbot: %v", err)
 	}
 	defer rows.Close()
@@ -210,20 +210,20 @@ func (db *DocumentStore) FindSimilarDocumentsByChatbot(ctx context.Context, embe
 	for rows.Next() {
 		var doc Document
 		var pgvec pgvector.Vector
-		
+
 		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec, &doc.ChatbotID); err != nil {
-			return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation, 
+			return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation,
 				"failed to scan document row: %v", err)
 		}
-		
+
 		doc.Embedding = pgvec.Slice()
 		documents = append(documents, doc)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation, 
+		return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation,
 			"error iterating document rows: %v", err)
 	}
 
 	return documents, nil
-} 
+}

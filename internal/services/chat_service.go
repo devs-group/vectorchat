@@ -48,7 +48,7 @@ func (c *ChatService) AddFile(ctx context.Context, id string, filePath string, c
 
 	doc := store.Document{
 		ID:        id,
-		Content:   string(content),
+		Content:   content,
 		Embedding: embedding,
 		ChatbotID: chatbotID,
 	}

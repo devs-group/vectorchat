@@ -1,4 +1,4 @@
-import type { GenerateAPIKeyRequest } from "~/types/api";
+import type { ChatbotResponse, GenerateAPIKeyRequest } from "~/types/api";
 
 /**
  * Composable for the VectorChat API service
@@ -22,7 +22,7 @@ export function useApiService() {
       async (req: GenerateAPIKeyRequest) => {
         return await useApiFetch<T>("/auth/apikey", {
           method: "POST",
-          body: req
+          body: req,
         });
       },
       {
@@ -114,31 +114,61 @@ export function useApiService() {
     );
   };
 
-  const sendChatMessage = (chatID: string, query: string) => {
-    return useApi(async () => {
-      return await useApiFetch(`/chat/${chatID}/message`, {
-        method: "POST",
-        body: { query },
-      });
-    });
-  };
-
-  const uploadFile = (chatID: string, file: File) => {
+  const listChatbots = () => {
     return useApi(
       async () => {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        return await useApiFetch(`/chat/${chatID}/upload`, {
-          method: "POST",
-          body: formData,
-        });
+        return await useApiFetch<{ chatbots: ChatbotResponse[] }>(
+          "/chat/chatbots",
+          {
+            method: "GET",
+          },
+        );
       },
       {
         showSuccessToast: true,
-        successMessage: "File uploaded successfully",
+        successMessage: "Chatbots retrieved successfully",
       },
     );
+  };
+
+  const getChatbot = (chatbotId: string) => {
+    return useApi(
+      async () => {
+        return await useApiFetch<{ chatbot: ChatbotResponse }>(
+          `/chat/chatbot/${chatbotId}`,
+          {
+            method: "GET",
+          },
+        );
+      },
+      {
+        errorMessage: "Failed to fetch chatbot details",
+        cacheKey: `chatbot-${chatbotId}`,
+      },
+    );
+  };
+
+  const sendChatMessage = (chatID: string, query: string) => {
+    return useApi(
+      async () => {
+        return await useApiFetch(`/chat/${chatID}/message`, {
+          method: "POST",
+          body: { query },
+        });
+      }
+    );
+  };
+
+  const uploadFile = async (chatID: string, file: File) => {
+    const config = useRuntimeConfig();
+    const formData = new FormData();
+    formData.append("file", file);
+    return await $fetch(`/chat/${chatID}/upload`, {
+      baseURL: config.public.apiBase as string,
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    });
   };
 
   const updateFile = (chatID: string, filename: string, file: File) => {
@@ -216,6 +246,8 @@ export function useApiService() {
 
     // Chat
     createChatbot,
+    listChatbots,
+    getChatbot,
     sendChatMessage,
     uploadFile,
     updateFile,
