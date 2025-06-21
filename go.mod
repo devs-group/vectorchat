@@ -1,6 +1,8 @@
 module github.com/yourusername/vectorchat
 
-go 1.24
+go 1.24.1
+
+toolchain go1.24.2
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.0
@@ -46,6 +48,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

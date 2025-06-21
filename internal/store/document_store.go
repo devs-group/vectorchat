@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
 	_ "github.com/lib/pq"
 	"github.com/pgvector/pgvector-go"
@@ -25,11 +26,11 @@ func NewDocumentStore(pool *pgxpool.Pool) *DocumentStore {
 // StoreDocument stores a document with its vector embedding
 func (db *DocumentStore) StoreDocument(ctx context.Context, doc Document) error {
 	_, err := db.pool.Exec(ctx, `
-		INSERT INTO documents (id, content, embedding, chatbot_id)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO documents (id, content, embedding, chatbot_id, file_id, chunk_index)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (id) DO UPDATE
-		SET content = $2, embedding = $3, chatbot_id = $4
-	`, doc.ID, doc.Content, pgvector.NewVector(doc.Embedding), doc.ChatbotID)
+		SET content = $2, embedding = $3, chatbot_id = $4, file_id = $5, chunk_index = $6
+	`, doc.ID, doc.Content, pgvector.NewVector(doc.Embedding), doc.ChatbotID, doc.FileID, doc.ChunkIndex)
 
 	if err != nil {
 		return apperrors.Wrapf(apperrors.ErrDatabaseOperation, "failed to store document: %v", err)
@@ -41,7 +42,7 @@ func (db *DocumentStore) StoreDocument(ctx context.Context, doc Document) error 
 // FindSimilarDocuments finds documents similar to the given embedding
 func (db *DocumentStore) FindSimilarDocuments(ctx context.Context, embedding []float32, limit int) ([]Document, error) {
 	rows, err := db.pool.Query(ctx, `
-		SELECT id, content, embedding
+		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
 		FROM documents
 		ORDER BY embedding <=> $1
 		LIMIT $2
@@ -57,7 +58,7 @@ func (db *DocumentStore) FindSimilarDocuments(ctx context.Context, embedding []f
 		var doc Document
 		var pgvec pgvector.Vector
 
-		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec); err != nil {
+		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec, &doc.ChatbotID, &doc.FileID, &doc.ChunkIndex); err != nil {
 			return nil, fmt.Errorf("failed to scan document row: %v", err)
 		}
 
@@ -75,7 +76,7 @@ func (db *DocumentStore) FindSimilarDocuments(ctx context.Context, embedding []f
 // FindSimilarDocumentsByChatID finds documents similar to the given embedding that belong to a specific chat ID
 func (db *DocumentStore) FindSimilarDocumentsByChatID(ctx context.Context, embedding []float32, chatID string, limit int) ([]Document, error) {
 	rows, err := db.pool.Query(ctx, `
-		SELECT id, content, embedding
+		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
 		FROM documents
 		WHERE id LIKE $1 || '%'
 		ORDER BY embedding <=> $2
@@ -92,7 +93,7 @@ func (db *DocumentStore) FindSimilarDocumentsByChatID(ctx context.Context, embed
 		var doc Document
 		var pgvec pgvector.Vector
 
-		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec); err != nil {
+		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec, &doc.ChatbotID, &doc.FileID, &doc.ChunkIndex); err != nil {
 			return nil, fmt.Errorf("failed to scan document row: %v", err)
 		}
 
@@ -121,16 +122,15 @@ func (db *DocumentStore) DeleteDocument(ctx context.Context, id string) error {
 	return nil
 }
 
-// GetDocumentsByPrefix retrieves documents with IDs starting with the given prefix
-func (db *DocumentStore) GetDocumentsByPrefix(ctx context.Context, prefix string) ([]Document, error) {
+// GetDocumentsByChatbotID retrieves documents for a given chatbot_id
+func (db *DocumentStore) GetDocumentsByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]Document, error) {
 	rows, err := db.pool.Query(ctx, `
-		SELECT id, content, embedding
+		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
 		FROM documents
-		WHERE id LIKE $1 || '%'
-	`, prefix)
-
+		WHERE chatbot_id = $1
+	`, chatbotID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query documents by prefix: %v", err)
+		return nil, fmt.Errorf("failed to query documents by chatbot_id: %v", err)
 	}
 	defer rows.Close()
 
@@ -139,7 +139,7 @@ func (db *DocumentStore) GetDocumentsByPrefix(ctx context.Context, prefix string
 		var doc Document
 		var pgvec pgvector.Vector
 
-		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec); err != nil {
+		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec, &doc.ChatbotID, &doc.FileID, &doc.ChunkIndex); err != nil {
 			return nil, fmt.Errorf("failed to scan document row: %v", err)
 		}
 
@@ -157,7 +157,7 @@ func (db *DocumentStore) GetDocumentsByPrefix(ctx context.Context, prefix string
 // FindDocumentsByChatbot retrieves all documents associated with a specific chatbot
 func (db *DocumentStore) FindDocumentsByChatbot(ctx context.Context, chatbotID string) ([]Document, error) {
 	rows, err := db.pool.Query(ctx, `
-		SELECT id, content, embedding, chatbot_id
+		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
 		FROM documents
 		WHERE chatbot_id = $1
 	`, chatbotID)
@@ -173,7 +173,7 @@ func (db *DocumentStore) FindDocumentsByChatbot(ctx context.Context, chatbotID s
 		var doc Document
 		var pgvec pgvector.Vector
 
-		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec, &doc.ChatbotID); err != nil {
+		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec, &doc.ChatbotID, &doc.FileID, &doc.ChunkIndex); err != nil {
 			return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation,
 				"failed to scan document row: %v", err)
 		}
@@ -193,7 +193,7 @@ func (db *DocumentStore) FindDocumentsByChatbot(ctx context.Context, chatbotID s
 // FindSimilarDocumentsByChatbot finds documents similar to the given embedding that belong to a specific chatbot
 func (db *DocumentStore) FindSimilarDocumentsByChatbot(ctx context.Context, embedding []float32, chatbotID string, limit int) ([]Document, error) {
 	rows, err := db.pool.Query(ctx, `
-		SELECT id, content, embedding, chatbot_id
+		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
 		FROM documents
 		WHERE chatbot_id = $1
 		ORDER BY embedding <=> $2
@@ -211,7 +211,7 @@ func (db *DocumentStore) FindSimilarDocumentsByChatbot(ctx context.Context, embe
 		var doc Document
 		var pgvec pgvector.Vector
 
-		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec, &doc.ChatbotID); err != nil {
+		if err := rows.Scan(&doc.ID, &doc.Content, &pgvec, &doc.ChatbotID, &doc.FileID, &doc.ChunkIndex); err != nil {
 			return nil, apperrors.Wrapf(apperrors.ErrDatabaseOperation,
 				"failed to scan document row: %v", err)
 		}
@@ -226,4 +226,40 @@ func (db *DocumentStore) FindSimilarDocumentsByChatbot(ctx context.Context, embe
 	}
 
 	return documents, nil
+}
+
+// InsertFile inserts a new file record into the files table
+func (db *DocumentStore) InsertFile(ctx context.Context, fileID uuid.UUID, chatbotID uuid.UUID, filename string) error {
+	_, err := db.pool.Exec(ctx, `INSERT INTO files (id, chatbot_id, filename) VALUES ($1, $2, $3)`, fileID, chatbotID, filename)
+	if err != nil {
+		return apperrors.Wrap(err, "failed to insert file metadata")
+	}
+	return nil
+}
+
+// GetFilesByChatbotID retrieves all files for a given chatbot_id
+func (db *DocumentStore) GetFilesByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]File, error) {
+	rows, err := db.pool.Query(ctx, `
+		SELECT id, chatbot_id, filename, uploaded_at
+		FROM files
+		WHERE chatbot_id = $1
+		ORDER BY uploaded_at DESC
+	`, chatbotID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to query files by chatbot_id")
+	}
+	defer rows.Close()
+
+	var files []File
+	for rows.Next() {
+		var f File
+		if err := rows.Scan(&f.ID, &f.ChatbotID, &f.Filename, &f.UploadedAt); err != nil {
+			return nil, apperrors.Wrap(err, "failed to scan file row")
+		}
+		files = append(files, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, apperrors.Wrap(err, "error iterating file rows")
+	}
+	return files, nil
 }

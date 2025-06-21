@@ -29,10 +29,12 @@ type APIKey struct {
 
 // Document represents a document with its vector embedding
 type Document struct {
-	ID        string
-	Content   []byte
-	Embedding []float32
-	ChatbotID uuid.UUID
+	ID         string
+	Content    []byte
+	Embedding  []float32
+	ChatbotID  uuid.UUID
+	FileID     *uuid.UUID
+	ChunkIndex *int
 }
 
 // Chatbot represents a configurable AI assistant
@@ -47,4 +49,12 @@ type Chatbot struct {
 	MaxTokens          int       `json:"max_tokens"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+// File represents a file uploaded to a chatbot
+type File struct {
+	ID         uuid.UUID `json:"id"`
+	ChatbotID  uuid.UUID `json:"chatbot_id"`
+	Filename   string    `json:"filename"`
+	UploadedAt time.Time `json:"uploaded_at"`
 }

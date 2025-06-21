@@ -3,10 +3,13 @@ package vectorize
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/ledongthuc/pdf"
 	"github.com/tmc/langchaingo/embeddings"
 )
 
@@ -26,7 +29,7 @@ func NewOpenAIVectorizer(apiKey string) *OpenAIVectorizer {
 	// Create a custom OpenAI embedder since the function isn't available
 	client := &openAIEmbedder{
 		apiKey: apiKey,
-		model: "text-embedding-ada-002",
+		model:  "text-embedding-ada-002",
 	}
 
 	return &OpenAIVectorizer{
@@ -48,7 +51,7 @@ func (e *openAIEmbedder) EmbedDocuments(ctx context.Context, texts []string) ([]
 	for i := range texts {
 		embeddings[i] = make([]float64, 1536) // OpenAI embeddings are 1536 dimensions
 		for j := range embeddings[i] {
-			embeddings[i][j] = float64(j % 100) / 100.0
+			embeddings[i][j] = float64(j%100) / 100.0
 		}
 	}
 	return embeddings, nil
@@ -82,6 +85,38 @@ func (v *OpenAIVectorizer) VectorizeText(ctx context.Context, text string) ([]fl
 	return float32Embeddings, nil
 }
 
+// ExtractTextFromPDF extracts all text from a PDF file
+func ExtractTextFromPDF(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	reader, err := pdf.NewReader(file, fileStatSize(file))
+	if err != nil {
+		return "", err
+	}
+	var textBuilder strings.Builder
+	b, err := reader.GetPlainText()
+	if err != nil {
+		return "", err
+	}
+	_, err = io.Copy(&textBuilder, b)
+	if err != nil {
+		return "", err
+	}
+	return textBuilder.String(), nil
+}
+
+// fileStatSize returns the size of the file for pdf.NewReader
+func fileStatSize(f *os.File) int64 {
+	fi, err := f.Stat()
+	if err != nil {
+		return 0
+	}
+	return fi.Size()
+}
+
 // VectorizeFile reads a file and creates a vector embedding from its content
 func (v *OpenAIVectorizer) VectorizeFile(ctx context.Context, filePath string) ([]float32, error) {
 	content, err := ioutil.ReadFile(filePath)
@@ -94,14 +129,20 @@ func (v *OpenAIVectorizer) VectorizeFile(ctx context.Context, filePath string) (
 	var text string
 
 	switch ext {
+	case ".pdf":
+		// For PDFs, extract text and let the service layer handle chunking/embedding
+		text, err = ExtractTextFromPDF(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract text from PDF: %v", err)
+		}
+		return nil, fmt.Errorf("PDF extraction handled in service layer; use VectorizeText for chunks")
 	case ".txt", ".md", ".go", ".py", ".js", ".html", ".css", ".json":
 		// Text files can be processed directly
 		text = string(content)
 	default:
 		// For other file types, just use the raw content
-		// In a real implementation, you might want to use specific parsers for PDFs, DOCs, etc.
 		text = string(content)
 	}
 
 	return v.VectorizeText(ctx, text)
-} 
+}

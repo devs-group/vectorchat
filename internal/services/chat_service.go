@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -35,25 +36,81 @@ func NewChatService(documentStore *store.DocumentStore, vectorizer vectorize.Vec
 
 // AddFile adds a file to the vector database
 func (c *ChatService) AddFile(ctx context.Context, id string, filePath string, chatbotID uuid.UUID) error {
+	fileID := uuid.New()
+	filename := filepath.Base(filePath)
+
+	// Insert into files table
+	err := c.documentStore.InsertFile(ctx, fileID, chatbotID, filename)
+	if err != nil {
+		return apperrors.Wrap(err, "failed to insert file metadata")
+	}
+
+	ext := strings.ToLower(filepath.Ext(filePath))
+	if ext == ".pdf" {
+		// Extract text from PDF
+		pdfText, err := vectorize.ExtractTextFromPDF(filePath)
+		if err != nil {
+			return apperrors.Wrap(err, "failed to extract text from PDF")
+		}
+		// Chunk the text (e.g., 1000 chars per chunk)
+		const chunkSize = 1000
+		chunks := chunkText(pdfText, chunkSize)
+		for i, chunk := range chunks {
+			embedding, err := c.vectorizer.VectorizeText(ctx, chunk)
+			if err != nil {
+				return apperrors.Wrapf(err, "failed to vectorize PDF chunk %d", i)
+			}
+			doc := store.Document{
+				ID:         fmt.Sprintf("%s-%d", id, i),
+				Content:    []byte(chunk),
+				Embedding:  embedding,
+				ChatbotID:  chatbotID,
+				FileID:     &fileID,
+				ChunkIndex: intPtr(i),
+			}
+			if err := c.documentStore.StoreDocument(ctx, doc); err != nil {
+				return apperrors.Wrapf(err, "failed to store PDF chunk %d", i)
+			}
+		}
+		return nil
+	}
+
 	embedding, err := c.vectorizer.VectorizeFile(ctx, filePath)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to vectorize file")
 	}
 
-	// Read file content
 	content, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to read file")
 	}
-
 	doc := store.Document{
-		ID:        id,
-		Content:   content,
-		Embedding: embedding,
-		ChatbotID: chatbotID,
+		ID:         id,
+		Content:    content,
+		Embedding:  embedding,
+		ChatbotID:  chatbotID,
+		FileID:     &fileID,
+		ChunkIndex: nil,
 	}
-
 	return c.documentStore.StoreDocument(ctx, doc)
+}
+
+// chunkText splits text into chunks of the given size
+func chunkText(text string, size int) []string {
+	var chunks []string
+	for start := 0; start < len(text); start += size {
+		end := start + size
+		if end > len(text) {
+			end = len(text)
+		}
+		chunks = append(chunks, text[start:end])
+	}
+	return chunks
+}
+
+// intPtr returns a pointer to the given int
+func intPtr(i int) *int {
+	return &i
 }
 
 // ChatWithChatbot sends a message to the LLM with relevant context from a specific chatbot

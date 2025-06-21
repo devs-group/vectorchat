@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -252,26 +251,28 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Chat ID is required", nil, http.StatusBadRequest)
 	}
 
-	// Get documents for this chat from the database
-	docs, err := h.DocumentStore.GetDocumentsByPrefix(c.Context(), chatID+"-")
+	chatbotUUID, err := uuid.Parse(chatID)
 	if err != nil {
-		return ErrorResponse(c, "Failed to retrieve documents", err)
+		return ErrorResponse(c, "Invalid chat ID format", err, http.StatusBadRequest)
 	}
 
-	// Format the response
-	files := make([]map[string]string, 0, len(docs))
-	for _, doc := range docs {
-		// Extract filename from document ID (remove chatID- prefix)
-		filename := strings.TrimPrefix(doc.ID, chatID+"-")
-		files = append(files, map[string]string{
-			"filename": filename,
-			"id":       doc.ID,
+	files, err := h.DocumentStore.GetFilesByChatbotID(c.Context(), chatbotUUID)
+	if err != nil {
+		return ErrorResponse(c, "Failed to retrieve files", err)
+	}
+
+	respFiles := make([]map[string]interface{}, 0, len(files))
+	for _, f := range files {
+		respFiles = append(respFiles, map[string]interface{}{
+			"filename":    f.Filename,
+			"id":          f.ID,
+			"uploaded_at": f.UploadedAt,
 		})
 	}
 
 	return c.JSON(fiber.Map{
 		"chat_id": chatID,
-		"files":   files,
+		"files":   respFiles,
 	})
 }
 
