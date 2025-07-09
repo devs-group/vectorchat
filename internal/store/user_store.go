@@ -159,6 +159,48 @@ func (s *UserStore) GetAPIKeys(ctx context.Context, userID string) ([]APIKey, er
 	return apiKeys, nil
 }
 
+// GetAPIKeysWithPagination gets API keys for a user with pagination support
+func (s *UserStore) GetAPIKeysWithPagination(ctx context.Context, userID string, offset, limit int) ([]APIKey, int64, error) {
+	// Get total count
+	var total int64
+	err := s.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM api_keys WHERE user_id = $1
+	`, userID).Scan(&total)
+	if err != nil {
+		return nil, 0, apperrors.Wrap(err, "failed to get total API keys count")
+	}
+
+	// Get paginated results
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
+		FROM api_keys
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`, userID, limit, offset)
+
+	if err != nil {
+		return nil, 0, apperrors.Wrap(err, "failed to get API keys")
+	}
+	defer rows.Close()
+
+	var apiKeys []APIKey
+	for rows.Next() {
+		var apiKey APIKey
+		err := rows.Scan(&apiKey.ID, &apiKey.UserID, &apiKey.Key, &apiKey.Name, &apiKey.CreatedAt, &apiKey.ExpiresAt, &apiKey.RevokedAt)
+		if err != nil {
+			return nil, 0, apperrors.Wrap(err, "failed to scan API key")
+		}
+		apiKeys = append(apiKeys, apiKey)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, apperrors.Wrap(err, "error iterating API key rows")
+	}
+
+	return apiKeys, total, nil
+}
+
 // RevokeAPIKey revokes an API key
 func (s *UserStore) RevokeAPIKey(ctx context.Context, id string, userID string) error {
 	now := time.Now()

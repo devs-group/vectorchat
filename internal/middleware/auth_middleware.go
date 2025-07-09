@@ -47,7 +47,7 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 			})
 		}
 
-		if apiKeyRecord.ExpiresAt.Before(time.Now()) {
+		if apiKeyRecord.ExpiresAt != nil && apiKeyRecord.ExpiresAt.Before(time.Now()) {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "API key expired",
 			})

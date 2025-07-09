@@ -10,10 +10,11 @@ export interface User {
 export interface APIKey {
   id: string;
   key: string;
+  name: string;
   user_id: string;
   created_at: string;
   expires_at: string;
-  revoked_at: string;
+  revoked_at: string | null;
 }
 
 export interface ChatbotCreateRequest {
@@ -75,10 +76,21 @@ export interface APIKeyResponse {
 
 export interface GenerateAPIKeyRequest {
   name: string;
+  expires_at?: string;
+}
+
+export interface PaginationMetadata {
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
 }
 
 export interface APIKeysResponse {
   api_keys: APIKey[];
+  pagination: PaginationMetadata;
 }
 
 export interface FileUploadResponse {

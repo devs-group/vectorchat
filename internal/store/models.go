@@ -23,7 +23,7 @@ type APIKey struct {
 	Key       string     `json:"key"` // Stored as hashed value
 	Name      *string    `json:"name"`
 	CreatedAt time.Time  `json:"created_at"`
-	ExpiresAt time.Time  `json:"expires_at"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 }
 

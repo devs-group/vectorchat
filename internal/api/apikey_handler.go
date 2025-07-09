@@ -1,7 +1,9 @@
 package api
 
 import (
+	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -27,6 +29,7 @@ func NewAPIKeyHandler(
 	return &APIKeyHandler{
 		userStore:      userStore,
 		authMiddleware: authMiddleware,
+		apiKeyService:  apiKeyService,
 	}
 }
 
@@ -69,8 +72,17 @@ func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 		Name:      &req.Name,
 		Key:       string(hashedKey),
 		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
 	}
+
+	// Set expiration if provided
+	if req.ExpiresAt != nil && *req.ExpiresAt != "" {
+		expiresAt, err := time.Parse(time.RFC3339, *req.ExpiresAt)
+		if err != nil {
+			return ErrorResponse(c, "Invalid expiration date format", err, http.StatusBadRequest)
+		}
+		apiKey.ExpiresAt = &expiresAt
+	}
+	// If no expiration provided, ExpiresAt remains nil (no expiration)
 
 	if err := h.userStore.CreateAPIKey(c.Context(), apiKey); err != nil {
 		return ErrorResponse(c, "failed to save API key", err)
@@ -89,11 +101,14 @@ func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 }
 
 // @Summary List API keys
-// @Description Lists all API keys for the authenticated user
+// @Description Lists API keys for the authenticated user with pagination support
 // @Tags apiKey
 // @Accept json
 // @Produce json
+// @Param page query int false "Page number (default: 1)"
+// @Param limit query int false "Items per page (default: 10, max: 100)"
 // @Success 200 {object} APIKeysResponse
+// @Failure 400 {object} APIResponse
 // @Failure 401 {object} APIResponse
 // @Failure 500 {object} APIResponse
 // @Security ApiKeyAuth
@@ -101,11 +116,31 @@ func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 	user := c.Locals("user").(*store.User)
 
-	apiKeys, err := h.userStore.GetAPIKeys(c.Context(), user.ID)
+	// Parse pagination parameters
+	page := 1
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	limit := 10
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	// Calculate offset
+	offset := (page - 1) * limit
+
+	// Get paginated API keys
+	apiKeys, total, err := h.userStore.GetAPIKeysWithPagination(c.Context(), user.ID, offset, limit)
 	if err != nil {
 		return ErrorResponse(c, "failed to get API keys", err)
 	}
 
+	// Convert to response format
 	var keys []APIKey
 	for _, k := range apiKeys {
 		keys = append(keys, APIKey{
@@ -116,8 +151,22 @@ func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 			RevokedAt: k.RevokedAt,
 		})
 	}
+
+	// Calculate pagination metadata
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+	hasNext := page < totalPages
+	hasPrev := page > 1
+
 	return c.JSON(APIKeysResponse{
 		APIKeys: keys,
+		Pagination: PaginationMetadata{
+			Page:       page,
+			Limit:      limit,
+			Total:      total,
+			TotalPages: totalPages,
+			HasNext:    hasNext,
+			HasPrev:    hasPrev,
+		},
 	})
 }
 

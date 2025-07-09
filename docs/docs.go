@@ -57,7 +57,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Lists all API keys for the authenticated user",
+                "description": "Lists API keys for the authenticated user with pagination support",
                 "consumes": [
                     "application/json"
                 ],
@@ -68,11 +68,31 @@ const docTemplate = `{
                     "apiKey"
                 ],
                 "summary": "List API keys",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default: 10, max: 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/api.APIKeysResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
                         }
                     },
                     "401": {
@@ -869,6 +889,9 @@ const docTemplate = `{
         "api.APIKeyRequest": {
             "type": "object",
             "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 }
@@ -890,6 +913,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/api.APIKey"
                     }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/api.PaginationMetadata"
                 }
             }
         },
@@ -1033,6 +1059,29 @@ const docTemplate = `{
             "properties": {
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "api.PaginationMetadata": {
+            "type": "object",
+            "properties": {
+                "has_next": {
+                    "type": "boolean"
+                },
+                "has_prev": {
+                    "type": "boolean"
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
                 }
             }
         },

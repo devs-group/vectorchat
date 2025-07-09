@@ -23,7 +23,7 @@ type APIKey struct {
 	Key       string     `json:"key"`
 	Name      string     `json:"name"`
 	CreatedAt time.Time  `json:"created_at"`
-	ExpiresAt time.Time  `json:"expires_at"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	RevokedAt *time.Time `json:"revoked_at"`
 }
 
@@ -41,7 +41,8 @@ type UserResponse struct {
 
 // APIKeyRequest represents the request body to create api key
 type APIKeyRequest struct {
-	Name string `json:"name"`
+	Name      string  `json:"name"`
+	ExpiresAt *string `json:"expires_at,omitempty"`
 }
 
 // APIKeyResponse represents the response for API key endpoints
@@ -49,9 +50,20 @@ type APIKeyResponse struct {
 	APIKey APIKey `json:"api_key"`
 }
 
+// PaginationMetadata represents pagination information
+type PaginationMetadata struct {
+	Page       int   `json:"page"`
+	Limit      int   `json:"limit"`
+	Total      int64 `json:"total"`
+	TotalPages int   `json:"total_pages"`
+	HasNext    bool  `json:"has_next"`
+	HasPrev    bool  `json:"has_prev"`
+}
+
 // APIKeysResponse represents the response for listing API keys
 type APIKeysResponse struct {
-	APIKeys []APIKey `json:"api_keys"`
+	APIKeys    []APIKey           `json:"api_keys"`
+	Pagination PaginationMetadata `json:"pagination"`
 }
 
 // MessageResponse represents a simple message response

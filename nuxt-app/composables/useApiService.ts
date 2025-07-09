@@ -34,12 +34,15 @@ export function useApiService() {
 
   const listApiKeys = <T>() => {
     return useApi(
-      async () => {
-        return await useApiFetch<T>("/auth/apikey");
+      async (page: number = 1, limit: number = 10) => {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: limit.toString(),
+        });
+        return await useApiFetch<T>(`/auth/apikey?${params}`);
       },
       {
         errorMessage: "Failed to fetch API keys",
-        cacheKey: "apiKeys",
       },
     );
   };
@@ -149,14 +152,12 @@ export function useApiService() {
   };
 
   const sendChatMessage = (chatID: string, query: string) => {
-    return useApi(
-      async () => {
-        return await useApiFetch(`/chat/${chatID}/message`, {
-          method: "POST",
-          body: { query },
-        });
-      }
-    );
+    return useApi(async () => {
+      return await useApiFetch(`/chat/${chatID}/message`, {
+        method: "POST",
+        body: { query },
+      });
+    });
   };
 
   const uploadFile = async (chatID: string, file: File) => {

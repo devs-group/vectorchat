@@ -2,87 +2,24 @@
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
       <h1 class="text-3xl font-bold tracking-tight">API Settings</h1>
-      <Dialog>
-        <DialogTrigger as-child>
-          <Button>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="mr-2 h-4 w-4"
-            >
-              <path d="M5 12h14"></path>
-              <path d="M12 5v14"></path>
-            </svg>
-            Create API Key
-          </Button>
-        </DialogTrigger>
-        <DialogContent class="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Generate New API Key</DialogTitle>
-            <DialogDescription>
-              Generate a new API key to access the VectorChat API. Keep your keys
-              secure and never share them publicly.
-            </DialogDescription>
-          </DialogHeader>
-          <div v-show="!newKey?.api_key.key" class="flex flex-col gap-4 py-4">
-            <div class="flex items-center gap-2">
-              <Input
-                id="key"
-                v-model="newKeyName"
-                placeholder="Enter a name for your API key"
-              />
-            </div>
-          </div>
-          <div v-show="newKey?.api_key.key" class="flex items-center space-x-2">
-          <div class="grid flex-1 gap-2">
-            <Label for="key">API Key</Label>
-            <Input id="key" :value="newKey?.api_key.key" readonly class="font-mono" />
-          </div>
-          <Button
-            type="submit"
-            size="sm"
-            class="px-3"
-            @click="copyToClipboard(newKey?.key)"
-          >
-            <span class="sr-only">Copy</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="h-4 w-4"
-            >
-              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
-              <path
-                d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
-              ></path>
-            </svg>
-          </Button>
-        </div>
-          <DialogFooter>
-            <DialogClose as-child>
-              <Button variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button @click="generateNewKey" :loading="isGeneratingAPIKey">
-              Generate Key
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Button @click="showCreateDialog = true">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="mr-2 h-4 w-4"
+        >
+          <path d="M5 12h14"></path>
+          <path d="M12 5v14"></path>
+        </svg>
+        Create API Key
+      </Button>
     </div>
 
     <div class="rounded-lg border">
@@ -99,11 +36,6 @@
             <tr
               class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
             >
-              <th
-                class="h-12 px-4 text-left align-middle font-medium text-muted-foreground"
-              >
-                Name
-              </th>
               <th
                 class="h-12 px-4 text-left align-middle font-medium text-muted-foreground"
               >
@@ -137,7 +69,6 @@
               :key="key.id"
               class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
             >
-              <td class="p-4 align-middle">{{ key.name }}</td>
               <td class="p-4 align-middle">
                 <div class="flex items-center gap-2">
                   <svg
@@ -164,7 +95,9 @@
                 </div>
               </td>
               <td class="p-4 align-middle">{{ formatDate(key.created_at) }}</td>
-              <td class="p-4 align-middle">{{ formatDate(key.expires_at) }}</td>
+              <td class="p-4 align-middle">
+                {{ key.expires_at ? formatDate(key.expires_at) : "Never" }}
+              </td>
               <td class="p-4 align-middle">
                 <span
                   :class="[
@@ -192,15 +125,13 @@
                     <DialogHeader>
                       <DialogTitle>Revoke API Key</DialogTitle>
                       <DialogDescription>
-                        Are you sure you want to revoke this API key? This action cannot be
-                        undone.
+                        Are you sure you want to revoke this API key? This
+                        action cannot be undone.
                       </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                       <DialogClose as-child>
-                        <Button variant="outline">
-                          Cancel
-                        </Button>
+                        <Button variant="outline"> Cancel </Button>
                       </DialogClose>
                       <Button
                         variant="destructive"
@@ -214,12 +145,28 @@
                 </Dialog>
               </td>
             </tr>
-            <tr v-if="!apiKeys || apiKeys.length === 0">
+            <tr v-if="!apiKeys || apiKeys.api_keys.length === 0">
               <td colspan="6" class="p-8 text-center text-muted-foreground">
                 <div v-if="isFetchingAPIKeys" class="flex justify-center">
-                  <svg class="animate-spin h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    class="animate-spin h-5 w-5 text-muted-foreground"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
+                    ></circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                 </div>
                 <div v-else-if="fetchAPIKeysError">
@@ -233,13 +180,55 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Pagination Controls -->
+      <div
+        v-if="apiKeys && apiKeys.pagination.total > 0"
+        class="grid grid-cols-3 items-center px-6 py-4 border-t"
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-muted-foreground">Show</span>
+          <select
+            v-model="pageSize"
+            @change="onPageSizeChange"
+            class="text-sm border rounded px-2 py-1"
+          >
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+          <span class="text-sm text-muted-foreground">per page</span>
+        </div>
+        <div class="flex justify-center">
+          <Pagination
+            :pagination="apiKeys.pagination"
+            @page-change="onPageChange"
+          />
+        </div>
+        <div></div>
+      </div>
     </div>
+
+    <!-- Create API Key Dialog -->
+    <CreateApiKeyDialog
+      v-model:open="showCreateDialog"
+      :is-loading="isGeneratingAPIKey"
+      @generate="handleGenerateKey"
+    />
+
+    <!-- API Key Generated Dialog -->
+    <ApiKeyGeneratedDialog
+      v-model:open="showGeneratedDialog"
+      :api-key="generatedApiKey"
+      @close="handleCloseGeneratedDialog"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { Button } from '@/components/ui/button'
+import { ref, onMounted, computed } from "vue";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -249,10 +238,13 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogClose,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import type { APIKeyResponse, APIKeysResponse } from '~/types/api'
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Pagination } from "@/components/ui/pagination";
+import type { APIKeyResponse, APIKeysResponse } from "~/types/api";
+import CreateApiKeyDialog from "./components/CreateApiKeyDialog.vue";
+import ApiKeyGeneratedDialog from "./components/ApiKeyGeneratedDialog.vue";
 
 definePageMeta({
   layout: "authenticated",
@@ -268,15 +260,34 @@ interface APIKey {
   user_id: string;
 }
 
-const apiService = useApiService()
-const newKeyName = ref("");
-const showNewKeyDialog = ref(false);
+const apiService = useApiService();
+const showCreateDialog = ref(false);
+const showGeneratedDialog = ref(false);
+const generatedApiKey = ref("");
 const revokingKeyId = ref<string | null>(null);
 
+// Pagination state
+const currentPage = ref(1);
+const pageSize = ref(10);
+
 // HTTP calls
-const { execute: fetchAPIKeys, data: apiKeys, isLoading: isFetchingAPIKeys, error: fetchAPIKeysError } = apiService.listApiKeys<APIKeysResponse>()
-const { execute: generateApiKey, data: newKey, isLoading: isGeneratingAPIKey, error: generateApiKeyError } = apiService.generateApiKey<APIKeyResponse>()
-const { execute: revokeApiKey, isLoading: isRevokingApiKey, error: revokeApiKeyError } = apiService.revokeApiKey()
+const {
+  execute: fetchAPIKeys,
+  data: apiKeys,
+  isLoading: isFetchingAPIKeys,
+  error: fetchAPIKeysError,
+} = apiService.listApiKeys<APIKeysResponse>();
+const {
+  execute: generateApiKey,
+  data: newKey,
+  isLoading: isGeneratingAPIKey,
+  error: generateApiKeyError,
+} = apiService.generateApiKey<APIKeyResponse>();
+const {
+  execute: revokeApiKey,
+  isLoading: isRevokingApiKey,
+  error: revokeApiKeyError,
+} = apiService.revokeApiKey();
 
 // Format date for display
 const formatDate = (dateString: string) => {
@@ -287,41 +298,76 @@ const formatDate = (dateString: string) => {
   });
 };
 
-// Copy to clipboard
-const copyToClipboard = async (text: string | undefined) => {
-  if (!text) return;
-  try {
-    await navigator.clipboard.writeText(text);
-    // TODO: Show toast notification
-  } catch (err) {
-    console.error("Failed to copy text: ", err);
-  }
+// Computed properties
+const getDisplayRange = () => {
+  if (!apiKeys.value || !apiKeys.value.pagination) return "";
+
+  const { page, limit, total } = apiKeys.value.pagination;
+  const start = (page - 1) * limit + 1;
+  const end = Math.min(page * limit, total);
+
+  return `${start}-${end}`;
 };
 
-// Generate new API key
-const generateNewKey = async () => {
-  if (!newKeyName.value) return;
-  
+// Pagination handlers
+const onPageChange = async (page: number) => {
+  currentPage.value = page;
+  await loadAPIKeys();
+};
+
+const onPageSizeChange = async () => {
+  currentPage.value = 1; // Reset to first page when changing page size
+  await loadAPIKeys();
+};
+
+// Load API keys with current pagination
+const loadAPIKeys = async () => {
+  await fetchAPIKeys(currentPage.value, pageSize.value);
+};
+
+// Handle generate key from dialog
+const handleGenerateKey = async (data: {
+  name: string;
+  expires_at?: string;
+}) => {
   try {
-    await generateApiKey({ name: newKeyName.value });
-    showNewKeyDialog.value = true;
-    newKeyName.value = "";
-    
-    // Refresh the list after generating a new key
-    await fetchAPIKeys();
+    console.log("Generating API key with data:", data);
+    await generateApiKey(data);
+
+    console.log("Generate API key response:", newKey.value);
+    console.log("newKey.value?.api_key:", newKey.value?.api_key);
+    console.log("newKey.value?.api_key?.key:", newKey.value?.api_key?.key);
+
+    if (newKey.value?.api_key?.key) {
+      generatedApiKey.value = newKey.value.api_key.key;
+      console.log("Setting generatedApiKey to:", generatedApiKey.value);
+      showCreateDialog.value = false;
+      showGeneratedDialog.value = true;
+
+      // Refresh the list after generating a new key
+      await loadAPIKeys();
+    } else {
+      console.error("API key not found in response structure");
+    }
   } catch (err) {
     console.error("Failed to generate API key:", err);
   }
 };
 
+// Handle close of generated dialog
+const handleCloseGeneratedDialog = () => {
+  generatedApiKey.value = "";
+  showGeneratedDialog.value = false;
+};
+
 // Confirm revoke key
 const confirmRevokeKey = async (key: APIKey) => {
   await revokeApiKey(key.id);
-  await fetchAPIKeys();
+  await loadAPIKeys();
 };
 
 // Fetch API keys on mount
 onMounted(async () => {
-  await fetchAPIKeys();
+  await loadAPIKeys();
 });
 </script>
