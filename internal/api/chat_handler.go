@@ -13,14 +13,11 @@ import (
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
-	"github.com/yourusername/vectorchat/internal/store"
 )
 
 // ChatHandler contains all the dependencies
 type ChatHandler struct {
 	ChatService        *services.ChatService
-	DocumentStore      *store.DocumentStore
-	ChatbotStore       *store.ChatbotStore
 	UploadsDir         string
 	AuthMiddleware     *middleware.AuthMiddleware
 	OwershipMiddleware *middleware.OwnershipMiddleware
@@ -30,15 +27,11 @@ type ChatHandler struct {
 func NewChatHandler(
 	authMiddleware *middleware.AuthMiddleware,
 	chatService *services.ChatService,
-	documentStore *store.DocumentStore,
-	chatbotStore *store.ChatbotStore,
 	uploadsDir string,
 	ownershipMiddlware *middleware.OwnershipMiddleware,
 ) *ChatHandler {
 	return &ChatHandler{
 		ChatService:        chatService,
-		DocumentStore:      documentStore,
-		ChatbotStore:       chatbotStore,
 		UploadsDir:         uploadsDir,
 		AuthMiddleware:     authMiddleware,
 		OwershipMiddleware: ownershipMiddlware,
@@ -142,10 +135,11 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 	}
 
 	// Create the document ID that was used when uploading
+	// Create document ID
 	docID := fmt.Sprintf("%s-%s", chatID, filename)
 
 	// Remove from database
-	if err := h.DocumentStore.DeleteDocument(c.Context(), docID); err != nil {
+	if err := h.ChatService.DeleteDocument(c.Context(), docID); err != nil {
 		return ErrorResponse(c, "Failed to delete document", err)
 	}
 
@@ -188,7 +182,7 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	isOwner, err := h.ChatbotStore.CheckChatbotOwnership(c.Context(), chatID, user.ID)
+	isOwner, err := h.ChatService.CheckChatbotOwnership(c.Context(), chatID, user.ID)
 	if err != nil {
 		return ErrorResponse(c, "Failed to verify chatbot ownership", err)
 	}
@@ -256,7 +250,7 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Invalid chat ID format", err, http.StatusBadRequest)
 	}
 
-	files, err := h.DocumentStore.GetFilesByChatbotID(c.Context(), chatbotUUID)
+	files, err := h.ChatService.GetFilesByChatbotID(c.Context(), chatbotUUID)
 	if err != nil {
 		return ErrorResponse(c, "Failed to retrieve files", err)
 	}
@@ -461,7 +455,7 @@ func (h *ChatHandler) GET_ChatbotByID(c *fiber.Ctx) error {
 	}
 
 	// Verify ownership (this should be handled by middleware, but double-checking)
-	isOwner, err := h.ChatbotStore.CheckChatbotOwnership(c.Context(), chatbotID, user.ID)
+	isOwner, err := h.ChatService.CheckChatbotOwnership(c.Context(), chatbotID, user.ID)
 	if err != nil {
 		return ErrorResponse(c, "Failed to verify chatbot ownership", err)
 	}
@@ -470,7 +464,7 @@ func (h *ChatHandler) GET_ChatbotByID(c *fiber.Ctx) error {
 	}
 
 	// Get chatbot details
-	chatbot, err := h.ChatbotStore.GetChatbot(c.Context(), chatbotID)
+	chatbot, err := h.ChatService.GetChatbotByID(c.Context(), chatbotID)
 	if err != nil {
 		return ErrorResponse(c, "Failed to retrieve chatbot", err)
 	}

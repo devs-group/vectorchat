@@ -1,4 +1,4 @@
-package store
+package services
 
 import (
 	"context"
@@ -9,20 +9,20 @@ import (
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
-// UserStore implements auth.UserStore
-type UserStore struct {
+// AuthService handles user authentication and user-related operations
+type AuthService struct {
 	pool *pgxpool.Pool
 }
 
-// NewUserStore creates a new user store
-func NewUserStore(pool *pgxpool.Pool) *UserStore {
-	return &UserStore{
+// NewAuthService creates a new auth service
+func NewAuthService(pool *pgxpool.Pool) *AuthService {
+	return &AuthService{
 		pool: pool,
 	}
 }
 
 // FindUserByID finds a user by ID
-func (s *UserStore) FindUserByID(ctx context.Context, id string) (*User, error) {
+func (s *AuthService) FindUserByID(ctx context.Context, id string) (*User, error) {
 	var user User
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, name, email, provider, created_at, updated_at
@@ -41,7 +41,7 @@ func (s *UserStore) FindUserByID(ctx context.Context, id string) (*User, error) 
 }
 
 // FindUserByEmail finds a user by email
-func (s *UserStore) FindUserByEmail(ctx context.Context, email string) (*User, error) {
+func (s *AuthService) FindUserByEmail(ctx context.Context, email string) (*User, error) {
 	var user User
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, name, email, provider, created_at, updated_at
@@ -60,7 +60,7 @@ func (s *UserStore) FindUserByEmail(ctx context.Context, email string) (*User, e
 }
 
 // FindAPIKey finds an API key by its unhashed value
-func (s *UserStore) FindAPIKey(ctx context.Context, compareFunc func(hashedKey string) (bool, error)) (*APIKey, error) {
+func (s *AuthService) FindAPIKey(ctx context.Context, compareFunc func(hashedKey string) (bool, error)) (*APIKey, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
 		FROM api_keys
@@ -91,7 +91,7 @@ func (s *UserStore) FindAPIKey(ctx context.Context, compareFunc func(hashedKey s
 }
 
 // CreateUser creates a new user with transaction support
-func (s *UserStore) CreateUser(ctx context.Context, user *User) error {
+func (s *AuthService) CreateUser(ctx context.Context, user *User) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to begin transaction")
@@ -115,7 +115,7 @@ func (s *UserStore) CreateUser(ctx context.Context, user *User) error {
 }
 
 // CreateAPIKey creates a new API key
-func (s *UserStore) CreateAPIKey(ctx context.Context, apiKey *APIKey) error {
+func (s *AuthService) CreateAPIKey(ctx context.Context, apiKey *APIKey) error {
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO api_keys (id, user_id, key, name, created_at, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -129,7 +129,7 @@ func (s *UserStore) CreateAPIKey(ctx context.Context, apiKey *APIKey) error {
 }
 
 // GetAPIKeys gets all API keys for a user
-func (s *UserStore) GetAPIKeys(ctx context.Context, userID string) ([]APIKey, error) {
+func (s *AuthService) GetAPIKeys(ctx context.Context, userID string) ([]APIKey, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
 		FROM api_keys
@@ -160,7 +160,7 @@ func (s *UserStore) GetAPIKeys(ctx context.Context, userID string) ([]APIKey, er
 }
 
 // GetAPIKeysWithPagination gets API keys for a user with pagination support
-func (s *UserStore) GetAPIKeysWithPagination(ctx context.Context, userID string, offset, limit int) ([]APIKey, int64, error) {
+func (s *AuthService) GetAPIKeysWithPagination(ctx context.Context, userID string, offset, limit int) ([]APIKey, int64, error) {
 	// Get total count
 	var total int64
 	err := s.pool.QueryRow(ctx, `
@@ -202,7 +202,7 @@ func (s *UserStore) GetAPIKeysWithPagination(ctx context.Context, userID string,
 }
 
 // RevokeAPIKey revokes an API key
-func (s *UserStore) RevokeAPIKey(ctx context.Context, id string, userID string) error {
+func (s *AuthService) RevokeAPIKey(ctx context.Context, id string, userID string) error {
 	now := time.Now()
 	_, err := s.pool.Exec(ctx, `
 		UPDATE api_keys

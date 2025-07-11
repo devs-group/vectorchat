@@ -14,7 +14,6 @@ import (
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
-	"github.com/yourusername/vectorchat/internal/store"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 )
@@ -33,7 +32,7 @@ type OAuthHandler struct {
 	config         *OAuthConfig
 	githubOAuth    *oauth2.Config
 	store          *postgres.Storage
-	userStore      *store.UserStore
+	authService    *services.AuthService
 	authMiddleware *middleware.AuthMiddleware
 	apiKeyService  *services.APIKeyService
 }
@@ -41,7 +40,7 @@ type OAuthHandler struct {
 // NewOAuthHandler creates a new OAuth handler with validation
 func NewOAuthHandler(
 	config *OAuthConfig,
-	userStore *store.UserStore,
+	authService *services.AuthService,
 	authMiddleware *middleware.AuthMiddleware,
 ) *OAuthHandler {
 	if config.GitHubClientID == "" || config.GitHubClientSecret == "" {
@@ -60,7 +59,7 @@ func NewOAuthHandler(
 		config:         config,
 		githubOAuth:    githubOAuth,
 		store:          config.SessionStore,
-		userStore:      userStore,
+		authService:    authService,
 		authMiddleware: authMiddleware,
 	}
 }
@@ -176,13 +175,13 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 		return ErrorResponse(c, "invalid user data", nil, http.StatusBadRequest)
 	}
 
-	user, err := h.userStore.FindUserByEmail(c.Context(), githubUser.Email)
+	user, err := h.authService.FindUserByEmail(c.Context(), githubUser.Email)
 	if err != nil && !apperrors.Is(err, apperrors.ErrUserNotFound) {
 		return ErrorResponse(c, "failed to find user", err)
 	}
 
 	if user == nil {
-		user = &store.User{
+		user = &services.User{
 			ID:        uuid.New().String(),
 			Name:      githubUser.Name,
 			Email:     githubUser.Email,
@@ -190,7 +189,7 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
-		if err := h.userStore.CreateUser(c.Context(), user); err != nil {
+		if err := h.authService.CreateUser(c.Context(), user); err != nil {
 			return ErrorResponse(c, "failed to create user", err)
 		}
 	}
@@ -227,7 +226,7 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 // @Security CookieAuth
 // @Router /auth/session [get]
 func (h *OAuthHandler) GET_Session(c *fiber.Ctx) error {
-	user := c.Locals("user").(*store.User)
+	user := c.Locals("user").(*services.User)
 	return c.JSON(SessionResponse{
 		User: User{
 			ID:        user.ID,

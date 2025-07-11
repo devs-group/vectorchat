@@ -8,21 +8,20 @@ import (
 	"github.com/gofiber/storage/postgres"
 	"github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/services"
-	"github.com/yourusername/vectorchat/internal/store"
 )
 
 // AuthMiddleware is a middleware for authentication
 type AuthMiddleware struct {
 	sessionStore  *postgres.Storage
-	userStore     *store.UserStore
+	authService   *services.AuthService
 	APIKeyService *services.APIKeyService
 }
 
 // NewAuthMiddleware creates a new auth middleware
-func NewAuthMiddleware(sessionStore *postgres.Storage, userStore *store.UserStore, apiKeyService *services.APIKeyService) *AuthMiddleware {
+func NewAuthMiddleware(sessionStore *postgres.Storage, authService *services.AuthService, apiKeyService *services.APIKeyService) *AuthMiddleware {
 	return &AuthMiddleware{
 		sessionStore:  sessionStore,
-		userStore:     userStore,
+		authService:   authService,
 		APIKeyService: apiKeyService,
 	}
 }
@@ -31,7 +30,7 @@ func NewAuthMiddleware(sessionStore *postgres.Storage, userStore *store.UserStor
 func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 	apiKey := c.Get("X-API-Key")
 	if apiKey != "" {
-		apiKeyRecord, err := m.userStore.FindAPIKey(c.Context(), func(hashedKey string) (bool, error) {
+		apiKeyRecord, err := m.authService.FindAPIKey(c.Context(), func(hashedKey string) (bool, error) {
 			isValid, err := m.APIKeyService.IsAPIKeyValid(hashedKey, apiKey)
 			if err != nil {
 				return false, errors.Wrap(err, "failed to verify api key")
@@ -60,7 +59,7 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 		}
 
 		// Get user associated with API key
-		user, err := m.userStore.FindUserByID(c.Context(), apiKeyRecord.UserID)
+		user, err := m.authService.FindUserByID(c.Context(), apiKeyRecord.UserID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Internal server error",
@@ -88,7 +87,7 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 	}
 
 	// Get user
-	user, err := m.userStore.FindUserByID(c.Context(), string(userIDBytes))
+	user, err := m.authService.FindUserByID(c.Context(), string(userIDBytes))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",

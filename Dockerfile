@@ -4,9 +4,9 @@ WORKDIR /app
 
 # Install Air and required build tools
 RUN apk add --no-cache gcc musl-dev git \
-    && go install github.com/air-verse/air@latest \
-    && go install github.com/pressly/goose/v3/cmd/goose@latest \
-    && go install github.com/swaggo/swag/cmd/swag@latest
+  && go install github.com/air-verse/air@latest \
+  && go install github.com/pressly/goose/v3/cmd/goose@latest \
+  && go install github.com/swaggo/swag/cmd/swag@latest
 
 # Copy go mod and sum files
 COPY go.mod go.sum ./
@@ -31,7 +31,7 @@ WORKDIR /root/
 RUN mkdir -p /root/uploads
 
 # Copy the binary and other needed resources from the builder stage
-COPY --from=builder /app/internal/store/migrations /migrations
+COPY --from=builder /app/internal/services/migrations /migrations
 COPY --from=builder /go/bin/goose /usr/local/bin/
 COPY --from=builder /go/bin/air /usr/local/bin/
 COPY --from=builder /vectorchat .

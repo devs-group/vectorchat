@@ -24,7 +24,6 @@ import (
 	"github.com/yourusername/vectorchat/internal/config"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
-	"github.com/yourusername/vectorchat/internal/store"
 	"github.com/yourusername/vectorchat/internal/vectorize"
 )
 
@@ -97,29 +96,20 @@ func runApplication(appCfg *config.AppConfig) error {
 	}
 
 	// Initialize database
-	pool, err := store.New(pgConnStr)
+	pool, err := services.NewDatabase(pgConnStr)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %v", err)
 	}
 	defer pool.Close()
 
-	// Initialize user store with the same pool
-	userStore := store.NewUserStore(pool)
-
-	// Initialize chatbot store with the same pool
-	chatbotStore := store.NewChatbotStore(pool)
-
-	// Initialize document store
-	documentStore := store.NewDocumentStore(pool)
-
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
 
-	// Initialize chatbot service
-	chatService := services.NewChatService(documentStore, vectorizer, openaiKey, chatbotStore)
-
-	// Initialize api key service
-	apiKeyService := services.NewAPIKeyService()
+	// Initialize services
+	authService := services.NewAuthService(pool)
+	chatService := services.NewChatService(pool, vectorizer, openaiKey)
+	apiKeyService := services.NewAPIKeyService(pool)
+	homeService := services.NewHomeService(pool)
 
 	// Create uploads directory if it doesn't exist
 	uploadsDir := "uploads"
@@ -136,10 +126,10 @@ func runApplication(appCfg *config.AppConfig) error {
 	})
 
 	// Initialize auth middleware
-	authMiddleware := middleware.NewAuthMiddleware(sessionStore, userStore, apiKeyService)
+	authMiddleware := middleware.NewAuthMiddleware(sessionStore, authService, apiKeyService)
 
 	// Initialize ownership middleware
-	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatbotStore)
+	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatService)
 
 	/**
 	redirectURL := fmt.Sprintf("http://%s", appCfg.BaseURL)
@@ -174,10 +164,10 @@ func runApplication(appCfg *config.AppConfig) error {
 	}))
 
 	// Initialize API handlers
-	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, documentStore, chatbotStore, uploadsDir, ownershipMiddleware)
-	oAuthHandler := api.NewOAuthHandler(oAuthConfig, userStore, authMiddleware)
-	homeHandler := api.NewHomeHandler(sessionStore, userStore, authMiddleware)
-	apiKeyHandler := api.NewAPIKeyHandler(userStore, authMiddleware, apiKeyService)
+	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, uploadsDir, ownershipMiddleware)
+	oAuthHandler := api.NewOAuthHandler(oAuthConfig, authService, authMiddleware)
+	homeHandler := api.NewHomeHandler(sessionStore, homeService, authMiddleware)
+	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService)
 
 	// Register routes
 	homeHandler.RegisterRoutes(app) // Register home routes first
@@ -204,9 +194,9 @@ func waitForPostgres(connStr string) error {
 	retryInterval := 2 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
-		store, err := store.New(connStr)
+		pool, err := services.NewDatabase(connStr)
 		if err == nil {
-			store.Close()
+			pool.Close()
 			log.Println("Successfully connected to PostgreSQL")
 			return nil
 		}

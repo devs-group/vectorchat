@@ -4,25 +4,25 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/storage/postgres"
 	"github.com/yourusername/vectorchat/internal/middleware"
-	"github.com/yourusername/vectorchat/internal/store"
+	"github.com/yourusername/vectorchat/internal/services"
 )
 
 // HomeHandler handles home-related routes
 type HomeHandler struct {
 	sessionStore   *postgres.Storage
-	userStore      *store.UserStore
+	homeService    *services.HomeService
 	authMiddleware *middleware.AuthMiddleware
 }
 
 // NewHomeHandler creates a new home handler
 func NewHomeHandler(
 	sessionStore *postgres.Storage,
-	userStore *store.UserStore,
+	homeService *services.HomeService,
 	authMiddleware *middleware.AuthMiddleware,
 ) *HomeHandler {
 	return &HomeHandler{
 		sessionStore:   sessionStore,
-		userStore:      userStore,
+		homeService:    homeService,
 		authMiddleware: authMiddleware,
 	}
 }

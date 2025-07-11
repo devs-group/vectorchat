@@ -10,24 +10,23 @@ import (
 	"github.com/google/uuid"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
-	"github.com/yourusername/vectorchat/internal/store"
 )
 
 // APIKeyHandler handles api keys
 type APIKeyHandler struct {
-	userStore      *store.UserStore
+	authService    *services.AuthService
 	authMiddleware *middleware.AuthMiddleware
 	apiKeyService  *services.APIKeyService
 }
 
 // NewAPIKeyHandler creates a new OAuth handler with validation
 func NewAPIKeyHandler(
-	userStore *store.UserStore,
+	authService *services.AuthService,
 	authMiddleware *middleware.AuthMiddleware,
 	apiKeyService *services.APIKeyService,
 ) *APIKeyHandler {
 	return &APIKeyHandler{
-		userStore:      userStore,
+		authService:    authService,
 		authMiddleware: authMiddleware,
 		apiKeyService:  apiKeyService,
 	}
@@ -53,7 +52,7 @@ func (h *APIKeyHandler) RegisterRoutes(app *fiber.App) {
 // @Security ApiKeyAuth
 // @Router /auth/apikey [post]
 func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
-	user := c.Locals("user").(*store.User)
+	user := c.Locals("user").(*services.User)
 
 	plainTextKey, hashedKey, err := h.apiKeyService.CreateNewAPIKey()
 	if err != nil {
@@ -66,7 +65,7 @@ func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
 
-	apiKey := &store.APIKey{
+	apiKey := &services.APIKey{
 		ID:        uuid.New().String(),
 		UserID:    user.ID,
 		Name:      &req.Name,
@@ -84,7 +83,7 @@ func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 	}
 	// If no expiration provided, ExpiresAt remains nil (no expiration)
 
-	if err := h.userStore.CreateAPIKey(c.Context(), apiKey); err != nil {
+	if err := h.apiKeyService.CreateAPIKey(c.Context(), apiKey); err != nil {
 		return ErrorResponse(c, "failed to save API key", err)
 	}
 
@@ -114,7 +113,7 @@ func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /auth/apikey [get]
 func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
-	user := c.Locals("user").(*store.User)
+	user := c.Locals("user").(*services.User)
 
 	// Parse pagination parameters
 	page := 1
@@ -135,7 +134,7 @@ func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 
 	// Get paginated API keys
-	apiKeys, total, err := h.userStore.GetAPIKeysWithPagination(c.Context(), user.ID, offset, limit)
+	apiKeys, total, err := h.apiKeyService.GetAPIKeysWithPagination(c.Context(), user.ID, offset, limit)
 	if err != nil {
 		return ErrorResponse(c, "failed to get API keys", err)
 	}
@@ -183,14 +182,14 @@ func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /auth/apikey/{id} [delete]
 func (h *APIKeyHandler) DELETE_RevokeAPIKey(c *fiber.Ctx) error {
-	user := c.Locals("user").(*store.User)
+	user := c.Locals("user").(*services.User)
 
 	id := c.Params("id")
 	if id == "" {
 		return ErrorResponse(c, "API key is required", nil, http.StatusBadRequest)
 	}
 
-	if err := h.userStore.RevokeAPIKey(c.Context(), id, user.ID); err != nil {
+	if err := h.apiKeyService.RevokeAPIKey(c.Context(), id, user.ID); err != nil {
 		return ErrorResponse(c, "failed to revoke API key", err, http.StatusBadRequest)
 	}
 

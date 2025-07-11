@@ -1,10 +1,27 @@
-package store
+package services
 
 import (
+	"context"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4/pgxpool"
+	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
+
+// Database connection helper
+func NewDatabase(connStr string) (*pgxpool.Pool, error) {
+	config, err := pgxpool.ParseConfig(connStr)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "unable to parse connection string")
+	}
+
+	pool, err := pgxpool.ConnectConfig(context.Background(), config)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "unable to connect to database")
+	}
+	return pool, nil
+}
 
 // User represents a user in the system
 type User struct {
