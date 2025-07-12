@@ -4,214 +4,188 @@ import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/yourusername/vectorchat/internal/errors"
+	"github.com/google/uuid"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
 // AuthService handles user authentication and user-related operations
 type AuthService struct {
-	pool *pgxpool.Pool
+	userRepo   UserRepository
+	apiKeyRepo APIKeyRepository
 }
 
 // NewAuthService creates a new auth service
-func NewAuthService(pool *pgxpool.Pool) *AuthService {
+func NewAuthService(userRepo UserRepository, apiKeyRepo APIKeyRepository) *AuthService {
 	return &AuthService{
-		pool: pool,
+		userRepo:   userRepo,
+		apiKeyRepo: apiKeyRepo,
 	}
 }
 
 // FindUserByID finds a user by ID
 func (s *AuthService) FindUserByID(ctx context.Context, id string) (*User, error) {
-	var user User
-	err := s.pool.QueryRow(ctx, `
-		SELECT id, name, email, provider, created_at, updated_at
-		FROM users
-		WHERE id = $1
-	`, id).Scan(&user.ID, &user.Name, &user.Email, &user.Provider, &user.CreatedAt, &user.UpdatedAt)
-
-	if err != nil {
-		if err.Error() == "no rows in result set" {
-			return nil, apperrors.ErrUserNotFound
-		}
-		return nil, apperrors.Wrap(err, "failed to find user by ID")
-	}
-
-	return &user, nil
+	return s.userRepo.FindByID(ctx, id)
 }
 
 // FindUserByEmail finds a user by email
 func (s *AuthService) FindUserByEmail(ctx context.Context, email string) (*User, error) {
-	var user User
-	err := s.pool.QueryRow(ctx, `
-		SELECT id, name, email, provider, created_at, updated_at
-		FROM users
-		WHERE email = $1
-	`, email).Scan(&user.ID, &user.Name, &user.Email, &user.Provider, &user.CreatedAt, &user.UpdatedAt)
-
-	if err != nil {
-		if err.Error() == "no rows in result set" {
-			return nil, apperrors.ErrUserNotFound
-		}
-		return nil, apperrors.Wrap(err, "failed to find user by email")
-	}
-
-	return &user, nil
+	return s.userRepo.FindByEmail(ctx, email)
 }
 
-// FindAPIKey finds an API key by its unhashed value
-func (s *AuthService) FindAPIKey(ctx context.Context, compareFunc func(hashedKey string) (bool, error)) (*APIKey, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
-		FROM api_keys
-	`)
+// CreateUser creates a new user
+func (s *AuthService) CreateUser(ctx context.Context, id, name, email, provider string) (*User, error) {
+	if id == "" {
+		id = uuid.New().String()
+	}
+
+	user := &User{
+		ID:        id,
+		Name:      name,
+		Email:     email,
+		Provider:  provider,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err := s.userRepo.Create(ctx, user)
 	if err != nil {
-		return nil, apperrors.Wrap(err, "failed to query API keys")
+		return nil, err
 	}
-	defer rows.Close()
 
-	var apiKey APIKey
-	for rows.Next() {
-		err := rows.Scan(&apiKey.ID, &apiKey.UserID, &apiKey.Key, &apiKey.Name, &apiKey.CreatedAt, &apiKey.ExpiresAt, &apiKey.RevokedAt)
-		if err != nil {
-			return nil, apperrors.Wrap(err, "failed to scan API key")
-		}
-
-		isValid, err := compareFunc(apiKey.Key)
-		if err != nil {
-			return nil, err
-		}
-		if isValid {
-			return &apiKey, nil
-		} else {
-			continue
-		}
-	}
-	return nil, errors.Wrap(err, "compared all keys and no valid has been found")
+	return user, nil
 }
 
-// CreateUser creates a new user with transaction support
-func (s *AuthService) CreateUser(ctx context.Context, user *User) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return apperrors.Wrap(err, "failed to begin transaction")
-	}
-	defer tx.Rollback(ctx)
-
-	_, err = tx.Exec(ctx, `
-		INSERT INTO users (id, name, email, provider, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, user.ID, user.Name, user.Email, user.Provider, user.CreatedAt, user.UpdatedAt)
-
-	if err != nil {
-		return apperrors.Wrap(err, "failed to create user")
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return apperrors.Wrap(err, "failed to commit transaction")
-	}
-
-	return nil
+// UpdateUser updates an existing user
+func (s *AuthService) UpdateUser(ctx context.Context, user *User) error {
+	return s.userRepo.Update(ctx, user)
 }
 
-// CreateAPIKey creates a new API key
-func (s *AuthService) CreateAPIKey(ctx context.Context, apiKey *APIKey) error {
-	_, err := s.pool.Exec(ctx, `
-		INSERT INTO api_keys (id, user_id, key, name, created_at, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, apiKey.ID, apiKey.UserID, apiKey.Key, apiKey.Name, apiKey.CreatedAt, apiKey.ExpiresAt)
-
-	if err != nil {
-		return apperrors.Wrap(err, "failed to create API key")
-	}
-
-	return nil
+// DeleteUser deletes a user
+func (s *AuthService) DeleteUser(ctx context.Context, id string) error {
+	return s.userRepo.Delete(ctx, id)
 }
 
-// GetAPIKeys gets all API keys for a user
-func (s *AuthService) GetAPIKeys(ctx context.Context, userID string) ([]APIKey, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
-		FROM api_keys
-		WHERE user_id = $1
-		ORDER BY created_at DESC
-	`, userID)
+// FindAPIKeyByPlaintext finds an API key by comparing against stored hashes
+func (s *AuthService) FindAPIKeyByPlaintext(ctx context.Context, plainTextKey string, compareFunc func(hashedKey string) (bool, error)) (*APIKey, error) {
+	return s.apiKeyRepo.FindByHashComparison(ctx, compareFunc)
+}
 
+// ValidateAPIKey validates an API key and returns the associated user
+func (s *AuthService) ValidateAPIKey(ctx context.Context, plainTextKey string, compareFunc func(hashedKey string) (bool, error)) (*User, error) {
+	// Find the API key
+	apiKey, err := s.apiKeyRepo.FindByHashComparison(ctx, compareFunc)
 	if err != nil {
-		return nil, apperrors.Wrap(err, "failed to get API keys")
-	}
-	defer rows.Close()
-
-	var apiKeys []APIKey
-	for rows.Next() {
-		var apiKey APIKey
-		err := rows.Scan(&apiKey.ID, &apiKey.UserID, &apiKey.Key, &apiKey.Name, &apiKey.CreatedAt, &apiKey.ExpiresAt, &apiKey.RevokedAt)
-		if err != nil {
-			return nil, apperrors.Wrap(err, "failed to scan API key")
-		}
-		apiKeys = append(apiKeys, apiKey)
+		return nil, apperrors.Wrap(err, "API key validation failed")
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, apperrors.Wrap(err, "error iterating API key rows")
+	// Check if the key is revoked
+	if apiKey.RevokedAt != nil {
+		return nil, apperrors.ErrInvalidAPIKey
 	}
 
-	return apiKeys, nil
+	// Check if the key is expired
+	if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
+		return nil, apperrors.ErrInvalidAPIKey
+	}
+
+	// Get the user associated with the API key
+	user, err := s.userRepo.FindByID(ctx, apiKey.UserID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to find user for API key")
+	}
+
+	return user, nil
+}
+
+// CreateAPIKey creates a new API key for a user
+func (s *AuthService) CreateAPIKey(ctx context.Context, userID, hashedKey string, name *string, expiresAt *time.Time) (*APIKey, error) {
+	apiKey := &APIKey{
+		ID:        uuid.New().String(),
+		UserID:    userID,
+		Key:       hashedKey,
+		Name:      name,
+		CreatedAt: time.Now(),
+		ExpiresAt: expiresAt,
+	}
+
+	err := s.apiKeyRepo.Create(ctx, apiKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return apiKey, nil
+}
+
+// GetAPIKeysForUser gets all API keys for a user
+func (s *AuthService) GetAPIKeysForUser(ctx context.Context, userID string) ([]*APIKey, error) {
+	return s.apiKeyRepo.FindByUserID(ctx, userID)
 }
 
 // GetAPIKeysWithPagination gets API keys for a user with pagination support
-func (s *AuthService) GetAPIKeysWithPagination(ctx context.Context, userID string, offset, limit int) ([]APIKey, int64, error) {
-	// Get total count
-	var total int64
-	err := s.pool.QueryRow(ctx, `
-		SELECT COUNT(*) FROM api_keys WHERE user_id = $1
-	`, userID).Scan(&total)
-	if err != nil {
-		return nil, 0, apperrors.Wrap(err, "failed to get total API keys count")
-	}
-
-	// Get paginated results
-	rows, err := s.pool.Query(ctx, `
-		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
-		FROM api_keys
-		WHERE user_id = $1
-		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3
-	`, userID, limit, offset)
-
-	if err != nil {
-		return nil, 0, apperrors.Wrap(err, "failed to get API keys")
-	}
-	defer rows.Close()
-
-	var apiKeys []APIKey
-	for rows.Next() {
-		var apiKey APIKey
-		err := rows.Scan(&apiKey.ID, &apiKey.UserID, &apiKey.Key, &apiKey.Name, &apiKey.CreatedAt, &apiKey.ExpiresAt, &apiKey.RevokedAt)
-		if err != nil {
-			return nil, 0, apperrors.Wrap(err, "failed to scan API key")
-		}
-		apiKeys = append(apiKeys, apiKey)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, 0, apperrors.Wrap(err, "error iterating API key rows")
-	}
-
-	return apiKeys, total, nil
+func (s *AuthService) GetAPIKeysWithPagination(ctx context.Context, userID string, offset, limit int) ([]*APIKey, int64, error) {
+	return s.apiKeyRepo.FindByUserIDWithPagination(ctx, userID, offset, limit)
 }
 
 // RevokeAPIKey revokes an API key
 func (s *AuthService) RevokeAPIKey(ctx context.Context, id string, userID string) error {
-	now := time.Now()
-	_, err := s.pool.Exec(ctx, `
-		UPDATE api_keys
-		SET revoked_at = $1
-		WHERE id = $2 AND user_id = $3 AND revoked_at IS NULL
-	`, now, id, userID)
+	return s.apiKeyRepo.Revoke(ctx, id, userID)
+}
 
+// DeleteAPIKey deletes an API key
+func (s *AuthService) DeleteAPIKey(ctx context.Context, id string) error {
+	return s.apiKeyRepo.Delete(ctx, id)
+}
+
+// IsAPIKeyValid checks if an API key is valid (not revoked and not expired)
+func (s *AuthService) IsAPIKeyValid(ctx context.Context, id string) (bool, error) {
+	apiKey, err := s.apiKeyRepo.FindByID(ctx, id)
 	if err != nil {
-		return apperrors.Wrap(err, "failed to revoke API key")
+		return false, err
 	}
-	return nil
+
+	// Check if revoked
+	if apiKey.RevokedAt != nil {
+		return false, nil
+	}
+
+	// Check if expired
+	if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// GetUserStats returns statistics about a user
+func (s *AuthService) GetUserStats(ctx context.Context, userID string) (map[string]interface{}, error) {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	apiKeys, err := s.apiKeyRepo.FindByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Count active API keys
+	activeAPIKeys := 0
+	for _, apiKey := range apiKeys {
+		if apiKey.RevokedAt == nil && (apiKey.ExpiresAt == nil || apiKey.ExpiresAt.After(time.Now())) {
+			activeAPIKeys++
+		}
+	}
+
+	stats := map[string]interface{}{
+		"user_id":         user.ID,
+		"user_name":       user.Name,
+		"user_email":      user.Email,
+		"provider":        user.Provider,
+		"created_at":      user.CreatedAt,
+		"updated_at":      user.UpdatedAt,
+		"total_api_keys":  len(apiKeys),
+		"active_api_keys": activeAPIKeys,
+	}
+
+	return stats, nil
 }

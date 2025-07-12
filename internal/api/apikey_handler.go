@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
 )
@@ -54,47 +53,41 @@ func (h *APIKeyHandler) RegisterRoutes(app *fiber.App) {
 func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 	user := c.Locals("user").(*services.User)
 
-	plainTextKey, hashedKey, err := h.apiKeyService.CreateNewAPIKey()
-	if err != nil {
-		return ErrorResponse(c, "failed to generate new api key", err)
-	}
-
 	// Parse request body
 	var req APIKeyRequest
 	if err := c.BodyParser(&req); err != nil {
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
 
-	apiKey := &services.APIKey{
-		ID:        uuid.New().String(),
-		UserID:    user.ID,
-		Name:      &req.Name,
-		Key:       string(hashedKey),
-		CreatedAt: time.Now(),
-	}
-
-	// Set expiration if provided
+	// Parse expiration date if provided
+	var expiresAt *time.Time
 	if req.ExpiresAt != nil && *req.ExpiresAt != "" {
-		expiresAt, err := time.Parse(time.RFC3339, *req.ExpiresAt)
+		parsedTime, err := time.Parse(time.RFC3339, *req.ExpiresAt)
 		if err != nil {
 			return ErrorResponse(c, "Invalid expiration date format", err, http.StatusBadRequest)
 		}
-		apiKey.ExpiresAt = &expiresAt
+		expiresAt = &parsedTime
 	}
-	// If no expiration provided, ExpiresAt remains nil (no expiration)
 
-	if err := h.apiKeyService.CreateAPIKey(c.Context(), apiKey); err != nil {
-		return ErrorResponse(c, "failed to save API key", err)
+	// Create the API key using the service
+	apiKeyResponse, plainTextKey, err := h.apiKeyService.CreateAPIKey(c.Context(), user.ID, req.Name, expiresAt)
+	if err != nil {
+		return ErrorResponse(c, "failed to create API key", err)
+	}
+
+	name := ""
+	if apiKeyResponse.Name != nil {
+		name = *apiKeyResponse.Name
 	}
 
 	return c.JSON(APIKeyResponse{
 		APIKey: APIKey{
-			ID:        apiKey.ID,
-			UserID:    apiKey.UserID,
+			ID:        apiKeyResponse.ID,
+			UserID:    apiKeyResponse.UserID,
 			Key:       plainTextKey,
-			Name:      *apiKey.Name,
-			CreatedAt: apiKey.CreatedAt,
-			ExpiresAt: apiKey.ExpiresAt,
+			Name:      name,
+			CreatedAt: apiKeyResponse.CreatedAt,
+			ExpiresAt: apiKeyResponse.ExpiresAt,
 		},
 	})
 }
@@ -134,17 +127,23 @@ func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 
 	// Get paginated API keys
-	apiKeys, total, err := h.apiKeyService.GetAPIKeysWithPagination(c.Context(), user.ID, offset, limit)
+	paginatedResponse, err := h.apiKeyService.GetAPIKeysWithPagination(c.Context(), user.ID, offset, limit)
 	if err != nil {
 		return ErrorResponse(c, "failed to get API keys", err)
 	}
 
 	// Convert to response format
 	var keys []APIKey
-	for _, k := range apiKeys {
+	apiKeyResponses := paginatedResponse.Data.([]*services.APIKeyResponse)
+	for _, k := range apiKeyResponses {
+		name := ""
+		if k.Name != nil {
+			name = *k.Name
+		}
 		keys = append(keys, APIKey{
 			ID:        k.ID,
 			UserID:    k.UserID,
+			Name:      name,
 			CreatedAt: k.CreatedAt,
 			ExpiresAt: k.ExpiresAt,
 			RevokedAt: k.RevokedAt,
@@ -152,7 +151,7 @@ func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 	}
 
 	// Calculate pagination metadata
-	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+	totalPages := int(math.Ceil(float64(paginatedResponse.Total) / float64(limit)))
 	hasNext := page < totalPages
 	hasPrev := page > 1
 
@@ -161,7 +160,7 @@ func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 		Pagination: PaginationMetadata{
 			Page:       page,
 			Limit:      limit,
-			Total:      total,
+			Total:      paginatedResponse.Total,
 			TotalPages: totalPages,
 			HasNext:    hasNext,
 			HasPrev:    hasPrev,

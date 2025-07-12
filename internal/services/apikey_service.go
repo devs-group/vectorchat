@@ -6,25 +6,27 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
+// APIKeyService handles API key operations
 type APIKeyService struct {
-	pool *pgxpool.Pool
+	repo APIKeyRepository
 }
 
-func NewAPIKeyService(pool *pgxpool.Pool) *APIKeyService {
+// NewAPIKeyService creates a new APIKeyService
+func NewAPIKeyService(repo APIKeyRepository) *APIKeyService {
 	return &APIKeyService{
-		pool: pool,
+		repo: repo,
 	}
 }
 
 // CreateNewAPIKey generates a new plain text API key and its bcrypt hash.
 // It returns the plain text key (show ONCE to the user) and the hash (store in DB).
-func (s *APIKeyService) CreateNewAPIKey() (plainTextKey string, hashedKey string, err error) {
+func (s *APIKeyService) CreateNewAPIKey(name string, expiresAt *time.Time) (plainTextKey string, hashedKey string, err error) {
 	b := make([]byte, 32)
 	if _, err = rand.Read(b); err != nil {
 		err = errors.Wrap(err, "failed to generate random bytes")
@@ -56,72 +58,140 @@ func (s *APIKeyService) IsAPIKeyValid(storedHashedKey, providedPlainTextKey stri
 }
 
 // CreateAPIKey creates a new API key
-func (s *APIKeyService) CreateAPIKey(ctx context.Context, apiKey *APIKey) error {
-	_, err := s.pool.Exec(ctx, `
-		INSERT INTO api_keys (id, user_id, key, name, created_at, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, apiKey.ID, apiKey.UserID, apiKey.Key, apiKey.Name, apiKey.CreatedAt, apiKey.ExpiresAt)
-
+func (s *APIKeyService) CreateAPIKey(ctx context.Context, userID, name string, expiresAt *time.Time) (*APIKeyResponse, string, error) {
+	// Generate the API key
+	plainTextKey, hashedKey, err := s.CreateNewAPIKey(name, expiresAt)
 	if err != nil {
-		return apperrors.Wrap(err, "failed to create API key")
+		return nil, "", apperrors.Wrap(err, "failed to generate API key")
 	}
 
-	return nil
+	// Create the API key record
+	apiKey := &APIKey{
+		ID:        uuid.New().String(),
+		UserID:    userID,
+		Key:       hashedKey,
+		Name:      &name,
+		CreatedAt: time.Now(),
+		ExpiresAt: expiresAt,
+	}
+
+	err = s.repo.Create(ctx, apiKey)
+	if err != nil {
+		return nil, "", apperrors.Wrap(err, "failed to create API key")
+	}
+
+	return apiKey.ToResponse(), plainTextKey, nil
+}
+
+// GetAPIKey finds an API key by ID
+func (s *APIKeyService) GetAPIKey(ctx context.Context, id string) (*APIKeyResponse, error) {
+	apiKey, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return apiKey.ToResponse(), nil
+}
+
+// GetAPIKeysForUser gets all API keys for a user
+func (s *APIKeyService) GetAPIKeysForUser(ctx context.Context, userID string) ([]*APIKeyResponse, error) {
+	apiKeys, err := s.repo.FindByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]*APIKeyResponse, len(apiKeys))
+	for i, apiKey := range apiKeys {
+		responses[i] = apiKey.ToResponse()
+	}
+
+	return responses, nil
 }
 
 // GetAPIKeysWithPagination gets API keys for a user with pagination support
-func (s *APIKeyService) GetAPIKeysWithPagination(ctx context.Context, userID string, offset, limit int) ([]APIKey, int64, error) {
-	// Get total count
-	var total int64
-	err := s.pool.QueryRow(ctx, `
-		SELECT COUNT(*) FROM api_keys WHERE user_id = $1
-	`, userID).Scan(&total)
+func (s *APIKeyService) GetAPIKeysWithPagination(ctx context.Context, userID string, offset, limit int) (*PaginatedResponse, error) {
+	apiKeys, total, err := s.repo.FindByUserIDWithPagination(ctx, userID, offset, limit)
 	if err != nil {
-		return nil, 0, apperrors.Wrap(err, "failed to get total API keys count")
+		return nil, err
 	}
 
-	// Get paginated results
-	rows, err := s.pool.Query(ctx, `
-		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
-		FROM api_keys
-		WHERE user_id = $1
-		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3
-	`, userID, limit, offset)
+	responses := make([]*APIKeyResponse, len(apiKeys))
+	for i, apiKey := range apiKeys {
+		responses[i] = apiKey.ToResponse()
+	}
 
+	return NewPaginatedResponse(responses, total, offset, limit), nil
+}
+
+// FindAPIKeyByPlaintext finds an API key by comparing against stored hashes
+func (s *APIKeyService) FindAPIKeyByPlaintext(ctx context.Context, plainTextKey string) (*APIKey, error) {
+	compareFunc := func(hashedKey string) (bool, error) {
+		return s.IsAPIKeyValid(hashedKey, plainTextKey)
+	}
+
+	return s.repo.FindByHashComparison(ctx, compareFunc)
+}
+
+// ValidateAPIKey validates an API key and returns the associated user ID
+func (s *APIKeyService) ValidateAPIKey(ctx context.Context, plainTextKey string) (string, error) {
+	apiKey, err := s.FindAPIKeyByPlaintext(ctx, plainTextKey)
 	if err != nil {
-		return nil, 0, apperrors.Wrap(err, "failed to get API keys")
-	}
-	defer rows.Close()
-
-	var apiKeys []APIKey
-	for rows.Next() {
-		var apiKey APIKey
-		err := rows.Scan(&apiKey.ID, &apiKey.UserID, &apiKey.Key, &apiKey.Name, &apiKey.CreatedAt, &apiKey.ExpiresAt, &apiKey.RevokedAt)
-		if err != nil {
-			return nil, 0, apperrors.Wrap(err, "failed to scan API key")
-		}
-		apiKeys = append(apiKeys, apiKey)
+		return "", apperrors.Wrap(err, "API key validation failed")
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, 0, apperrors.Wrap(err, "error iterating API key rows")
+	// Check if the key is revoked
+	if apiKey.RevokedAt != nil {
+		return "", apperrors.ErrInvalidAPIKey
 	}
 
-	return apiKeys, total, nil
+	// Check if the key is expired
+	if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
+		return "", apperrors.ErrInvalidAPIKey
+	}
+
+	return apiKey.UserID, nil
 }
 
 // RevokeAPIKey revokes an API key
 func (s *APIKeyService) RevokeAPIKey(ctx context.Context, id string, userID string) error {
-	now := time.Now()
-	_, err := s.pool.Exec(ctx, `
-		UPDATE api_keys
-		SET revoked_at = $1
-		WHERE id = $2 AND user_id = $3 AND revoked_at IS NULL
-	`, now, id, userID)
+	return s.repo.Revoke(ctx, id, userID)
+}
 
+// DeleteAPIKey deletes an API key
+func (s *APIKeyService) DeleteAPIKey(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
+}
+
+// IsAPIKeyRevoked checks if an API key is revoked
+func (s *APIKeyService) IsAPIKeyRevoked(ctx context.Context, id string) (bool, error) {
+	return s.repo.IsRevoked(ctx, id)
+}
+
+// IsAPIKeyExpired checks if an API key is expired
+func (s *APIKeyService) IsAPIKeyExpired(ctx context.Context, id string) (bool, error) {
+	return s.repo.IsExpired(ctx, id)
+}
+
+// SetAPIKeyExpiration sets an expiration date for an API key
+func (s *APIKeyService) SetAPIKeyExpiration(ctx context.Context, id, userID string, expiresAt time.Time) error {
+	apiKey, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return apperrors.Wrap(err, "failed to revoke API key")
+		return err
 	}
+
+	// Check ownership
+	if apiKey.UserID != userID {
+		return apperrors.ErrAPIKeyNotFound
+	}
+
+	apiKey.ExpiresAt = &expiresAt
+	return s.repo.Create(ctx, apiKey) // This will update due to ON CONFLICT clause
+}
+
+// CleanupExpiredKeys removes expired API keys
+func (s *APIKeyService) CleanupExpiredKeys(ctx context.Context) error {
+	// This would typically be a background job
+	// For now, we'll just mark them as revoked
+	// TODO: Implement proper cleanup logic
 	return nil
 }

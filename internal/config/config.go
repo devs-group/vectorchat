@@ -9,4 +9,5 @@ type AppConfig struct {
 	BaseURL        string `env:"BASE_URL" envRequired:"true"`
 	IsSSL          bool   `env:"IS_SSL" envDefault:"false"`
 	MigrationsPath string `env:"MIGRATIONS_PATH" envRequired:"true"`
+	FrontendURL    string `env:"FRONTEND_URL" envRequired:"true"`
 }

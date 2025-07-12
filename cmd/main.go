@@ -105,11 +105,15 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
 
+	// Initialize repositories
+	repos := services.NewRepositories(pool)
+	reposTx := services.NewRepositoriesTx(pool)
+
 	// Initialize services
-	authService := services.NewAuthService(pool)
-	chatService := services.NewChatService(pool, vectorizer, openaiKey)
-	apiKeyService := services.NewAPIKeyService(pool)
-	homeService := services.NewHomeService(pool)
+	authService := services.NewAuthService(repos.User, repos.APIKey)
+	chatService := services.NewChatService(reposTx.Chatbot, reposTx.Document, reposTx.File, vectorizer, openaiKey, pool)
+	apiKeyService := services.NewAPIKeyService(repos.APIKey)
+	homeService := services.NewHomeService(repos.User)
 
 	// Create uploads directory if it doesn't exist
 	uploadsDir := "uploads"
@@ -117,7 +121,7 @@ func runApplication(appCfg *config.AppConfig) error {
 		return fmt.Errorf("failed to create uploads directory: %v", err)
 	}
 
-	// Initialize postgres sotrage with new config
+	// Initialize postgres storage with new config
 	sessionStore := postgres.New(postgres.Config{
 		ConnectionURI: pgConnStr,
 		Table:         "fiber_storage",
@@ -131,17 +135,16 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize ownership middleware
 	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatService)
 
-	/**
+	// Build redirect URL based on SSL configuration
 	redirectURL := fmt.Sprintf("http://%s", appCfg.BaseURL)
 	if appCfg.IsSSL {
 		redirectURL = fmt.Sprintf("https://%s", appCfg.BaseURL)
 	}
-	*/
 	// Initialize OAuth configuration
 	oAuthConfig := &api.OAuthConfig{
 		GitHubClientID:     appCfg.GithubID,
 		GitHubClientSecret: appCfg.GithubSecret,
-		RedirectURL:        "http://localhost:3000",
+		RedirectURL:        redirectURL,
 		SessionStore:       sessionStore,
 	}
 
@@ -154,8 +157,12 @@ func runApplication(appCfg *config.AppConfig) error {
 	app.Use(logger.New())
 
 	// Configure CORS with more permissive settings
+	frontendURL := fmt.Sprintf("http://%s", appCfg.FrontendURL)
+	if appCfg.IsSSL {
+		frontendURL = fmt.Sprintf("https://%s", appCfg.FrontendURL)
+	}
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:3000", // Allow all origins
+		AllowOrigins:     frontendURL,
 		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-API-Key",
 		AllowCredentials: true,

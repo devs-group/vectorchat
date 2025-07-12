@@ -29,9 +29,16 @@ var (
 	// ErrInvalidAPIKey is returned when the api key is invalid
 	ErrInvalidAPIKey = errors.New("API key is invalid")
 
-	ErrChatbotNotFound        = errors.New("chatbot not found")
-	ErrInvalidChatbotParameters = errors.New("invalid chatbot parameters")
+	ErrChatbotNotFound           = errors.New("chatbot not found")
+	ErrInvalidChatbotParameters  = errors.New("invalid chatbot parameters")
 	ErrUnauthorizedChatbotAccess = errors.New("unauthorized access to chatbot")
+
+	// Additional error definitions for repositories
+	ErrUserAlreadyExists    = errors.New("user already exists")
+	ErrAPIKeyAlreadyExists  = errors.New("API key already exists")
+	ErrChatbotAlreadyExists = errors.New("chatbot already exists")
+	ErrFileNotFound         = errors.New("file not found")
+	ErrFileAlreadyExists    = errors.New("file already exists")
 )
 
 // WithDetails adds context details to an error

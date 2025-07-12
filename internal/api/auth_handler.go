@@ -181,15 +181,8 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 	}
 
 	if user == nil {
-		user = &services.User{
-			ID:        uuid.New().String(),
-			Name:      githubUser.Name,
-			Email:     githubUser.Email,
-			Provider:  "github",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-		if err := h.authService.CreateUser(c.Context(), user); err != nil {
+		user, err = h.authService.CreateUser(c.Context(), uuid.New().String(), githubUser.Name, githubUser.Email, "github")
+		if err != nil {
 			return ErrorResponse(c, "failed to create user", err)
 		}
 	}
@@ -209,6 +202,7 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 		SameSite: "Strict",
 		Path:     "/",
 	})
+	c.Redirect("http://localhost:3000")
 
 	return c.JSON(fiber.Map{
 		"success": true,

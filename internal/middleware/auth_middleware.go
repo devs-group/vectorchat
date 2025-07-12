@@ -30,7 +30,7 @@ func NewAuthMiddleware(sessionStore *postgres.Storage, authService *services.Aut
 func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 	apiKey := c.Get("X-API-Key")
 	if apiKey != "" {
-		apiKeyRecord, err := m.authService.FindAPIKey(c.Context(), func(hashedKey string) (bool, error) {
+		apiKeyRecord, err := m.authService.FindAPIKeyByPlaintext(c.Context(), apiKey, func(hashedKey string) (bool, error) {
 			isValid, err := m.APIKeyService.IsAPIKeyValid(hashedKey, apiKey)
 			if err != nil {
 				return false, errors.Wrap(err, "failed to verify api key")

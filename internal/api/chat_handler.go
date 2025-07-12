@@ -139,7 +139,7 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 	docID := fmt.Sprintf("%s-%s", chatID, filename)
 
 	// Remove from database
-	if err := h.ChatService.DeleteDocument(c.Context(), docID); err != nil {
+	if err := h.ChatService.DeleteDocumentByID(c.Context(), docID); err != nil {
 		return ErrorResponse(c, "Failed to delete document", err)
 	}
 
@@ -464,7 +464,7 @@ func (h *ChatHandler) GET_ChatbotByID(c *fiber.Ctx) error {
 	}
 
 	// Get chatbot details
-	chatbot, err := h.ChatService.GetChatbotByID(c.Context(), chatbotID)
+	chatbot, err := h.ChatService.GetChatbotByID(c.Context(), chatbotID.String())
 	if err != nil {
 		return ErrorResponse(c, "Failed to retrieve chatbot", err)
 	}
