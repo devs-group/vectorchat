@@ -109,17 +109,17 @@ func runApplication(appCfg *config.AppConfig) error {
 	repos := services.NewRepositories(pool)
 	reposTx := services.NewRepositoriesTx(pool)
 
-	// Initialize services
-	authService := services.NewAuthService(repos.User, repos.APIKey)
-	chatService := services.NewChatService(reposTx.Chatbot, reposTx.Document, reposTx.File, vectorizer, openaiKey, pool)
-	apiKeyService := services.NewAPIKeyService(repos.APIKey)
-	homeService := services.NewHomeService(repos.User)
-
 	// Create uploads directory if it doesn't exist
 	uploadsDir := "uploads"
 	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create uploads directory: %v", err)
 	}
+
+	// Initialize services
+	authService := services.NewAuthService(repos.User, repos.APIKey)
+	chatService := services.NewChatService(reposTx.Chatbot, reposTx.Document, reposTx.File, vectorizer, openaiKey, pool, uploadsDir)
+	apiKeyService := services.NewAPIKeyService(repos.APIKey)
+	homeService := services.NewHomeService(repos.User)
 
 	// Initialize postgres storage with new config
 	sessionStore := postgres.New(postgres.Config{

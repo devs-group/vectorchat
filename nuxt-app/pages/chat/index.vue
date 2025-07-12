@@ -90,8 +90,8 @@
               <Button
                 variant="ghost"
                 size="icon"
-                class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                @click.stop="deleteChat(chat.id)"
+                class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity relative z-10"
+                @click.stop="showDeleteConfirmation(chat.id)"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -164,10 +164,38 @@
         ></NuxtLink>
       </div>
     </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <Dialog v-model:open="showDeleteDialog">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Delete Chatbot</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete this chatbot? This action cannot be
+            undone. All associated files, documents, and conversations will be
+            permanently deleted.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter class="gap-2">
+          <Button variant="outline" @click="cancelDelete"> Cancel </Button>
+          <Button variant="destructive" @click="deleteChat"> Delete </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
+import { toast } from "vue-sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 definePageMeta({
   layout: "authenticated",
 });
@@ -209,9 +237,44 @@ const createNewChat = async () => {
   router.push("/chat/create");
 };
 
+// Delete chat state
+const showDeleteDialog = ref(false);
+const chatToDelete = ref<string | null>(null);
+
+// Show delete confirmation dialog
+const showDeleteConfirmation = (chatId: string) => {
+  chatToDelete.value = chatId;
+  showDeleteDialog.value = true;
+};
+
 // Delete chat
-const deleteChat = async (chatId: string) => {
-  // TODO: Implement chat deletion using the API
-  console.log("Delete chat:", chatId);
+const deleteChat = async () => {
+  if (!chatToDelete.value) return;
+
+  try {
+    const { execute: executeDelete } = apiService.deleteChatbot(
+      chatToDelete.value,
+    );
+    await executeDelete();
+
+    // Refresh the chatbots list
+    await listChatbots();
+
+    toast.success("Chatbot deleted successfully");
+  } catch (error) {
+    console.error("Error deleting chatbot:", error);
+    toast.error("Failed to delete chatbot", {
+      description: (error as Error)?.message || "An error occurred",
+    });
+  } finally {
+    showDeleteDialog.value = false;
+    chatToDelete.value = null;
+  }
+};
+
+// Cancel delete
+const cancelDelete = () => {
+  showDeleteDialog.value = false;
+  chatToDelete.value = null;
 };
 </script>

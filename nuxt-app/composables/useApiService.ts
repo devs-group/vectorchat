@@ -178,6 +178,20 @@ export function useApiService() {
     );
   };
 
+  const deleteChatbot = (chatbotId: string) => {
+    return useApi(
+      async () => {
+        return await useApiFetch(`/chat/chatbot/${chatbotId}`, {
+          method: "DELETE",
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Chatbot deleted successfully",
+      },
+    );
+  };
+
   const sendChatMessage = (chatID: string, query: string) => {
     return useApi(async () => {
       return await useApiFetch(`/chat/${chatID}/message`, {
@@ -277,6 +291,7 @@ export function useApiService() {
     listChatbots,
     getChatbot,
     updateChatbot,
+    deleteChatbot,
     sendChatMessage,
     uploadFile,
     updateFile,

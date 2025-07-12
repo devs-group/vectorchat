@@ -8,64 +8,10 @@
       {{ chatbot.description }}
     </p>
 
-    <!-- Chat Files Section -->
-    <div v-if="files.length > 0" class="rounded border p-2 mb-4 bg-white/60">
-      <h3 class="font-medium text-base mb-2 text-left">Files</h3>
-      <div class="flex flex-wrap gap-1">
-        <div
-          v-for="file in files"
-          :key="file.filename"
-          class="flex items-center gap-1 rounded border px-2 py-1 text-xs bg-white"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="h-3 w-3"
-          >
-            <path
-              d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"
-            ></path>
-            <polyline points="13 2 13 9 20 9"></polyline>
-          </svg>
-          <span>{{ file.filename }}</span>
-          <span class="text-[10px] text-muted-foreground">{{
-            formatFileSize(file.size)
-          }}</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            class="h-4 w-4 ml-0.5"
-            @click="deleteFile(file.filename)"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="h-3 w-3"
-            >
-              <path d="M18 6L6 18"></path>
-              <path d="M6 6l12 12"></path>
-            </svg>
-          </Button>
-        </div>
-      </div>
-    </div>
-
     <!-- Messages Container -->
-    <div class="flex-1 overflow-y-auto rounded border p-2 bg-white/70 min-h-[200px] max-h-[400px] mb-4">
+    <div
+      class="flex-1 overflow-y-auto rounded border p-2 bg-white/70 min-h-[200px] max-h-[400px] mb-4"
+    >
       <div
         v-if="messages.length === 0"
         class="flex flex-col items-center justify-center h-full py-8"
@@ -152,17 +98,19 @@
               message.timestamp
             }}</span>
           </div>
-          <div class="text-sm whitespace-pre-wrap text-left">{{ message.content }}</div>
+          <div class="text-sm whitespace-pre-wrap text-left">
+            {{ message.content }}
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Input Box -->
-    <div class="flex gap-1 mt-2">
-      <div class="relative flex-1">
+    <div class="mt-2">
+      <div class="relative">
         <textarea
           v-model="newMessage"
-          class="w-full rounded border px-3 py-2 pr-10 resize-none text-sm min-h-[36px] max-h-[80px]"
+          class="w-full rounded border px-3 py-2 pr-12 resize-none text-sm min-h-[36px] max-h-[80px]"
           rows="1"
           placeholder="Type your message..."
           @keydown.enter.prevent="sendMessage"
@@ -190,35 +138,6 @@
           </svg>
         </button>
       </div>
-      <Button
-        @click="handleUploadFile"
-        class="transition-all hover:shadow-md px-2 py-1 text-xs"
-        variant="outline"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="mr-1 h-3 w-3"
-        >
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
-        </svg>
-        Upload
-      </Button>
-      <input
-        type="file"
-        ref="fileInput"
-        class="hidden"
-        @change="onFileSelected"
-      />
     </div>
   </div>
 </template>
@@ -227,7 +146,7 @@
 import { ref, onMounted, watch } from "vue";
 import { toast } from "vue-sonner";
 import { Button } from "@/components/ui/button";
-import type { ChatbotResponse, ChatFile } from "~/types/api";
+import type { ChatbotResponse } from "~/types/api";
 
 interface Props {
   chatId: string;
@@ -248,8 +167,6 @@ const apiService = useApiService();
 const chatbot = ref<ChatbotResponse | null>(null);
 const messages = ref<Message[]>([]);
 const newMessage = ref("");
-const files = ref<ChatFile[]>([]);
-const fileInput = ref<HTMLInputElement | null>(null);
 
 // Loading state
 const isSendingMessage = ref(false);
@@ -275,26 +192,6 @@ const fetchChatbotDetails = async () => {
   } catch (error) {
     console.error("Error fetching chatbot details:", error);
     throw error;
-  }
-};
-
-// Fetch chat files
-const fetchChatFiles = async () => {
-  try {
-    const { data: filesData, execute: executeFetchFiles } =
-      apiService.listChatFiles(props.chatId);
-
-    await executeFetchFiles();
-
-    if (
-      filesData.value &&
-      typeof filesData.value === "object" &&
-      "files" in filesData.value
-    ) {
-      files.value = (filesData.value.files as ChatFile[]) || [];
-    }
-  } catch (error) {
-    console.error("Error fetching chat files:", error);
   }
 };
 
@@ -353,61 +250,10 @@ const sendMessage = async () => {
   }
 };
 
-// Handle file upload button click
-const handleUploadFile = () => {
-  fileInput.value?.click();
-};
-
-// Handle file selection
-const onFileSelected = async (event: Event) => {
-  const input = event.target as HTMLInputElement;
-  if (!input.files || input.files.length === 0) return;
-
-  const file = input.files[0];
-
-  try {
-    await apiService.uploadFile(props.chatId, file);
-    // Show success toast
-    toast.success("File uploaded successfully");
-    // Refresh file list
-    await fetchChatFiles();
-    // Clear input
-    input.value = "";
-  } catch (error) {
-    console.error("Error uploading file:", error);
-    toast.error("Error uploading file", { description: (error as Error)?.message });
-  }
-};
-
-// Delete a file
-const deleteFile = async (filename: string) => {
-  try {
-    const { execute: executeDelete } = apiService.deleteFile(props.chatId, filename);
-    await executeDelete();
-
-    // Refresh file list
-    await fetchChatFiles();
-  } catch (error) {
-    console.error("Error deleting file:", error);
-  }
-};
-
-// Format file size
-const formatFileSize = (sizeInBytes: number) => {
-  if (sizeInBytes < 1024) {
-    return `${sizeInBytes} B`;
-  } else if (sizeInBytes < 1024 * 1024) {
-    return `${(sizeInBytes / 1024).toFixed(1)} KB`;
-  } else {
-    return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-};
-
 // Initialize chat data
 const initializeChat = async () => {
   try {
     await fetchChatbotDetails();
-    await fetchChatFiles();
   } catch (error) {
     console.error("Error initializing chat:", error);
     throw error;
@@ -417,7 +263,6 @@ const initializeChat = async () => {
 // Reset chat data
 const resetChat = () => {
   messages.value = [];
-  files.value = [];
   chatbot.value = null;
   newMessage.value = "";
 };

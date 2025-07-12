@@ -47,6 +47,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Get("/chatbots", h.GET_ListChatbots)
 	chat.Get("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatbotByID)
 	chat.Put("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateChatbot)
+	chat.Delete("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_Chatbot)
 	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
 	chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
 	chat.Put("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateFile)
@@ -559,5 +560,41 @@ func (h *ChatHandler) PUT_UpdateChatbot(c *fiber.Ctx) error {
 			CreatedAt:          chatbot.CreatedAt,
 			UpdatedAt:          chatbot.UpdatedAt,
 		},
+	})
+}
+
+// @Summary Delete chatbot
+// @Description Delete a chatbot and all associated data including files, documents, and conversations
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatbotID path string true "Chatbot ID"
+// @Success 200 {object} MessageResponse
+// @Failure 400 {object} APIResponse
+// @Failure 401 {object} APIResponse
+// @Failure 403 {object} APIResponse
+// @Failure 404 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/chatbot/{chatbotID} [delete]
+func (h *ChatHandler) DELETE_Chatbot(c *fiber.Ctx) error {
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+
+	chatID := c.Params("chatID")
+	if chatID == "" {
+		return ErrorResponse(c, "Chat ID is required", nil, http.StatusBadRequest)
+	}
+
+	// Delete the chatbot and all associated data (files, documents, etc.)
+	err = h.ChatService.DeleteChatbot(c.Context(), chatID, user.ID)
+	if err != nil {
+		return ErrorResponse(c, "Failed to delete chatbot", err)
+	}
+
+	return c.JSON(MessageResponse{
+		Message: "Chatbot deleted successfully",
 	})
 }

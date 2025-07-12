@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -24,6 +26,7 @@ type ChatService struct {
 	vectorizer   vectorize.Vectorizer
 	openaiKey    string
 	db           *Database
+	uploadsDir   string
 }
 
 // NewChatService creates a new chat service
@@ -34,6 +37,7 @@ func NewChatService(
 	vectorizer vectorize.Vectorizer,
 	openaiKey string,
 	db *Database,
+	uploadsDir string,
 ) *ChatService {
 	return &ChatService{
 		chatbotRepo:  chatbotRepo,
@@ -42,6 +46,7 @@ func NewChatService(
 		vectorizer:   vectorizer,
 		openaiKey:    openaiKey,
 		db:           db,
+		uploadsDir:   uploadsDir,
 	}
 }
 
@@ -289,6 +294,12 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 
 	chatbotUUID := uuid.MustParse(chatbotID)
 
+	// Get all files before deleting them from database (for physical file cleanup)
+	files, err := s.fileRepo.FindByChatbotID(ctx, chatbotUUID)
+	if err != nil {
+		return apperrors.Wrap(err, "failed to get chatbot files for cleanup")
+	}
+
 	// Start transaction
 	tx, err := s.db.BeginTx(ctx)
 	if err != nil {
@@ -302,7 +313,7 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 		return apperrors.Wrap(err, "failed to delete chatbot documents")
 	}
 
-	// Delete associated files
+	// Delete associated files from database
 	err = s.fileRepo.DeleteByChatbotIDTx(ctx, tx, chatbotUUID)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to delete chatbot files")
@@ -318,6 +329,17 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 	err = tx.Commit()
 	if err != nil {
 		return apperrors.Wrap(err, "failed to commit transaction")
+	}
+
+	// Delete physical files from uploads directory
+	for _, file := range files {
+		storedFilename := fmt.Sprintf("%s-%s", chatbotID, file.Filename)
+		filePath := filepath.Join(s.uploadsDir, storedFilename)
+
+		if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+			// Log the error but don't fail the entire operation if file doesn't exist
+			log.Printf("Warning: Failed to delete physical file %s: %v", filePath, err)
+		}
 	}
 
 	return nil

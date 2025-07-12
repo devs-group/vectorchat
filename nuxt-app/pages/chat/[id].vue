@@ -46,6 +46,11 @@
           :is-loading="isUpdating"
           @submit="handleUpdate"
         />
+
+        <!-- File Upload Section -->
+        <div v-if="chatbot" class="mt-8 pt-8 border-t border-border">
+          <FileUpload :chat-id="chatId" ref="fileUpload" />
+        </div>
       </div>
     </div>
 
@@ -66,6 +71,9 @@
           @error="handleChatError"
           ref="chatInterface"
         />
+
+        <!-- API Documentation -->
+        <ApiDocumentation v-if="chatId" :chat-id="chatId" />
       </div>
     </div>
 
@@ -84,6 +92,8 @@ import { ref, watch, onMounted } from "vue";
 import { toast } from "vue-sonner";
 import ChatInterface from "./components/ChatInterface.vue";
 import ChatbotForm from "./components/ChatbotForm.vue";
+import FileUpload from "./components/FileUpload.vue";
+import ApiDocumentation from "./components/ApiDocumentation.vue";
 import { Button } from "@/components/ui/button";
 import type { ChatbotResponse } from "~/types/api";
 
@@ -108,6 +118,7 @@ const showUpdateSuccess = ref(false);
 
 // Refs
 const chatInterface = ref<InstanceType<typeof ChatInterface> | null>(null);
+const fileUpload = ref<InstanceType<typeof FileUpload> | null>(null);
 
 // Fetch chatbot data
 const fetchChatbotData = async () => {
