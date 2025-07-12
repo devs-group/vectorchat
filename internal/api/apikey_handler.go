@@ -69,7 +69,6 @@ func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 		expiresAt = &parsedTime
 	}
 
-	// Create the API key using the service
 	apiKeyResponse, plainTextKey, err := h.apiKeyService.CreateAPIKey(c.Context(), user.ID, req.Name, expiresAt)
 	if err != nil {
 		return ErrorResponse(c, "failed to create API key", err)
