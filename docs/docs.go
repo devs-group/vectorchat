@@ -98,7 +98,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.APIKeyRequest"
+                            "$ref": "#/definitions/services.APIKeyCreateRequest"
                         }
                     }
                 ],
@@ -361,7 +361,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.ChatbotCreateRequest"
+                            "$ref": "#/definitions/services.ChatbotCreateRequest"
                         }
                     }
                 ],
@@ -369,7 +369,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/api.ChatbotResponse"
+                            "$ref": "#/definitions/services.ChatbotResponse"
                         }
                     },
                     "400": {
@@ -424,7 +424,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.ChatbotResponse"
+                            "$ref": "#/definitions/services.ChatbotResponse"
                         }
                     },
                     "400": {
@@ -490,7 +490,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.ChatbotUpdateRequest"
+                            "$ref": "#/definitions/services.ChatbotUpdateRequest"
                         }
                     }
                 ],
@@ -498,7 +498,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.ChatbotResponse"
+                            "$ref": "#/definitions/services.ChatbotResponse"
                         }
                     },
                     "400": {
@@ -623,7 +623,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/api.ChatbotResponse"
+                                "$ref": "#/definitions/services.ChatbotsListResponse"
                             }
                         }
                     },
@@ -845,7 +845,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.ChatMessageRequest"
+                            "$ref": "#/definitions/services.ChatMessageRequest"
                         }
                     },
                     {
@@ -990,17 +990,6 @@ const docTemplate = `{
                 }
             }
         },
-        "api.APIKeyRequest": {
-            "type": "object",
-            "properties": {
-                "expires_at": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
         "api.APIKeyResponse": {
             "type": "object",
             "properties": {
@@ -1057,15 +1046,6 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ChatMessageRequest": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "example": "What is this project about?"
-                }
-            }
-        },
         "api.ChatResponse": {
             "type": "object",
             "properties": {
@@ -1077,99 +1057,6 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string"
-                }
-            }
-        },
-        "api.ChatbotCreateRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string",
-                    "example": "A helpful AI assistant for my project"
-                },
-                "max_tokens": {
-                    "type": "integer",
-                    "example": 2000
-                },
-                "model_name": {
-                    "type": "string",
-                    "example": "gpt-4"
-                },
-                "name": {
-                    "type": "string",
-                    "example": "My AI Assistant"
-                },
-                "system_instructions": {
-                    "type": "string",
-                    "example": "You are a helpful AI assistant"
-                },
-                "temperature_param": {
-                    "type": "number",
-                    "example": 0.7
-                }
-            }
-        },
-        "api.ChatbotResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "max_tokens": {
-                    "type": "integer"
-                },
-                "model_name": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "system_instructions": {
-                    "type": "string"
-                },
-                "temperature_param": {
-                    "type": "number"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "api.ChatbotUpdateRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string",
-                    "example": "An updated helpful AI assistant for my project"
-                },
-                "max_tokens": {
-                    "type": "integer",
-                    "example": 3000
-                },
-                "model_name": {
-                    "type": "string",
-                    "example": "gpt-4"
-                },
-                "name": {
-                    "type": "string",
-                    "example": "My Updated AI Assistant"
-                },
-                "system_instructions": {
-                    "type": "string",
-                    "example": "You are a helpful AI assistant with updated instructions"
-                },
-                "temperature_param": {
-                    "type": "number",
-                    "example": 0.8
                 }
             }
         },
@@ -1246,6 +1133,117 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "services.APIKeyCreateRequest": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.ChatMessageRequest": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.ChatbotCreateRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "max_tokens": {
+                    "type": "integer"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "system_instructions": {
+                    "type": "string"
+                },
+                "temperature_param": {
+                    "type": "number"
+                }
+            }
+        },
+        "services.ChatbotResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "max_tokens": {
+                    "type": "integer"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "system_instructions": {
+                    "type": "string"
+                },
+                "temperature_param": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.ChatbotUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "max_tokens": {
+                    "type": "integer"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "system_instructions": {
+                    "type": "string"
+                },
+                "temperature_param": {
+                    "type": "number"
+                }
+            }
+        },
+        "services.ChatbotsListResponse": {
+            "type": "object",
+            "properties": {
+                "chatbots": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.ChatbotResponse"
+                    }
                 }
             }
         }

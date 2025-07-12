@@ -39,6 +39,7 @@ var (
 	ErrChatbotAlreadyExists = errors.New("chatbot already exists")
 	ErrFileNotFound         = errors.New("file not found")
 	ErrFileAlreadyExists    = errors.New("file already exists")
+	ErrInvalidUserData      = errors.New("invalid user data")
 )
 
 // WithDetails adds context details to an error
@@ -64,4 +65,9 @@ func Wrapf(err error, format string, args ...interface{}) error {
 // Cause returns the underlying cause of the error
 func Cause(err error) error {
 	return errors.Cause(err)
+}
+
+// New creates a new error with the given message
+func New(message string) error {
+	return errors.New(message)
 }

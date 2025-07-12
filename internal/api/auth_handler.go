@@ -1,9 +1,6 @@
 package api
 
 import (
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,7 +9,6 @@ import (
 	"github.com/gofiber/storage/postgres"
 	"github.com/google/uuid"
 	"github.com/yourusername/vectorchat/internal/config"
-	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
 	"golang.org/x/oauth2"
@@ -83,22 +79,21 @@ func (h *OAuthHandler) RegisterRoutes(app *fiber.App) {
 // @Failure 500 {object} APIResponse
 // @Router /auth/github [get]
 func (h *OAuthHandler) GET_GitHubLogin(c *fiber.Ctx) error {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
+	// Generate OAuth state using service
+	oauthState, err := h.authService.GenerateOAuthState()
+	if err != nil {
 		return ErrorResponse(c, "failed to generate state", err)
 	}
-	state := base64.URLEncoding.EncodeToString(b)
-	stateKey := fmt.Sprintf("oauth_state_%s", uuid.New().String())
 
-	err := h.store.Set(stateKey, []byte(state), time.Hour)
+	err = h.store.Set(oauthState.StateKey, []byte(oauthState.State), time.Hour)
 	if err != nil {
 		return ErrorResponse(c, "failed to save state", err)
 	}
 
-	url := h.githubOAuth.AuthCodeURL(state)
+	url := h.githubOAuth.AuthCodeURL(oauthState.State)
 	c.Cookie(&fiber.Cookie{
 		Name:     "oauth_state_key",
-		Value:    stateKey,
+		Value:    oauthState.StateKey,
 		Expires:  time.Now().Add(time.Hour),
 		HTTPOnly: true,
 		Secure:   true,
@@ -142,50 +137,11 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 	}
 
 	client := h.githubOAuth.Client(c.Context(), token)
-	resp, err := client.Get("https://api.github.com/user")
+
+	// Process GitHub callback using service
+	user, err := h.authService.ProcessGitHubCallback(c.Context(), client)
 	if err != nil {
-		return ErrorResponse(c, "failed to get use info", err)
-	}
-	defer resp.Body.Close()
-
-	var githubUser struct {
-		ID    int    `json:"id"`
-		Login string `json:"login"`
-		Name  string `json:"name"`
-		Email string `json:"email"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&githubUser); err != nil {
-		return ErrorResponse(c, "failed to parse user info", err)
-	}
-
-	if githubUser.Email == "" {
-		emails, err := h.getGitHubEmails(client)
-		if err != nil {
-			return ErrorResponse(c, "failed to get email", err)
-		}
-		for _, email := range emails {
-			if email.Primary && email.Verified {
-				githubUser.Email = email.Email
-				break
-			}
-		}
-	}
-
-	if len(githubUser.Email) > 255 || len(githubUser.Name) > 100 {
-		return ErrorResponse(c, "invalid user data", nil, http.StatusBadRequest)
-	}
-
-	user, err := h.authService.FindUserByEmail(c.Context(), githubUser.Email)
-	if err != nil && !apperrors.Is(err, apperrors.ErrUserNotFound) {
-		return ErrorResponse(c, "failed to find user", err)
-	}
-
-	if user == nil {
-		user, err = h.authService.CreateUser(c.Context(), uuid.New().String(), githubUser.Name, githubUser.Email, "github")
-		if err != nil {
-			return ErrorResponse(c, "failed to create user", err)
-		}
+		return ErrorResponse(c, "failed to process GitHub callback", err)
 	}
 
 	sessionID := uuid.New().String()
@@ -273,26 +229,4 @@ func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
 	return c.JSON(MessageResponse{
 		Message: "Logged out successfully",
 	})
-}
-
-func (h *OAuthHandler) getGitHubEmails(client *http.Client) ([]struct {
-	Email    string `json:"email"`
-	Primary  bool   `json:"primary"`
-	Verified bool   `json:"verified"`
-}, error) {
-	resp, err := client.Get("https://api.github.com/user/emails")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var emails []struct {
-		Email    string `json:"email"`
-		Primary  bool   `json:"primary"`
-		Verified bool   `json:"verified"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
-		return nil, err
-	}
-	return emails, nil
 }

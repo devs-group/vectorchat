@@ -2,8 +2,6 @@ package api
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // User represents a user in the system
@@ -37,12 +35,6 @@ type APIResponse struct {
 // UserResponse represents the response for user-related endpoints
 type UserResponse struct {
 	User User `json:"user"`
-}
-
-// APIKeyRequest represents the request body to create api key
-type APIKeyRequest struct {
-	Name      string  `json:"name"`
-	ExpiresAt *string `json:"expires_at,omitempty"`
 }
 
 // APIKeyResponse represents the response for API key endpoints
@@ -81,11 +73,6 @@ type SessionResponse struct {
 	User User `json:"user"`
 }
 
-// ChatMessage represents a chat message request
-type ChatMessageRequest struct {
-	Query string `json:"query" example:"What is this project about?"`
-}
-
 // ChatResponse represents a chat response
 type ChatResponse struct {
 	Message string `json:"message"`
@@ -107,38 +94,4 @@ type ChatFilesResponse struct {
 		Size      int64     `json:"size"`
 		UpdatedAt time.Time `json:"updated_at"`
 	} `json:"files"`
-}
-
-// ChatbotCreateRequest represents the request to create a new chatbot
-type ChatbotCreateRequest struct {
-	Name               string  `json:"name" example:"My AI Assistant"`
-	Description        string  `json:"description" example:"A helpful AI assistant for my project"`
-	SystemInstructions string  `json:"system_instructions" example:"You are a helpful AI assistant"`
-	ModelName          string  `json:"model_name" example:"gpt-4"`
-	TemperatureParam   float64 `json:"temperature_param" example:"0.7"`
-	MaxTokens          int     `json:"max_tokens" example:"2000"`
-}
-
-// ChatbotUpdateRequest represents the request to update a chatbot
-type ChatbotUpdateRequest struct {
-	Name               *string  `json:"name,omitempty" example:"My Updated AI Assistant"`
-	Description        *string  `json:"description,omitempty" example:"An updated helpful AI assistant for my project"`
-	SystemInstructions *string  `json:"system_instructions,omitempty" example:"You are a helpful AI assistant with updated instructions"`
-	ModelName          *string  `json:"model_name,omitempty" example:"gpt-4"`
-	TemperatureParam   *float64 `json:"temperature_param,omitempty" example:"0.8"`
-	MaxTokens          *int     `json:"max_tokens,omitempty" example:"3000"`
-}
-
-// ChatbotResponse represents a chatbot in responses
-type ChatbotResponse struct {
-	ID                 uuid.UUID `json:"id"`
-	UserID             string    `json:"user_id"`
-	Name               string    `json:"name"`
-	Description        string    `json:"description"`
-	SystemInstructions string    `json:"system_instructions"`
-	ModelName          string    `json:"model_name"`
-	TemperatureParam   float64   `json:"temperature_param"`
-	MaxTokens          int       `json:"max_tokens"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
 }

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,6 +50,118 @@ func NewChatService(
 		db:           db,
 		uploadsDir:   uploadsDir,
 	}
+}
+
+// ChatbotCreateRequest represents the request to create a new chatbot
+type ChatbotCreateRequest struct {
+	Name               string  `json:"name"`
+	Description        string  `json:"description"`
+	SystemInstructions string  `json:"system_instructions"`
+	ModelName          string  `json:"model_name"`
+	TemperatureParam   float64 `json:"temperature_param"`
+	MaxTokens          int     `json:"max_tokens"`
+}
+
+// ChatbotUpdateRequest represents the request to update a chatbot
+type ChatbotUpdateRequest struct {
+	Name               *string  `json:"name,omitempty"`
+	Description        *string  `json:"description,omitempty"`
+	SystemInstructions *string  `json:"system_instructions,omitempty"`
+	ModelName          *string  `json:"model_name,omitempty"`
+	TemperatureParam   *float64 `json:"temperature_param,omitempty"`
+	MaxTokens          *int     `json:"max_tokens,omitempty"`
+}
+
+// ChatbotResponse represents a chatbot in responses
+type ChatbotResponse struct {
+	ID                 uuid.UUID `json:"id"`
+	UserID             string    `json:"user_id"`
+	Name               string    `json:"name"`
+	Description        string    `json:"description"`
+	SystemInstructions string    `json:"system_instructions"`
+	ModelName          string    `json:"model_name"`
+	TemperatureParam   float64   `json:"temperature_param"`
+	MaxTokens          int       `json:"max_tokens"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+// ChatMessageRequest represents a chat message request
+type ChatMessageRequest struct {
+	Query string `json:"query"`
+}
+
+// FileUploadResponse represents a file upload response
+type FileUploadResponse struct {
+	Message   string    `json:"message"`
+	ChatID    uuid.UUID `json:"chat_id"`
+	ChatbotID uuid.UUID `json:"chatbot_id"`
+	File      string    `json:"file"`
+}
+
+// ChatFilesResponse represents the response for listing chat files
+type ChatFilesResponse struct {
+	ChatID uuid.UUID  `json:"chat_id"`
+	Files  []FileInfo `json:"files"`
+}
+
+// FileInfo represents file information
+type FileInfo struct {
+	Filename   string    `json:"filename"`
+	ID         uuid.UUID `json:"id"`
+	UploadedAt time.Time `json:"uploaded_at"`
+}
+
+// MessageResponse represents a simple message response
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+// ChatbotsListResponse represents the response for listing chatbots
+type ChatbotsListResponse struct {
+	Chatbots []ChatbotResponse `json:"chatbots"`
+}
+
+// ValidateAndCreateChatbot validates the request and creates a new chatbot
+func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID string, req *ChatbotCreateRequest) (*ChatbotResponse, error) {
+	// Validate request
+	if req.Name == "" {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "name is required")
+	}
+
+	// Set default values if not provided
+	modelName := req.ModelName
+	if modelName == "" {
+		modelName = "gpt-4" // or your default model
+	}
+
+	temperatureParam := req.TemperatureParam
+	if temperatureParam == 0 {
+		temperatureParam = 0.7
+	}
+
+	maxTokens := req.MaxTokens
+	if maxTokens == 0 {
+		maxTokens = 2000
+	}
+
+	chatbot, err := s.CreateChatbot(ctx, userID, req.Name, req.Description, req.SystemInstructions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ChatbotResponse{
+		ID:                 chatbot.ID,
+		UserID:             chatbot.UserID,
+		Name:               chatbot.Name,
+		Description:        chatbot.Description,
+		SystemInstructions: chatbot.SystemInstructions,
+		ModelName:          chatbot.ModelName,
+		TemperatureParam:   chatbot.TemperatureParam,
+		MaxTokens:          chatbot.MaxTokens,
+		CreatedAt:          chatbot.CreatedAt,
+		UpdatedAt:          chatbot.UpdatedAt,
+	}, nil
 }
 
 // CreateChatbot creates a new chatbot with default settings
@@ -103,6 +217,56 @@ func (s *ChatService) ListChatbots(ctx context.Context, userID string) ([]*Chatb
 	}
 
 	return s.chatbotRepo.FindByUserID(ctx, userID)
+}
+
+// ListChatbotsFormatted lists all chatbots owned by a user with formatted response
+func (s *ChatService) ListChatbotsFormatted(ctx context.Context, userID string) (*ChatbotsListResponse, error) {
+	chatbots, err := s.ListChatbots(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Format the response
+	response := make([]ChatbotResponse, 0, len(chatbots))
+	for _, chatbot := range chatbots {
+		response = append(response, ChatbotResponse{
+			ID:                 chatbot.ID,
+			UserID:             chatbot.UserID,
+			Name:               chatbot.Name,
+			Description:        chatbot.Description,
+			SystemInstructions: chatbot.SystemInstructions,
+			ModelName:          chatbot.ModelName,
+			TemperatureParam:   chatbot.TemperatureParam,
+			MaxTokens:          chatbot.MaxTokens,
+			CreatedAt:          chatbot.CreatedAt,
+			UpdatedAt:          chatbot.UpdatedAt,
+		})
+	}
+
+	return &ChatbotsListResponse{
+		Chatbots: response,
+	}, nil
+}
+
+// UpdateChatbotFromRequest updates a chatbot from request data
+func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatbotID, userID string, req *ChatbotUpdateRequest) (*ChatbotResponse, error) {
+	chatbot, err := s.UpdateChatbotAll(ctx, chatbotID, userID, req.Name, req.Description, req.SystemInstructions, req.ModelName, req.TemperatureParam, req.MaxTokens)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ChatbotResponse{
+		ID:                 chatbot.ID,
+		UserID:             chatbot.UserID,
+		Name:               chatbot.Name,
+		Description:        chatbot.Description,
+		SystemInstructions: chatbot.SystemInstructions,
+		ModelName:          chatbot.ModelName,
+		TemperatureParam:   chatbot.TemperatureParam,
+		MaxTokens:          chatbot.MaxTokens,
+		CreatedAt:          chatbot.CreatedAt,
+		UpdatedAt:          chatbot.UpdatedAt,
+	}, nil
 }
 
 // UpdateChatbotAll updates all chatbot fields in a single operation
@@ -230,6 +394,181 @@ func (s *ChatService) CheckChatbotOwnership(ctx context.Context, chatbotID uuid.
 	return s.chatbotRepo.CheckOwnership(ctx, chatbotID, userID)
 }
 
+// GetChatbotFormatted retrieves a chatbot by ID with formatted response
+func (s *ChatService) GetChatbotFormatted(ctx context.Context, chatbotID, userID string) (*ChatbotResponse, error) {
+	chatbotUUID, err := uuid.Parse(chatbotID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "invalid chatbot ID format")
+	}
+
+	// Verify ownership
+	isOwner, err := s.CheckChatbotOwnership(ctx, chatbotUUID, userID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to verify chatbot ownership")
+	}
+	if !isOwner {
+		return nil, apperrors.ErrUnauthorizedChatbotAccess
+	}
+
+	// Get chatbot details
+	chatbot, err := s.GetChatbotByID(ctx, chatbotID)
+	if err != nil {
+		return nil, err
+	}
+
+	if chatbot == nil {
+		return nil, apperrors.ErrChatbotNotFound
+	}
+
+	return &ChatbotResponse{
+		ID:                 chatbot.ID,
+		UserID:             chatbot.UserID,
+		Name:               chatbot.Name,
+		Description:        chatbot.Description,
+		SystemInstructions: chatbot.SystemInstructions,
+		ModelName:          chatbot.ModelName,
+		TemperatureParam:   chatbot.TemperatureParam,
+		MaxTokens:          chatbot.MaxTokens,
+		CreatedAt:          chatbot.CreatedAt,
+		UpdatedAt:          chatbot.UpdatedAt,
+	}, nil
+}
+
+// ProcessFileUpload handles file upload processing
+func (s *ChatService) ProcessFileUpload(ctx context.Context, chatbotID uuid.UUID, file *multipart.FileHeader, uploadsDir string) (*FileUploadResponse, error) {
+	// Create a unique filename
+	filename := fmt.Sprintf("%s-%s", chatbotID, filepath.Base(file.Filename))
+	uploadPath := filepath.Join(uploadsDir, filename)
+
+	// Save the file
+	src, err := file.Open()
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to open uploaded file")
+	}
+	defer src.Close()
+
+	dst, err := os.Create(uploadPath)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to create file")
+	}
+	defer dst.Close()
+
+	if _, err := dst.ReadFrom(src); err != nil {
+		return nil, apperrors.Wrap(err, "failed to save file")
+	}
+
+	// Add file to vector database
+	docID := fmt.Sprintf("%s-%s", chatbotID, file.Filename)
+	if err := s.AddFile(ctx, docID, uploadPath, chatbotID); err != nil {
+		return nil, apperrors.Wrap(err, "failed to vectorize file")
+	}
+
+	return &FileUploadResponse{
+		Message:   "File uploaded and vectorized successfully",
+		ChatID:    chatbotID,
+		ChatbotID: chatbotID,
+		File:      file.Filename,
+	}, nil
+}
+
+// ProcessFileUpdate handles file update processing
+func (s *ChatService) ProcessFileUpdate(ctx context.Context, chatbotID uuid.UUID, filename string, file *multipart.FileHeader, uploadsDir string) (*MessageResponse, error) {
+	// Create file path
+	uploadPath := filepath.Join(uploadsDir, fmt.Sprintf("%s-%s", chatbotID, filename))
+
+	// Remove old file if it exists
+	if err := os.Remove(uploadPath); err != nil && !os.IsNotExist(err) {
+		log.Printf("Warning: Failed to delete old file %s: %v", uploadPath, err)
+	}
+
+	// Save the new file
+	src, err := file.Open()
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to open uploaded file")
+	}
+	defer src.Close()
+
+	dst, err := os.Create(uploadPath)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to create file")
+	}
+	defer dst.Close()
+
+	if _, err := dst.ReadFrom(src); err != nil {
+		return nil, apperrors.Wrap(err, "failed to save file")
+	}
+
+	// Create document ID
+	docID := fmt.Sprintf("%s-%s", chatbotID, filename)
+
+	// Update in vector database
+	if err := s.AddFile(ctx, docID, uploadPath, chatbotID); err != nil {
+		return nil, apperrors.Wrap(err, "failed to vectorize file")
+	}
+
+	return &MessageResponse{
+		Message: "File updated successfully",
+	}, nil
+}
+
+// ProcessFileDelete handles file deletion
+func (s *ChatService) ProcessFileDelete(ctx context.Context, chatbotID, filename, uploadsDir string) error {
+	// Create the document ID that was used when uploading
+	docID := fmt.Sprintf("%s-%s", chatbotID, filename)
+
+	// Remove from database
+	if err := s.DeleteDocumentByID(ctx, docID); err != nil {
+		return apperrors.Wrap(err, "failed to delete document")
+	}
+
+	// Remove the file from the uploads directory
+	storedFilename := fmt.Sprintf("%s-%s", chatbotID, filename)
+	filePath := filepath.Join(uploadsDir, storedFilename)
+
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		// Log the error but don't fail the request if file doesn't exist
+		log.Printf("Warning: Failed to delete file %s: %v", filePath, err)
+	}
+
+	return nil
+}
+
+// GetChatFilesFormatted retrieves all files for a chatbot with formatted response
+func (s *ChatService) GetChatFilesFormatted(ctx context.Context, chatbotID uuid.UUID) (*ChatFilesResponse, error) {
+	files, err := s.GetFilesByChatbotID(ctx, chatbotID)
+	if err != nil {
+		return nil, err
+	}
+
+	respFiles := make([]FileInfo, 0, len(files))
+	for _, f := range files {
+		respFiles = append(respFiles, FileInfo{
+			Filename:   f.Filename,
+			ID:         f.ID,
+			UploadedAt: f.UploadedAt,
+		})
+	}
+
+	return &ChatFilesResponse{
+		ChatID: chatbotID,
+		Files:  respFiles,
+	}, nil
+}
+
+// ValidateAndParseQuery validates and parses a chat message request
+func (s *ChatService) ValidateAndParseQuery(req *ChatMessageRequest, queryForm string) (string, error) {
+	query := req.Query
+	if query == "" && queryForm != "" {
+		query = queryForm
+	}
+
+	if query == "" {
+		return "", apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "query parameter is required")
+	}
+
+	return query, nil
+}
+
 // AddFile adds a file to the vector database
 func (s *ChatService) AddFile(ctx context.Context, id string, filePath string, chatbotID uuid.UUID) error {
 	fileID := uuid.New()
@@ -346,6 +685,20 @@ func (s *ChatService) DeleteDocumentByID(ctx context.Context, documentID string)
 	return s.documentRepo.Delete(ctx, documentID)
 }
 
+// ParseChatID parses and validates a chat ID
+func (s *ChatService) ParseChatID(chatIDStr string) (uuid.UUID, error) {
+	if chatIDStr == "" {
+		return uuid.Nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chat ID is required")
+	}
+
+	chatID, err := uuid.Parse(chatIDStr)
+	if err != nil {
+		return uuid.Nil, apperrors.Wrap(err, "invalid chat ID format")
+	}
+
+	return chatID, nil
+}
+
 // ChatWithChatbot handles chat interactions with chatbot context
 func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, query string) (string, error) {
 	// Retrieve the chatbot with authorization check
@@ -418,6 +771,24 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, qu
 	return completion, nil
 }
 
+// ValidateChatIDAndOwnership validates chat ID and user ownership
+func (s *ChatService) ValidateChatIDAndOwnership(ctx context.Context, chatIDStr, userID string) (uuid.UUID, error) {
+	chatID, err := s.ParseChatID(chatIDStr)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	isOwner, err := s.CheckChatbotOwnership(ctx, chatID, userID)
+	if err != nil {
+		return uuid.Nil, apperrors.Wrap(err, "failed to verify chatbot ownership")
+	}
+	if !isOwner {
+		return uuid.Nil, apperrors.ErrUnauthorizedChatbotAccess
+	}
+
+	return chatID, nil
+}
+
 // Helper functions
 
 // chunkText splits text into chunks of the given size
@@ -436,4 +807,12 @@ func chunkText(text string, size int) []string {
 // intPtr returns a pointer to the given int
 func intPtr(i int) *int {
 	return &i
+}
+
+// parsePositiveInt parses a string to positive integer with validation
+func parsePositiveInt(s string) (int, error) {
+	if s == "" {
+		return 0, apperrors.New("empty string")
+	}
+	return strconv.Atoi(s)
 }
