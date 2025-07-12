@@ -83,31 +83,6 @@ func (s *APIKeyService) CreateAPIKey(ctx context.Context, userID, name string, e
 	return apiKey.ToResponse(), plainTextKey, nil
 }
 
-// GetAPIKey finds an API key by ID
-func (s *APIKeyService) GetAPIKey(ctx context.Context, id string) (*APIKeyResponse, error) {
-	apiKey, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	return apiKey.ToResponse(), nil
-}
-
-// GetAPIKeysForUser gets all API keys for a user
-func (s *APIKeyService) GetAPIKeysForUser(ctx context.Context, userID string) ([]*APIKeyResponse, error) {
-	apiKeys, err := s.repo.FindByUserID(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	responses := make([]*APIKeyResponse, len(apiKeys))
-	for i, apiKey := range apiKeys {
-		responses[i] = apiKey.ToResponse()
-	}
-
-	return responses, nil
-}
-
 // GetAPIKeysWithPagination gets API keys for a user with pagination support
 func (s *APIKeyService) GetAPIKeysWithPagination(ctx context.Context, userID string, offset, limit int) (*PaginatedResponse, error) {
 	apiKeys, total, err := s.repo.FindByUserIDWithPagination(ctx, userID, offset, limit)
@@ -123,75 +98,7 @@ func (s *APIKeyService) GetAPIKeysWithPagination(ctx context.Context, userID str
 	return NewPaginatedResponse(responses, total, offset, limit), nil
 }
 
-// FindAPIKeyByPlaintext finds an API key by comparing against stored hashes
-func (s *APIKeyService) FindAPIKeyByPlaintext(ctx context.Context, plainTextKey string) (*APIKey, error) {
-	compareFunc := func(hashedKey string) (bool, error) {
-		return s.IsAPIKeyValid(hashedKey, plainTextKey)
-	}
-
-	return s.repo.FindByHashComparison(ctx, compareFunc)
-}
-
-// ValidateAPIKey validates an API key and returns the associated user ID
-func (s *APIKeyService) ValidateAPIKey(ctx context.Context, plainTextKey string) (string, error) {
-	apiKey, err := s.FindAPIKeyByPlaintext(ctx, plainTextKey)
-	if err != nil {
-		return "", apperrors.Wrap(err, "API key validation failed")
-	}
-
-	// Check if the key is revoked
-	if apiKey.RevokedAt != nil {
-		return "", apperrors.ErrInvalidAPIKey
-	}
-
-	// Check if the key is expired
-	if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
-		return "", apperrors.ErrInvalidAPIKey
-	}
-
-	return apiKey.UserID, nil
-}
-
 // RevokeAPIKey revokes an API key
 func (s *APIKeyService) RevokeAPIKey(ctx context.Context, id string, userID string) error {
 	return s.repo.Revoke(ctx, id, userID)
-}
-
-// DeleteAPIKey deletes an API key
-func (s *APIKeyService) DeleteAPIKey(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
-}
-
-// IsAPIKeyRevoked checks if an API key is revoked
-func (s *APIKeyService) IsAPIKeyRevoked(ctx context.Context, id string) (bool, error) {
-	return s.repo.IsRevoked(ctx, id)
-}
-
-// IsAPIKeyExpired checks if an API key is expired
-func (s *APIKeyService) IsAPIKeyExpired(ctx context.Context, id string) (bool, error) {
-	return s.repo.IsExpired(ctx, id)
-}
-
-// SetAPIKeyExpiration sets an expiration date for an API key
-func (s *APIKeyService) SetAPIKeyExpiration(ctx context.Context, id, userID string, expiresAt time.Time) error {
-	apiKey, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	// Check ownership
-	if apiKey.UserID != userID {
-		return apperrors.ErrAPIKeyNotFound
-	}
-
-	apiKey.ExpiresAt = &expiresAt
-	return s.repo.Create(ctx, apiKey) // This will update due to ON CONFLICT clause
-}
-
-// CleanupExpiredKeys removes expired API keys
-func (s *APIKeyService) CleanupExpiredKeys(ctx context.Context) error {
-	// This would typically be a background job
-	// For now, we'll just mark them as revoked
-	// TODO: Implement proper cleanup logic
-	return nil
 }

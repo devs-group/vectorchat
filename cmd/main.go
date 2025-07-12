@@ -119,7 +119,6 @@ func runApplication(appCfg *config.AppConfig) error {
 	authService := services.NewAuthService(repos.User, repos.APIKey)
 	chatService := services.NewChatService(reposTx.Chatbot, reposTx.Document, reposTx.File, vectorizer, openaiKey, pool, uploadsDir)
 	apiKeyService := services.NewAPIKeyService(repos.APIKey)
-	homeService := services.NewHomeService(repos.User)
 
 	// Initialize postgres storage with new config
 	sessionStore := postgres.New(postgres.Config{
@@ -173,11 +172,9 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize API handlers
 	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, uploadsDir, ownershipMiddleware)
 	oAuthHandler := api.NewOAuthHandler(oAuthConfig, authService, authMiddleware)
-	homeHandler := api.NewHomeHandler(sessionStore, homeService, authMiddleware)
 	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService)
 
 	// Register routes
-	homeHandler.RegisterRoutes(app) // Register home routes first
 	chatbotHandler.RegisterRoutes(app)
 	oAuthHandler.RegisterRoutes(app)
 	apiKeyHandler.RegisterRoutes(app)

@@ -40,6 +40,9 @@ func NewChatHandler(
 
 // RegisterRoutes registers all API routes
 func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
+	// Health check endpoint (no auth required)
+	app.Get("/health", h.GET_HealthCheck)
+
 	chat := app.Group("/chat", h.AuthMiddleware.RequireAuth)
 
 	// File upload and management

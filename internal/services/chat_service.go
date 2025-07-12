@@ -86,16 +86,6 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 	return chatbot, nil
 }
 
-// GetChatbot retrieves a chatbot by ID and validates ownership
-func (s *ChatService) GetChatbot(ctx context.Context, chatbotID, userID string) (*Chatbot, error) {
-	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, uuid.MustParse(chatbotID), userID)
-	if err != nil {
-		return nil, err
-	}
-
-	return chatbot, nil
-}
-
 // GetChatbotByID retrieves a chatbot by ID without ownership validation
 func (s *ChatService) GetChatbotByID(ctx context.Context, chatbotID string) (*Chatbot, error) {
 	chatbot, err := s.chatbotRepo.FindByID(ctx, uuid.MustParse(chatbotID))
@@ -115,116 +105,6 @@ func (s *ChatService) ListChatbots(ctx context.Context, userID string) ([]*Chatb
 	return s.chatbotRepo.FindByUserID(ctx, userID)
 }
 
-// ListChatbotsWithPagination lists chatbots with pagination
-func (s *ChatService) ListChatbotsWithPagination(ctx context.Context, userID string, offset, limit int) (*PaginatedResponse, error) {
-	if userID == "" {
-		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
-	}
-
-	chatbots, total, err := s.chatbotRepo.FindByUserIDWithPagination(ctx, userID, offset, limit)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewPaginatedResponse(chatbots, total, offset, limit), nil
-}
-
-// UpdateChatbot updates a chatbot's basic information
-func (s *ChatService) UpdateChatbot(ctx context.Context, chatbotID, userID, name, description string) (*Chatbot, error) {
-	// Validate inputs
-	if chatbotID == "" || userID == "" {
-		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
-	}
-	if name == "" {
-		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "name is required")
-	}
-
-	// Get the existing chatbot to check ownership
-	chatbot, err := s.GetChatbot(ctx, chatbotID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update fields
-	chatbot.Name = name
-	chatbot.Description = description
-	chatbot.UpdatedAt = time.Now()
-
-	// Save changes
-	err = s.chatbotRepo.Update(ctx, chatbot)
-	if err != nil {
-		return nil, err
-	}
-
-	return chatbot, nil
-}
-
-// UpdateSystemInstructions updates a chatbot's system instructions
-func (s *ChatService) UpdateSystemInstructions(ctx context.Context, chatbotID, userID, instructions string) (*Chatbot, error) {
-	// Validate inputs
-	if chatbotID == "" || userID == "" {
-		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
-	}
-	if instructions == "" {
-		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "instructions are required")
-	}
-
-	// Get the existing chatbot to check ownership
-	chatbot, err := s.GetChatbot(ctx, chatbotID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update fields
-	chatbot.SystemInstructions = instructions
-	chatbot.UpdatedAt = time.Now()
-
-	// Save changes
-	err = s.chatbotRepo.Update(ctx, chatbot)
-	if err != nil {
-		return nil, err
-	}
-
-	return chatbot, nil
-}
-
-// UpdateModelSettings updates a chatbot's LLM model settings
-func (s *ChatService) UpdateModelSettings(ctx context.Context, chatbotID, userID, modelName string, temperature float64, maxTokens int) (*Chatbot, error) {
-	// Validate inputs
-	if chatbotID == "" || userID == "" {
-		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
-	}
-	if modelName == "" {
-		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "model name is required")
-	}
-	if temperature < 0 || temperature > 2 {
-		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "temperature must be between 0 and 2")
-	}
-	if maxTokens <= 0 {
-		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "max tokens must be positive")
-	}
-
-	// Get the existing chatbot to check ownership
-	chatbot, err := s.GetChatbot(ctx, chatbotID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update fields
-	chatbot.ModelName = modelName
-	chatbot.TemperatureParam = temperature
-	chatbot.MaxTokens = maxTokens
-	chatbot.UpdatedAt = time.Now()
-
-	// Save changes
-	err = s.chatbotRepo.Update(ctx, chatbot)
-	if err != nil {
-		return nil, err
-	}
-
-	return chatbot, nil
-}
-
 // UpdateChatbotAll updates all chatbot fields in a single operation
 func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID string, name, description, systemInstructions, modelName *string, temperature *float64, maxTokens *int) (*Chatbot, error) {
 	// Validate inputs
@@ -233,7 +113,7 @@ func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID st
 	}
 
 	// Get the existing chatbot to check ownership
-	chatbot, err := s.GetChatbot(ctx, chatbotID, userID)
+	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, uuid.MustParse(chatbotID), userID)
 	if err != nil {
 		return nil, err
 	}
@@ -461,61 +341,6 @@ func (s *ChatService) GetFilesByChatbotID(ctx context.Context, chatbotID uuid.UU
 	return s.fileRepo.FindByChatbotID(ctx, chatbotID)
 }
 
-// GetFilesByChatbotIDWithPagination retrieves files with pagination
-func (s *ChatService) GetFilesByChatbotIDWithPagination(ctx context.Context, chatbotID uuid.UUID, offset, limit int) (*PaginatedResponse, error) {
-	files, total, err := s.fileRepo.FindByChatbotIDWithPagination(ctx, chatbotID, offset, limit)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewPaginatedResponse(files, total, offset, limit), nil
-}
-
-// DeleteFile deletes a file and all associated documents
-func (s *ChatService) DeleteFile(ctx context.Context, fileID uuid.UUID, userID string) error {
-	// Start transaction
-	tx, err := s.db.BeginTx(ctx)
-	if err != nil {
-		return apperrors.Wrap(err, "failed to start transaction")
-	}
-	defer tx.Rollback()
-
-	// Get file to check ownership through chatbot
-	file, err := s.fileRepo.FindByID(ctx, fileID)
-	if err != nil {
-		return err
-	}
-
-	// Check chatbot ownership
-	owns, err := s.chatbotRepo.CheckOwnership(ctx, file.ChatbotID, userID)
-	if err != nil {
-		return err
-	}
-	if !owns {
-		return apperrors.ErrUnauthorizedChatbotAccess
-	}
-
-	// Delete associated documents
-	err = s.documentRepo.DeleteByFileIDTx(ctx, tx, fileID)
-	if err != nil {
-		return apperrors.Wrap(err, "failed to delete file documents")
-	}
-
-	// Delete the file
-	err = s.fileRepo.DeleteTx(ctx, tx, fileID)
-	if err != nil {
-		return apperrors.Wrap(err, "failed to delete file")
-	}
-
-	// Commit transaction
-	err = tx.Commit()
-	if err != nil {
-		return apperrors.Wrap(err, "failed to commit transaction")
-	}
-
-	return nil
-}
-
 // DeleteDocumentByID deletes a document by its ID
 func (s *ChatService) DeleteDocumentByID(ctx context.Context, documentID string) error {
 	return s.documentRepo.Delete(ctx, documentID)
@@ -591,52 +416,6 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, qu
 	}
 
 	return completion, nil
-}
-
-// GetChatbotStats returns statistics about a chatbot
-func (s *ChatService) GetChatbotStats(ctx context.Context, chatbotID uuid.UUID, userID string) (map[string]interface{}, error) {
-	// Check ownership
-	owns, err := s.chatbotRepo.CheckOwnership(ctx, chatbotID, userID)
-	if err != nil {
-		return nil, err
-	}
-	if !owns {
-		return nil, apperrors.ErrUnauthorizedChatbotAccess
-	}
-
-	// Get chatbot
-	chatbot, err := s.chatbotRepo.FindByID(ctx, chatbotID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get document count
-	docCount, err := s.documentRepo.CountByChatbotID(ctx, chatbotID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get file count
-	fileCount, err := s.fileRepo.CountByChatbotID(ctx, chatbotID)
-	if err != nil {
-		return nil, err
-	}
-
-	stats := map[string]interface{}{
-		"chatbot_id":          chatbot.ID,
-		"name":                chatbot.Name,
-		"description":         chatbot.Description,
-		"model_name":          chatbot.ModelName,
-		"temperature":         chatbot.TemperatureParam,
-		"max_tokens":          chatbot.MaxTokens,
-		"created_at":          chatbot.CreatedAt,
-		"updated_at":          chatbot.UpdatedAt,
-		"document_count":      docCount,
-		"file_count":          fileCount,
-		"system_instructions": chatbot.SystemInstructions,
-	}
-
-	return stats, nil
 }
 
 // Helper functions

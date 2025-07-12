@@ -257,18 +257,6 @@ export function useApiService() {
     );
   };
 
-  // User endpoints
-  const getUserInfo = () => {
-    return useApi(
-      async () => {
-        return await useApiFetch("/");
-      },
-      {
-        cacheKey: "userInfo",
-      },
-    );
-  };
-
   // Health check
   const healthCheck = () => {
     return useApi(async () => {
@@ -297,9 +285,6 @@ export function useApiService() {
     updateFile,
     deleteFile,
     listChatFiles,
-
-    // User
-    getUserInfo,
 
     // Health
     healthCheck,
