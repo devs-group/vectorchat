@@ -44,8 +44,9 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 
 	// File upload and management
 	chat.Post("/chatbot", h.POST_CreateChatbot)
-	chat.Get("/chatbots", h.GET_ListChatbots)                                            // New route to list all chats
-	chat.Get("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatbotByID) // Get a single chatbot by ID
+	chat.Get("/chatbots", h.GET_ListChatbots)
+	chat.Get("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatbotByID)
+	chat.Put("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateChatbot)
 	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
 	chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
 	chat.Put("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateFile)
@@ -473,6 +474,78 @@ func (h *ChatHandler) GET_ChatbotByID(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Chatbot not found", nil, http.StatusNotFound)
 	}
 
+	return c.JSON(fiber.Map{
+		"chatbot": ChatbotResponse{
+			ID:                 chatbot.ID,
+			UserID:             chatbot.UserID,
+			Name:               chatbot.Name,
+			Description:        chatbot.Description,
+			SystemInstructions: chatbot.SystemInstructions,
+			ModelName:          chatbot.ModelName,
+			TemperatureParam:   chatbot.TemperatureParam,
+			MaxTokens:          chatbot.MaxTokens,
+			CreatedAt:          chatbot.CreatedAt,
+			UpdatedAt:          chatbot.UpdatedAt,
+		},
+	})
+}
+
+// @Summary Update chatbot
+// @Description Update chatbot configuration including name, description, system instructions, model settings
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatbotID path string true "Chatbot ID"
+// @Param chatbot body ChatbotUpdateRequest true "Updated chatbot configuration"
+// @Success 200 {object} ChatbotResponse
+// @Failure 400 {object} APIResponse
+// @Failure 401 {object} APIResponse
+// @Failure 403 {object} APIResponse
+// @Failure 404 {object} APIResponse
+// @Failure 500 {object} APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/chatbot/{chatbotID} [put]
+func (h *ChatHandler) PUT_UpdateChatbot(c *fiber.Ctx) error {
+	chatbotID, err := uuid.Parse(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chatbot ID format", err, http.StatusBadRequest)
+	}
+
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+
+	// Parse request body
+	var req ChatbotUpdateRequest
+	if err := c.BodyParser(&req); err != nil {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
+
+	// Update chatbot using the comprehensive update method
+	chatbot, err := h.ChatService.UpdateChatbotAll(
+		c.Context(),
+		chatbotID.String(),
+		user.ID,
+		req.Name,
+		req.Description,
+		req.SystemInstructions,
+		req.ModelName,
+		req.TemperatureParam,
+		req.MaxTokens,
+	)
+	if err != nil {
+		if apperrors.Is(err, apperrors.ErrUnauthorizedChatbotAccess) {
+			return ErrorResponse(c, "You don't have permission to access this chatbot", err, http.StatusForbidden)
+		} else if apperrors.Is(err, apperrors.ErrChatbotNotFound) {
+			return ErrorResponse(c, "Chatbot not found", err, http.StatusNotFound)
+		} else if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
+			return ErrorResponse(c, "Invalid chatbot parameters", err, http.StatusBadRequest)
+		}
+		return ErrorResponse(c, "Failed to update chatbot", err)
+	}
+
+	// Return updated chatbot
 	return c.JSON(fiber.Map{
 		"chatbot": ChatbotResponse{
 			ID:                 chatbot.ID,

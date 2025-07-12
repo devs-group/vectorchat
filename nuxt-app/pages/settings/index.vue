@@ -44,6 +44,11 @@
               <th
                 class="h-12 px-4 text-left align-middle font-medium text-muted-foreground"
               >
+                Name
+              </th>
+              <th
+                class="h-12 px-4 text-left align-middle font-medium text-muted-foreground"
+              >
                 Created
               </th>
               <th
@@ -94,6 +99,7 @@
                   </code>
                 </div>
               </td>
+              <td class="p-4 align-middle">{{ key.name }}</td>
               <td class="p-4 align-middle">{{ formatDate(key.created_at) }}</td>
               <td class="p-4 align-middle">
                 {{ key.expires_at ? formatDate(key.expires_at) : "Never" }}
@@ -145,8 +151,8 @@
                 </Dialog>
               </td>
             </tr>
-            <tr v-if="!apiKeys || apiKeys.api_keys.length === 0">
-              <td colspan="6" class="p-8 text-center text-muted-foreground">
+            <tr v-if="!apiKeys || apiKeys.api_keys?.length === 0">
+              <td colspan="7" class="p-8 text-center text-muted-foreground">
                 <div v-if="isFetchingAPIKeys" class="flex justify-center">
                   <svg
                     class="animate-spin h-5 w-5 text-muted-foreground"

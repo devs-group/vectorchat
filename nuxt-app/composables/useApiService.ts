@@ -151,6 +151,33 @@ export function useApiService() {
     );
   };
 
+  const updateChatbot = (
+    chatbotId: string,
+    chatbotData: {
+      name?: string;
+      description?: string;
+      system_instructions?: string;
+      model_name?: string;
+      temperature_param?: number;
+      max_tokens?: number;
+    },
+  ) => {
+    return useApi(
+      async () => {
+        return await useApiFetch<{ chatbot: ChatbotResponse }>(
+          `/chat/chatbot/${chatbotId}`,
+          {
+            method: "PUT",
+            body: chatbotData,
+          },
+        );
+      },
+      {
+        errorMessage: "Failed to update chatbot",
+      },
+    );
+  };
+
   const sendChatMessage = (chatID: string, query: string) => {
     return useApi(async () => {
       return await useApiFetch(`/chat/${chatID}/message`, {
@@ -249,6 +276,7 @@ export function useApiService() {
     createChatbot,
     listChatbots,
     getChatbot,
+    updateChatbot,
     sendChatMessage,
     uploadFile,
     updateFile,

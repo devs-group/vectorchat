@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/storage/postgres"
 	"github.com/google/uuid"
+	"github.com/yourusername/vectorchat/internal/config"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
@@ -202,11 +203,16 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 		SameSite: "Strict",
 		Path:     "/",
 	})
-	c.Redirect("http://localhost:3000")
-
-	return c.JSON(fiber.Map{
-		"success": true,
-	})
+	var appCfg config.AppConfig
+	err = config.Load(&appCfg)
+	if err != nil {
+		return ErrorResponse(c, "failed to load app config", err)
+	}
+	frontendURL := fmt.Sprintf("http://%s", appCfg.FrontendURL)
+	if appCfg.IsSSL {
+		frontendURL = fmt.Sprintf("https://%s", appCfg.FrontendURL)
+	}
+	return c.Redirect(fmt.Sprintf("%s/chat", frontendURL))
 }
 
 // @Summary Get current session

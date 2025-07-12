@@ -220,6 +220,67 @@ func (s *ChatService) UpdateModelSettings(ctx context.Context, chatbotID, userID
 	return chatbot, nil
 }
 
+// UpdateChatbotAll updates all chatbot fields in a single operation
+func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID string, name, description, systemInstructions, modelName *string, temperature *float64, maxTokens *int) (*Chatbot, error) {
+	// Validate inputs
+	if chatbotID == "" || userID == "" {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
+	}
+
+	// Get the existing chatbot to check ownership
+	chatbot, err := s.GetChatbot(ctx, chatbotID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update fields only if provided
+	if name != nil {
+		if *name == "" {
+			return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "name cannot be empty")
+		}
+		chatbot.Name = *name
+	}
+
+	if description != nil {
+		chatbot.Description = *description
+	}
+
+	if systemInstructions != nil {
+		chatbot.SystemInstructions = *systemInstructions
+	}
+
+	if modelName != nil {
+		if *modelName == "" {
+			return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "model name cannot be empty")
+		}
+		chatbot.ModelName = *modelName
+	}
+
+	if temperature != nil {
+		if *temperature < 0 || *temperature > 2 {
+			return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "temperature must be between 0 and 2")
+		}
+		chatbot.TemperatureParam = *temperature
+	}
+
+	if maxTokens != nil {
+		if *maxTokens <= 0 {
+			return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "max tokens must be positive")
+		}
+		chatbot.MaxTokens = *maxTokens
+	}
+
+	chatbot.UpdatedAt = time.Now()
+
+	// Save changes
+	err = s.chatbotRepo.Update(ctx, chatbot)
+	if err != nil {
+		return nil, err
+	}
+
+	return chatbot, nil
+}
+
 // DeleteChatbot deletes a chatbot and all associated data
 func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID string) error {
 	if chatbotID == "" || userID == "" {

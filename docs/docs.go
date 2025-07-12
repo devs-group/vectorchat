@@ -493,6 +493,80 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update chatbot configuration including name, description, system instructions, model settings",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Update chatbot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chatbot ID",
+                        "name": "chatbotID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated chatbot configuration",
+                        "name": "chatbot",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ChatbotUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ChatbotResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIResponse"
+                        }
+                    }
+                }
             }
         },
         "/chat/chatbots": {
@@ -1037,6 +1111,35 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "string"
+                }
+            }
+        },
+        "api.ChatbotUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "An updated helpful AI assistant for my project"
+                },
+                "max_tokens": {
+                    "type": "integer",
+                    "example": 3000
+                },
+                "model_name": {
+                    "type": "string",
+                    "example": "gpt-4"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My Updated AI Assistant"
+                },
+                "system_instructions": {
+                    "type": "string",
+                    "example": "You are a helpful AI assistant with updated instructions"
+                },
+                "temperature_param": {
+                    "type": "number",
+                    "example": 0.8
                 }
             }
         },

@@ -119,6 +119,16 @@ type ChatbotCreateRequest struct {
 	MaxTokens          int     `json:"max_tokens" example:"2000"`
 }
 
+// ChatbotUpdateRequest represents the request to update a chatbot
+type ChatbotUpdateRequest struct {
+	Name               *string  `json:"name,omitempty" example:"My Updated AI Assistant"`
+	Description        *string  `json:"description,omitempty" example:"An updated helpful AI assistant for my project"`
+	SystemInstructions *string  `json:"system_instructions,omitempty" example:"You are a helpful AI assistant with updated instructions"`
+	ModelName          *string  `json:"model_name,omitempty" example:"gpt-4"`
+	TemperatureParam   *float64 `json:"temperature_param,omitempty" example:"0.8"`
+	MaxTokens          *int     `json:"max_tokens,omitempty" example:"3000"`
+}
+
 // ChatbotResponse represents a chatbot in responses
 type ChatbotResponse struct {
 	ID                 uuid.UUID `json:"id"`
