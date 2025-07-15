@@ -10,24 +10,46 @@ stages:
 variables:
   GITLAB_REGISTRY: registry.gitlab.com
 
-build_vectorchat_staging:
+build_backend_staging:
   stage: build
   before_script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat:staging
+    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-backend:staging
     - docker build -t $CONTAINER_PATH -f Dockerfile .
     - docker push $CONTAINER_PATH
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
 
-build_vectorchat_production:
+build_frontend_staging:
   stage: build
   before_script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat:latest
+    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-frontend:staging
+    - docker build -t $CONTAINER_PATH -f frontend/Dockerfile ./frontend
+    - docker push $CONTAINER_PATH
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+
+build_backend_production:
+  stage: build
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
+    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-backend:latest
     - docker build -t $CONTAINER_PATH -f Dockerfile .
+    - docker push $CONTAINER_PATH
+  rules:
+    - if: "$CI_COMMIT_TAG != null"
+
+build_frontend_production:
+  stage: build
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
+    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-frontend:latest
+    - docker build -t $CONTAINER_PATH -f frontend/Dockerfile ./frontend
     - docker push $CONTAINER_PATH
   rules:
     - if: "$CI_COMMIT_TAG != null"
