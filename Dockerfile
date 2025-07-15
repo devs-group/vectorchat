@@ -31,7 +31,7 @@ WORKDIR /root/
 RUN mkdir -p /root/uploads
 
 # Copy the binary and other needed resources from the builder stage
-COPY --from=builder /app/internal/services/migrations /migrations
+COPY --from=builder /app/internal/db/migrations /migrations
 COPY --from=builder /go/bin/goose /usr/local/bin/
 COPY --from=builder /go/bin/air /usr/local/bin/
 COPY --from=builder /vectorchat .

@@ -15,7 +15,7 @@ build_backend_staging:
   before_script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-backend:staging
+    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/backend:staging
     - docker build -t $CONTAINER_PATH -f Dockerfile .
     - docker push $CONTAINER_PATH
   rules:
@@ -26,7 +26,7 @@ build_frontend_staging:
   before_script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-frontend:staging
+    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/frontend:staging
     - docker build -t $CONTAINER_PATH -f frontend/Dockerfile ./frontend
     - docker push $CONTAINER_PATH
   rules:
@@ -37,7 +37,7 @@ build_backend_production:
   before_script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-backend:latest
+    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/backend:latest
     - docker build -t $CONTAINER_PATH -f Dockerfile .
     - docker push $CONTAINER_PATH
   rules:
@@ -48,7 +48,7 @@ build_frontend_production:
   before_script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-frontend:latest
+    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/frontend:latest
     - docker build -t $CONTAINER_PATH -f frontend/Dockerfile ./frontend
     - docker push $CONTAINER_PATH
   rules:
