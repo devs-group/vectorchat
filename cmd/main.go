@@ -110,7 +110,6 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Initialize repositories
 	repos := db.NewRepositories(pool)
-	reposTx := db.NewRepositoriesTx(pool)
 
 	// Create uploads directory if it doesn't exist
 	uploadsDir := "uploads"
@@ -120,7 +119,7 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Initialize services
 	authService := services.NewAuthService(repos.User, repos.APIKey)
-	chatService := services.NewChatService(reposTx.Chatbot, reposTx.Document, reposTx.File, vectorizer, openaiKey, pool, uploadsDir)
+	chatService := services.NewChatService(repos.Chat, repos.Document, repos.File, vectorizer, openaiKey, pool, uploadsDir)
 	apiKeyService := services.NewAPIKeyService(repos.APIKey)
 	commonService := services.NewCommonService()
 

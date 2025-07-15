@@ -25,9 +25,9 @@ import (
 // ChatService handles chat interactions with context from vector database
 type ChatService struct {
 	*CommonService
-	chatbotRepo  db.ChatbotRepositoryTx
-	documentRepo db.DocumentRepositoryTx
-	fileRepo     db.FileRepositoryTx
+	chatbotRepo  *db.ChatbotRepository
+	documentRepo *db.DocumentRepository
+	fileRepo     *db.FileRepository
 	vectorizer   vectorize.Vectorizer
 	openaiKey    string
 	db           *db.Database
@@ -36,9 +36,9 @@ type ChatService struct {
 
 // NewChatService creates a new chat service
 func NewChatService(
-	chatbotRepo db.ChatbotRepositoryTx,
-	documentRepo db.DocumentRepositoryTx,
-	fileRepo db.FileRepositoryTx,
+	chatbotRepo *db.ChatbotRepository,
+	documentRepo *db.DocumentRepository,
+	fileRepo *db.FileRepository,
 	vectorizer vectorize.Vectorizer,
 	openaiKey string,
 	db *db.Database,

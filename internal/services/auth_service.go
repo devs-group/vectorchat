@@ -17,12 +17,12 @@ import (
 // AuthService handles user authentication and user-related operations
 type AuthService struct {
 	*CommonService
-	userRepo   db.UserRepository
-	apiKeyRepo db.APIKeyRepository
+	userRepo   *db.UserRepository
+	apiKeyRepo *db.APIKeyRepository
 }
 
 // NewAuthService creates a new auth service
-func NewAuthService(userRepo db.UserRepository, apiKeyRepo db.APIKeyRepository) *AuthService {
+func NewAuthService(userRepo *db.UserRepository, apiKeyRepo *db.APIKeyRepository) *AuthService {
 	return &AuthService{
 		CommonService: NewCommonService(),
 		userRepo:      userRepo,

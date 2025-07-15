@@ -18,11 +18,11 @@ import (
 // APIKeyService handles API key operations
 type APIKeyService struct {
 	*CommonService
-	repo db.APIKeyRepository
+	repo *db.APIKeyRepository
 }
 
 // NewAPIKeyService creates a new APIKeyService
-func NewAPIKeyService(repo db.APIKeyRepository) *APIKeyService {
+func NewAPIKeyService(repo *db.APIKeyRepository) *APIKeyService {
 	return &APIKeyService{
 		CommonService: NewCommonService(),
 		repo:          repo,

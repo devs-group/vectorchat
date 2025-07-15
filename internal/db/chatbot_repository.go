@@ -8,18 +8,16 @@ import (
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
-// chatbotRepository implements ChatbotRepository interface
-type chatbotRepository struct {
+type ChatbotRepository struct {
 	db *Database
 }
 
-// NewChatbotRepository creates a new chatbot repository
-func NewChatbotRepository(db *Database) ChatbotRepositoryTx {
-	return &chatbotRepository{db: db}
+func NewChatbotRepository(db *Database) *ChatbotRepository {
+	return &ChatbotRepository{db: db}
 }
 
 // Create creates a new chatbot
-func (r *chatbotRepository) Create(ctx context.Context, chatbot *Chatbot) error {
+func (r *ChatbotRepository) Create(ctx context.Context, chatbot *Chatbot) error {
 	if chatbot.ID == uuid.Nil {
 		chatbot.ID = uuid.New()
 	}
@@ -55,7 +53,7 @@ func (r *chatbotRepository) Create(ctx context.Context, chatbot *Chatbot) error 
 }
 
 // CreateTx creates a new chatbot within a transaction
-func (r *chatbotRepository) CreateTx(ctx context.Context, tx *Transaction, chatbot *Chatbot) error {
+func (r *ChatbotRepository) CreateTx(ctx context.Context, tx *Transaction, chatbot *Chatbot) error {
 	if chatbot.ID == uuid.Nil {
 		chatbot.ID = uuid.New()
 	}
@@ -91,7 +89,7 @@ func (r *chatbotRepository) CreateTx(ctx context.Context, tx *Transaction, chatb
 }
 
 // FindByID finds a chatbot by ID
-func (r *chatbotRepository) FindByID(ctx context.Context, id uuid.UUID) (*Chatbot, error) {
+func (r *ChatbotRepository) FindByID(ctx context.Context, id uuid.UUID) (*Chatbot, error) {
 	var chatbot Chatbot
 	query := `
 		SELECT id, user_id, name, description, system_instructions,
@@ -112,7 +110,7 @@ func (r *chatbotRepository) FindByID(ctx context.Context, id uuid.UUID) (*Chatbo
 }
 
 // FindByIDAndUserID finds a chatbot by ID and user ID
-func (r *chatbotRepository) FindByIDAndUserID(ctx context.Context, id uuid.UUID, userID string) (*Chatbot, error) {
+func (r *ChatbotRepository) FindByIDAndUserID(ctx context.Context, id uuid.UUID, userID string) (*Chatbot, error) {
 	var chatbot Chatbot
 	query := `
 		SELECT id, user_id, name, description, system_instructions,
@@ -133,7 +131,7 @@ func (r *chatbotRepository) FindByIDAndUserID(ctx context.Context, id uuid.UUID,
 }
 
 // FindByUserID finds all chatbots for a user
-func (r *chatbotRepository) FindByUserID(ctx context.Context, userID string) ([]*Chatbot, error) {
+func (r *ChatbotRepository) FindByUserID(ctx context.Context, userID string) ([]*Chatbot, error) {
 	var chatbots []*Chatbot
 	query := `
 		SELECT id, user_id, name, description, system_instructions,
@@ -152,7 +150,7 @@ func (r *chatbotRepository) FindByUserID(ctx context.Context, userID string) ([]
 }
 
 // FindByUserIDWithPagination finds chatbots for a user with pagination
-func (r *chatbotRepository) FindByUserIDWithPagination(ctx context.Context, userID string, offset, limit int) ([]*Chatbot, int64, error) {
+func (r *ChatbotRepository) FindByUserIDWithPagination(ctx context.Context, userID string, offset, limit int) ([]*Chatbot, int64, error) {
 	// Get total count
 	var total int64
 	countQuery := `SELECT COUNT(*) FROM chatbots WHERE user_id = $1`
@@ -181,7 +179,7 @@ func (r *chatbotRepository) FindByUserIDWithPagination(ctx context.Context, user
 }
 
 // Update updates a chatbot
-func (r *chatbotRepository) Update(ctx context.Context, chatbot *Chatbot) error {
+func (r *ChatbotRepository) Update(ctx context.Context, chatbot *Chatbot) error {
 	chatbot.UpdatedAt = time.Now()
 
 	query := `
@@ -210,7 +208,7 @@ func (r *chatbotRepository) Update(ctx context.Context, chatbot *Chatbot) error 
 }
 
 // UpdateTx updates a chatbot within a transaction
-func (r *chatbotRepository) UpdateTx(ctx context.Context, tx *Transaction, chatbot *Chatbot) error {
+func (r *ChatbotRepository) UpdateTx(ctx context.Context, tx *Transaction, chatbot *Chatbot) error {
 	chatbot.UpdatedAt = time.Now()
 
 	query := `
@@ -239,7 +237,7 @@ func (r *chatbotRepository) UpdateTx(ctx context.Context, tx *Transaction, chatb
 }
 
 // Delete deletes a chatbot
-func (r *chatbotRepository) Delete(ctx context.Context, id uuid.UUID, userID string) error {
+func (r *ChatbotRepository) Delete(ctx context.Context, id uuid.UUID, userID string) error {
 	query := `DELETE FROM chatbots WHERE id = $1 AND user_id = $2`
 
 	result, err := r.db.ExecContext(ctx, query, id, userID)
@@ -260,7 +258,7 @@ func (r *chatbotRepository) Delete(ctx context.Context, id uuid.UUID, userID str
 }
 
 // DeleteTx deletes a chatbot within a transaction
-func (r *chatbotRepository) DeleteTx(ctx context.Context, tx *Transaction, id uuid.UUID, userID string) error {
+func (r *ChatbotRepository) DeleteTx(ctx context.Context, tx *Transaction, id uuid.UUID, userID string) error {
 	query := `DELETE FROM chatbots WHERE id = $1 AND user_id = $2`
 
 	result, err := tx.ExecContext(ctx, query, id, userID)
@@ -281,7 +279,7 @@ func (r *chatbotRepository) DeleteTx(ctx context.Context, tx *Transaction, id uu
 }
 
 // CheckOwnership checks if a user owns a chatbot
-func (r *chatbotRepository) CheckOwnership(ctx context.Context, id uuid.UUID, userID string) (bool, error) {
+func (r *ChatbotRepository) CheckOwnership(ctx context.Context, id uuid.UUID, userID string) (bool, error) {
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM chatbots WHERE id = $1 AND user_id = $2)`
 
@@ -294,7 +292,7 @@ func (r *chatbotRepository) CheckOwnership(ctx context.Context, id uuid.UUID, us
 }
 
 // UpdateBasicInfo updates basic chatbot information
-func (r *chatbotRepository) UpdateBasicInfo(ctx context.Context, id uuid.UUID, userID, name, description string) error {
+func (r *ChatbotRepository) UpdateBasicInfo(ctx context.Context, id uuid.UUID, userID, name, description string) error {
 	query := `
 		UPDATE chatbots
 		SET name = $1, description = $2, updated_at = $3
@@ -319,7 +317,7 @@ func (r *chatbotRepository) UpdateBasicInfo(ctx context.Context, id uuid.UUID, u
 }
 
 // UpdateSystemInstructions updates chatbot system instructions
-func (r *chatbotRepository) UpdateSystemInstructions(ctx context.Context, id uuid.UUID, userID, instructions string) error {
+func (r *ChatbotRepository) UpdateSystemInstructions(ctx context.Context, id uuid.UUID, userID, instructions string) error {
 	query := `
 		UPDATE chatbots
 		SET system_instructions = $1, updated_at = $2
@@ -344,7 +342,7 @@ func (r *chatbotRepository) UpdateSystemInstructions(ctx context.Context, id uui
 }
 
 // UpdateModelSettings updates chatbot model settings
-func (r *chatbotRepository) UpdateModelSettings(ctx context.Context, id uuid.UUID, userID, modelName string, temperature float64, maxTokens int) error {
+func (r *ChatbotRepository) UpdateModelSettings(ctx context.Context, id uuid.UUID, userID, modelName string, temperature float64, maxTokens int) error {
 	query := `
 		UPDATE chatbots
 		SET model_name = $1, temperature_param = $2, max_tokens = $3, updated_at = $4

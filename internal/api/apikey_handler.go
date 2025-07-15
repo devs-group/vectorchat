@@ -10,7 +10,6 @@ import (
 	"github.com/yourusername/vectorchat/pkg/models"
 )
 
-// APIKeyHandler handles api keys
 type APIKeyHandler struct {
 	authService    *services.AuthService
 	authMiddleware *middleware.AuthMiddleware
@@ -18,7 +17,6 @@ type APIKeyHandler struct {
 	commonService  *services.CommonService
 }
 
-// NewAPIKeyHandler creates a new OAuth handler with validation
 func NewAPIKeyHandler(
 	authService *services.AuthService,
 	authMiddleware *middleware.AuthMiddleware,
@@ -33,7 +31,6 @@ func NewAPIKeyHandler(
 	}
 }
 
-// RegisterRoutes registers the OAuth routes
 func (h *APIKeyHandler) RegisterRoutes(app *fiber.App) {
 	auth := app.Group("/auth")
 	auth.Post("/apikey", h.authMiddleware.RequireAuth, h.POST_GenerateAPIKey)
@@ -100,17 +97,12 @@ func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 // @Router /auth/apikey [get]
 func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 	user := c.Locals("user").(*db.User)
-
-	// Parse pagination parameters using service
 	page, limit, offset := h.commonService.ParsePaginationParams(c.Query("page"), c.Query("limit"))
-
-	// Get paginated API keys with formatted response
 	response, err := h.apiKeyService.GetAPIKeysWithPagination(c.Context(), user.ID, page, limit, offset)
 	if err != nil {
 		return ErrorResponse(c, "failed to get API keys", err)
 	}
 
-	// Convert to API response format
 	var keys []*models.APIKeyResponse
 	for _, k := range response.APIKeys {
 		keys = append(keys, &models.APIKeyResponse{

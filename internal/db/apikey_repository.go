@@ -7,18 +7,16 @@ import (
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
-// apiKeyRepository implements APIKeyRepository interface
-type apiKeyRepository struct {
+type APIKeyRepository struct {
 	db *Database
 }
 
-// NewAPIKeyRepository creates a new API key repository
-func NewAPIKeyRepository(db *Database) APIKeyRepositoryTx {
-	return &apiKeyRepository{db: db}
+func NewAPIKeyRepository(db *Database) *APIKeyRepository {
+	return &APIKeyRepository{db: db}
 }
 
 // Create creates a new API key
-func (r *apiKeyRepository) Create(ctx context.Context, apiKey *APIKey) error {
+func (r *APIKeyRepository) Create(ctx context.Context, apiKey *APIKey) error {
 	if apiKey.CreatedAt.IsZero() {
 		apiKey.CreatedAt = time.Now()
 	}
@@ -40,7 +38,7 @@ func (r *apiKeyRepository) Create(ctx context.Context, apiKey *APIKey) error {
 }
 
 // CreateTx creates a new API key within a transaction
-func (r *apiKeyRepository) CreateTx(ctx context.Context, tx *Transaction, apiKey *APIKey) error {
+func (r *APIKeyRepository) CreateTx(ctx context.Context, tx *Transaction, apiKey *APIKey) error {
 	if apiKey.CreatedAt.IsZero() {
 		apiKey.CreatedAt = time.Now()
 	}
@@ -62,7 +60,7 @@ func (r *apiKeyRepository) CreateTx(ctx context.Context, tx *Transaction, apiKey
 }
 
 // FindByID finds an API key by ID
-func (r *apiKeyRepository) FindByID(ctx context.Context, id string) (*APIKey, error) {
+func (r *APIKeyRepository) FindByID(ctx context.Context, id string) (*APIKey, error) {
 	var apiKey APIKey
 	query := `
 		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
@@ -82,7 +80,7 @@ func (r *apiKeyRepository) FindByID(ctx context.Context, id string) (*APIKey, er
 }
 
 // FindByUserID finds all API keys for a user
-func (r *apiKeyRepository) FindByUserID(ctx context.Context, userID string) ([]*APIKey, error) {
+func (r *APIKeyRepository) FindByUserID(ctx context.Context, userID string) ([]*APIKey, error) {
 	var apiKeys []*APIKey
 	query := `
 		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
@@ -100,8 +98,7 @@ func (r *apiKeyRepository) FindByUserID(ctx context.Context, userID string) ([]*
 }
 
 // FindByUserIDWithPagination finds API keys for a user with pagination
-func (r *apiKeyRepository) FindByUserIDWithPagination(ctx context.Context, userID string, offset, limit int) ([]*APIKey, int64, error) {
-	// Get total count
+func (r *APIKeyRepository) FindByUserIDWithPagination(ctx context.Context, userID string, offset, limit int) ([]*APIKey, int64, error) {
 	var total int64
 	countQuery := `SELECT COUNT(*) FROM api_keys WHERE user_id = $1`
 	err := r.db.GetContext(ctx, &total, countQuery, userID)
@@ -128,7 +125,7 @@ func (r *apiKeyRepository) FindByUserIDWithPagination(ctx context.Context, userI
 }
 
 // FindByHashComparison finds an API key by comparing against stored hashes
-func (r *apiKeyRepository) FindByHashComparison(ctx context.Context, compareFunc func(hashedKey string) (bool, error)) (*APIKey, error) {
+func (r *APIKeyRepository) FindByHashComparison(ctx context.Context, compareFunc func(hashedKey string) (bool, error)) (*APIKey, error) {
 	var apiKeys []*APIKey
 	query := `
 		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
@@ -160,7 +157,7 @@ func (r *apiKeyRepository) FindByHashComparison(ctx context.Context, compareFunc
 }
 
 // Revoke revokes an API key
-func (r *apiKeyRepository) Revoke(ctx context.Context, id, userID string) error {
+func (r *APIKeyRepository) Revoke(ctx context.Context, id, userID string) error {
 	now := time.Now()
 	query := `
 		UPDATE api_keys
@@ -186,7 +183,7 @@ func (r *apiKeyRepository) Revoke(ctx context.Context, id, userID string) error 
 }
 
 // RevokeTx revokes an API key within a transaction
-func (r *apiKeyRepository) RevokeTx(ctx context.Context, tx *Transaction, id, userID string) error {
+func (r *APIKeyRepository) RevokeTx(ctx context.Context, tx *Transaction, id, userID string) error {
 	now := time.Now()
 	query := `
 		UPDATE api_keys
@@ -212,7 +209,7 @@ func (r *apiKeyRepository) RevokeTx(ctx context.Context, tx *Transaction, id, us
 }
 
 // Delete deletes an API key by ID
-func (r *apiKeyRepository) Delete(ctx context.Context, id string) error {
+func (r *APIKeyRepository) Delete(ctx context.Context, id string) error {
 	query := `DELETE FROM api_keys WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id)
@@ -233,7 +230,7 @@ func (r *apiKeyRepository) Delete(ctx context.Context, id string) error {
 }
 
 // DeleteTx deletes an API key by ID within a transaction
-func (r *apiKeyRepository) DeleteTx(ctx context.Context, tx *Transaction, id string) error {
+func (r *APIKeyRepository) DeleteTx(ctx context.Context, tx *Transaction, id string) error {
 	query := `DELETE FROM api_keys WHERE id = $1`
 
 	result, err := tx.ExecContext(ctx, query, id)
@@ -254,7 +251,7 @@ func (r *apiKeyRepository) DeleteTx(ctx context.Context, tx *Transaction, id str
 }
 
 // IsRevoked checks if an API key is revoked
-func (r *apiKeyRepository) IsRevoked(ctx context.Context, id string) (bool, error) {
+func (r *APIKeyRepository) IsRevoked(ctx context.Context, id string) (bool, error) {
 	var revokedAt *time.Time
 	query := `SELECT revoked_at FROM api_keys WHERE id = $1`
 
@@ -270,7 +267,7 @@ func (r *apiKeyRepository) IsRevoked(ctx context.Context, id string) (bool, erro
 }
 
 // IsExpired checks if an API key is expired
-func (r *apiKeyRepository) IsExpired(ctx context.Context, id string) (bool, error) {
+func (r *APIKeyRepository) IsExpired(ctx context.Context, id string) (bool, error) {
 	var expiresAt *time.Time
 	query := `SELECT expires_at FROM api_keys WHERE id = $1`
 

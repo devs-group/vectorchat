@@ -17,7 +17,6 @@ import (
 	"golang.org/x/oauth2/github"
 )
 
-// OAuthConfig holds the OAuth configuration
 type OAuthConfig struct {
 	GitHubClientID     string
 	GitHubClientSecret string
@@ -26,7 +25,6 @@ type OAuthConfig struct {
 	Env                string
 }
 
-// OAuthHandler handles OAuth authentication
 type OAuthHandler struct {
 	config         *OAuthConfig
 	githubOAuth    *oauth2.Config
@@ -36,7 +34,6 @@ type OAuthHandler struct {
 	apiKeyService  *services.APIKeyService
 }
 
-// NewOAuthHandler creates a new OAuth handler with validation
 func NewOAuthHandler(
 	config *OAuthConfig,
 	authService *services.AuthService,
@@ -63,7 +60,6 @@ func NewOAuthHandler(
 	}
 }
 
-// RegisterRoutes registers the OAuth routes
 func (h *OAuthHandler) RegisterRoutes(app *fiber.App) {
 	auth := app.Group("/auth")
 	auth.Get("/github", h.GET_GitHubLogin)

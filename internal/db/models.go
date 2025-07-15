@@ -7,7 +7,6 @@ import (
 	"github.com/pgvector/pgvector-go"
 )
 
-// User represents a user in the system
 type User struct {
 	ID        string    `json:"id" db:"id"`
 	Name      string    `json:"name" db:"name"`
@@ -17,7 +16,6 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// APIKey represents an API key in the system
 type APIKey struct {
 	ID        string     `json:"id" db:"id"`
 	UserID    string     `json:"user_id" db:"user_id"`
@@ -28,7 +26,6 @@ type APIKey struct {
 	RevokedAt *time.Time `json:"revoked_at,omitempty" db:"revoked_at"`
 }
 
-// APIKeyResponse represents the response when returning API keys to the client
 type APIKeyResponse struct {
 	ID        string     `json:"id"`
 	UserID    string     `json:"user_id"`
@@ -39,7 +36,6 @@ type APIKeyResponse struct {
 	// Key is intentionally omitted for security
 }
 
-// ToResponse converts APIKey to APIKeyResponse (without the actual key)
 func (a *APIKey) ToResponse() *APIKeyResponse {
 	return &APIKeyResponse{
 		ID:        a.ID,
@@ -51,7 +47,6 @@ func (a *APIKey) ToResponse() *APIKeyResponse {
 	}
 }
 
-// Chatbot represents a configurable AI assistant
 type Chatbot struct {
 	ID                 uuid.UUID `json:"id" db:"id"`
 	UserID             string    `json:"user_id" db:"user_id"`
@@ -65,7 +60,6 @@ type Chatbot struct {
 	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// Document represents a document with its vector embedding
 type Document struct {
 	ID         string          `json:"id" db:"id"`
 	Content    []byte          `json:"content" db:"content"`
@@ -75,7 +69,6 @@ type Document struct {
 	ChunkIndex *int            `json:"chunk_index,omitempty" db:"chunk_index"`
 }
 
-// DocumentWithEmbedding represents a document with embedding as float32 slice for easier handling
 type DocumentWithEmbedding struct {
 	ID         string     `json:"id"`
 	Content    []byte     `json:"content"`
@@ -85,7 +78,6 @@ type DocumentWithEmbedding struct {
 	ChunkIndex *int       `json:"chunk_index,omitempty"`
 }
 
-// ToDocumentWithEmbedding converts Document to DocumentWithEmbedding
 func (d *Document) ToDocumentWithEmbedding() *DocumentWithEmbedding {
 	return &DocumentWithEmbedding{
 		ID:         d.ID,
@@ -97,7 +89,6 @@ func (d *Document) ToDocumentWithEmbedding() *DocumentWithEmbedding {
 	}
 }
 
-// File represents a file uploaded to a chatbot
 type File struct {
 	ID         uuid.UUID `json:"id" db:"id"`
 	ChatbotID  uuid.UUID `json:"chatbot_id" db:"chatbot_id"`

@@ -10,7 +10,6 @@ import (
 	"github.com/yourusername/vectorchat/pkg/models"
 )
 
-// ChatHandler contains all the dependencies
 type ChatHandler struct {
 	ChatService        *services.ChatService
 	UploadsDir         string
@@ -19,7 +18,6 @@ type ChatHandler struct {
 	CommonService      *services.CommonService
 }
 
-// NewChatHandler creates a new handler
 func NewChatHandler(
 	authMiddleware *middleware.AuthMiddleware,
 	chatService *services.ChatService,
@@ -36,7 +34,6 @@ func NewChatHandler(
 	}
 }
 
-// RegisterRoutes registers all API routes
 func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	// Health check endpoint (no auth required)
 	app.Get("/health", h.GET_HealthCheck)
@@ -232,7 +229,6 @@ func (h *ChatHandler) GET_ListChatbots(c *fiber.Ctx) error {
 // @Router /chat/{chatID}/message [post]
 func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 	var req models.ChatMessageRequest
-
 	chatID := c.Params("chatID")
 	if chatID == "" {
 		return ErrorResponse(c, "Chat ID is required", nil, http.StatusBadRequest)

@@ -8,18 +8,16 @@ import (
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
-// fileRepository implements FileRepository interface
-type fileRepository struct {
+type FileRepository struct {
 	db *Database
 }
 
-// NewFileRepository creates a new file repository
-func NewFileRepository(db *Database) FileRepositoryTx {
-	return &fileRepository{db: db}
+func NewFileRepository(db *Database) *FileRepository {
+	return &FileRepository{db: db}
 }
 
 // Create creates a new file
-func (r *fileRepository) Create(ctx context.Context, file *File) error {
+func (r *FileRepository) Create(ctx context.Context, file *File) error {
 	if file.ID == uuid.Nil {
 		file.ID = uuid.New()
 	}
@@ -47,7 +45,7 @@ func (r *fileRepository) Create(ctx context.Context, file *File) error {
 }
 
 // CreateTx creates a new file within a transaction
-func (r *fileRepository) CreateTx(ctx context.Context, tx *Transaction, file *File) error {
+func (r *FileRepository) CreateTx(ctx context.Context, tx *Transaction, file *File) error {
 	if file.ID == uuid.Nil {
 		file.ID = uuid.New()
 	}
@@ -75,7 +73,7 @@ func (r *fileRepository) CreateTx(ctx context.Context, tx *Transaction, file *Fi
 }
 
 // FindByID finds a file by ID
-func (r *fileRepository) FindByID(ctx context.Context, id uuid.UUID) (*File, error) {
+func (r *FileRepository) FindByID(ctx context.Context, id uuid.UUID) (*File, error) {
 	var file File
 	query := `
 		SELECT id, chatbot_id, filename, uploaded_at
@@ -95,7 +93,7 @@ func (r *fileRepository) FindByID(ctx context.Context, id uuid.UUID) (*File, err
 }
 
 // FindByChatbotID finds all files for a chatbot
-func (r *fileRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
+func (r *FileRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
 	var files []*File
 	query := `
 		SELECT id, chatbot_id, filename, uploaded_at
@@ -113,7 +111,7 @@ func (r *fileRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUI
 }
 
 // FindByChatbotIDWithPagination finds files for a chatbot with pagination
-func (r *fileRepository) FindByChatbotIDWithPagination(ctx context.Context, chatbotID uuid.UUID, offset, limit int) ([]*File, int64, error) {
+func (r *FileRepository) FindByChatbotIDWithPagination(ctx context.Context, chatbotID uuid.UUID, offset, limit int) ([]*File, int64, error) {
 	// Get total count
 	var total int64
 	countQuery := `SELECT COUNT(*) FROM files WHERE chatbot_id = $1`
@@ -141,7 +139,7 @@ func (r *fileRepository) FindByChatbotIDWithPagination(ctx context.Context, chat
 }
 
 // Update updates a file
-func (r *fileRepository) Update(ctx context.Context, file *File) error {
+func (r *FileRepository) Update(ctx context.Context, file *File) error {
 	query := `
 		UPDATE files
 		SET filename = :filename
@@ -166,7 +164,7 @@ func (r *fileRepository) Update(ctx context.Context, file *File) error {
 }
 
 // UpdateTx updates a file within a transaction
-func (r *fileRepository) UpdateTx(ctx context.Context, tx *Transaction, file *File) error {
+func (r *FileRepository) UpdateTx(ctx context.Context, tx *Transaction, file *File) error {
 	query := `
 		UPDATE files
 		SET filename = :filename
@@ -191,7 +189,7 @@ func (r *fileRepository) UpdateTx(ctx context.Context, tx *Transaction, file *Fi
 }
 
 // Delete deletes a file by ID
-func (r *fileRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *FileRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM files WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id)
@@ -212,7 +210,7 @@ func (r *fileRepository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // DeleteTx deletes a file by ID within a transaction
-func (r *fileRepository) DeleteTx(ctx context.Context, tx *Transaction, id uuid.UUID) error {
+func (r *FileRepository) DeleteTx(ctx context.Context, tx *Transaction, id uuid.UUID) error {
 	query := `DELETE FROM files WHERE id = $1`
 
 	result, err := tx.ExecContext(ctx, query, id)
@@ -233,7 +231,7 @@ func (r *fileRepository) DeleteTx(ctx context.Context, tx *Transaction, id uuid.
 }
 
 // DeleteByChatbotID deletes all files for a chatbot
-func (r *fileRepository) DeleteByChatbotID(ctx context.Context, chatbotID uuid.UUID) error {
+func (r *FileRepository) DeleteByChatbotID(ctx context.Context, chatbotID uuid.UUID) error {
 	query := `DELETE FROM files WHERE chatbot_id = $1`
 
 	_, err := r.db.ExecContext(ctx, query, chatbotID)
@@ -245,7 +243,7 @@ func (r *fileRepository) DeleteByChatbotID(ctx context.Context, chatbotID uuid.U
 }
 
 // DeleteByChatbotIDTx deletes all files for a chatbot within a transaction
-func (r *fileRepository) DeleteByChatbotIDTx(ctx context.Context, tx *Transaction, chatbotID uuid.UUID) error {
+func (r *FileRepository) DeleteByChatbotIDTx(ctx context.Context, tx *Transaction, chatbotID uuid.UUID) error {
 	query := `DELETE FROM files WHERE chatbot_id = $1`
 
 	_, err := tx.ExecContext(ctx, query, chatbotID)
@@ -257,7 +255,7 @@ func (r *fileRepository) DeleteByChatbotIDTx(ctx context.Context, tx *Transactio
 }
 
 // Count returns the total number of files
-func (r *fileRepository) Count(ctx context.Context) (int64, error) {
+func (r *FileRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	query := `SELECT COUNT(*) FROM files`
 
@@ -270,7 +268,7 @@ func (r *fileRepository) Count(ctx context.Context) (int64, error) {
 }
 
 // CountByChatbotID returns the number of files for a chatbot
-func (r *fileRepository) CountByChatbotID(ctx context.Context, chatbotID uuid.UUID) (int64, error) {
+func (r *FileRepository) CountByChatbotID(ctx context.Context, chatbotID uuid.UUID) (int64, error) {
 	var count int64
 	query := `SELECT COUNT(*) FROM files WHERE chatbot_id = $1`
 

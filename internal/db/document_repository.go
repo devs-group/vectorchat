@@ -8,18 +8,16 @@ import (
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
-// documentRepository implements DocumentRepository interface
-type documentRepository struct {
+type DocumentRepository struct {
 	db *Database
 }
 
-// NewDocumentRepository creates a new document repository
-func NewDocumentRepository(db *Database) DocumentRepositoryTx {
-	return &documentRepository{db: db}
+func NewDocumentRepository(db *Database) *DocumentRepository {
+	return &DocumentRepository{db: db}
 }
 
 // Store stores a document with its vector embedding
-func (r *documentRepository) Store(ctx context.Context, doc *Document) error {
+func (r *DocumentRepository) Store(ctx context.Context, doc *Document) error {
 	query := `
 		INSERT INTO documents (id, content, embedding, chatbot_id, file_id, chunk_index)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -36,7 +34,7 @@ func (r *documentRepository) Store(ctx context.Context, doc *Document) error {
 }
 
 // StoreWithEmbedding stores a document with embedding as float32 slice
-func (r *documentRepository) StoreWithEmbedding(ctx context.Context, doc *DocumentWithEmbedding) error {
+func (r *DocumentRepository) StoreWithEmbedding(ctx context.Context, doc *DocumentWithEmbedding) error {
 	query := `
 		INSERT INTO documents (id, content, embedding, chatbot_id, file_id, chunk_index)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -53,7 +51,7 @@ func (r *documentRepository) StoreWithEmbedding(ctx context.Context, doc *Docume
 }
 
 // StoreTx stores a document within a transaction
-func (r *documentRepository) StoreTx(ctx context.Context, tx *Transaction, doc *Document) error {
+func (r *DocumentRepository) StoreTx(ctx context.Context, tx *Transaction, doc *Document) error {
 	query := `
 		INSERT INTO documents (id, content, embedding, chatbot_id, file_id, chunk_index)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -70,7 +68,7 @@ func (r *documentRepository) StoreTx(ctx context.Context, tx *Transaction, doc *
 }
 
 // StoreWithEmbeddingTx stores a document with embedding within a transaction
-func (r *documentRepository) StoreWithEmbeddingTx(ctx context.Context, tx *Transaction, doc *DocumentWithEmbedding) error {
+func (r *DocumentRepository) StoreWithEmbeddingTx(ctx context.Context, tx *Transaction, doc *DocumentWithEmbedding) error {
 	query := `
 		INSERT INTO documents (id, content, embedding, chatbot_id, file_id, chunk_index)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -87,7 +85,7 @@ func (r *documentRepository) StoreWithEmbeddingTx(ctx context.Context, tx *Trans
 }
 
 // FindByID finds a document by ID
-func (r *documentRepository) FindByID(ctx context.Context, id string) (*Document, error) {
+func (r *DocumentRepository) FindByID(ctx context.Context, id string) (*Document, error) {
 	var doc Document
 	query := `
 		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
@@ -107,7 +105,7 @@ func (r *documentRepository) FindByID(ctx context.Context, id string) (*Document
 }
 
 // FindSimilar finds documents similar to the given embedding
-func (r *documentRepository) FindSimilar(ctx context.Context, embedding []float32, limit int) ([]*DocumentWithEmbedding, error) {
+func (r *DocumentRepository) FindSimilar(ctx context.Context, embedding []float32, limit int) ([]*DocumentWithEmbedding, error) {
 	var docs []*Document
 	query := `
 		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
@@ -131,7 +129,7 @@ func (r *documentRepository) FindSimilar(ctx context.Context, embedding []float3
 }
 
 // FindSimilarByChatbot finds documents similar to the given embedding for a specific chatbot
-func (r *documentRepository) FindSimilarByChatbot(ctx context.Context, embedding []float32, chatbotID string, limit int) ([]*DocumentWithEmbedding, error) {
+func (r *DocumentRepository) FindSimilarByChatbot(ctx context.Context, embedding []float32, chatbotID string, limit int) ([]*DocumentWithEmbedding, error) {
 	var docs []*Document
 	query := `
 		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
@@ -156,7 +154,7 @@ func (r *documentRepository) FindSimilarByChatbot(ctx context.Context, embedding
 }
 
 // FindByChatbotID finds all documents for a chatbot
-func (r *documentRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*Document, error) {
+func (r *DocumentRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*Document, error) {
 	var docs []*Document
 	query := `
 		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
@@ -174,7 +172,7 @@ func (r *documentRepository) FindByChatbotID(ctx context.Context, chatbotID uuid
 }
 
 // FindByFileID finds all documents for a file
-func (r *documentRepository) FindByFileID(ctx context.Context, fileID uuid.UUID) ([]*Document, error) {
+func (r *DocumentRepository) FindByFileID(ctx context.Context, fileID uuid.UUID) ([]*Document, error) {
 	var docs []*Document
 	query := `
 		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
@@ -192,7 +190,7 @@ func (r *documentRepository) FindByFileID(ctx context.Context, fileID uuid.UUID)
 }
 
 // Delete deletes a document by ID
-func (r *documentRepository) Delete(ctx context.Context, id string) error {
+func (r *DocumentRepository) Delete(ctx context.Context, id string) error {
 	query := `DELETE FROM documents WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id)
@@ -213,7 +211,7 @@ func (r *documentRepository) Delete(ctx context.Context, id string) error {
 }
 
 // DeleteTx deletes a document by ID within a transaction
-func (r *documentRepository) DeleteTx(ctx context.Context, tx *Transaction, id string) error {
+func (r *DocumentRepository) DeleteTx(ctx context.Context, tx *Transaction, id string) error {
 	query := `DELETE FROM documents WHERE id = $1`
 
 	result, err := tx.ExecContext(ctx, query, id)
@@ -234,7 +232,7 @@ func (r *documentRepository) DeleteTx(ctx context.Context, tx *Transaction, id s
 }
 
 // DeleteByChatbotID deletes all documents for a chatbot
-func (r *documentRepository) DeleteByChatbotID(ctx context.Context, chatbotID uuid.UUID) error {
+func (r *DocumentRepository) DeleteByChatbotID(ctx context.Context, chatbotID uuid.UUID) error {
 	query := `DELETE FROM documents WHERE chatbot_id = $1`
 
 	_, err := r.db.ExecContext(ctx, query, chatbotID)
@@ -246,7 +244,7 @@ func (r *documentRepository) DeleteByChatbotID(ctx context.Context, chatbotID uu
 }
 
 // DeleteByChatbotIDTx deletes all documents for a chatbot within a transaction
-func (r *documentRepository) DeleteByChatbotIDTx(ctx context.Context, tx *Transaction, chatbotID uuid.UUID) error {
+func (r *DocumentRepository) DeleteByChatbotIDTx(ctx context.Context, tx *Transaction, chatbotID uuid.UUID) error {
 	query := `DELETE FROM documents WHERE chatbot_id = $1`
 
 	_, err := tx.ExecContext(ctx, query, chatbotID)
@@ -258,7 +256,7 @@ func (r *documentRepository) DeleteByChatbotIDTx(ctx context.Context, tx *Transa
 }
 
 // DeleteByFileID deletes all documents for a file
-func (r *documentRepository) DeleteByFileID(ctx context.Context, fileID uuid.UUID) error {
+func (r *DocumentRepository) DeleteByFileID(ctx context.Context, fileID uuid.UUID) error {
 	query := `DELETE FROM documents WHERE file_id = $1`
 
 	_, err := r.db.ExecContext(ctx, query, fileID)
@@ -270,7 +268,7 @@ func (r *documentRepository) DeleteByFileID(ctx context.Context, fileID uuid.UUI
 }
 
 // DeleteByFileIDTx deletes all documents for a file within a transaction
-func (r *documentRepository) DeleteByFileIDTx(ctx context.Context, tx *Transaction, fileID uuid.UUID) error {
+func (r *DocumentRepository) DeleteByFileIDTx(ctx context.Context, tx *Transaction, fileID uuid.UUID) error {
 	query := `DELETE FROM documents WHERE file_id = $1`
 
 	_, err := tx.ExecContext(ctx, query, fileID)
@@ -282,7 +280,7 @@ func (r *documentRepository) DeleteByFileIDTx(ctx context.Context, tx *Transacti
 }
 
 // Count returns the total number of documents
-func (r *documentRepository) Count(ctx context.Context) (int64, error) {
+func (r *DocumentRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	query := `SELECT COUNT(*) FROM documents`
 
@@ -295,7 +293,7 @@ func (r *documentRepository) Count(ctx context.Context) (int64, error) {
 }
 
 // CountByChatbotID returns the number of documents for a chatbot
-func (r *documentRepository) CountByChatbotID(ctx context.Context, chatbotID uuid.UUID) (int64, error) {
+func (r *DocumentRepository) CountByChatbotID(ctx context.Context, chatbotID uuid.UUID) (int64, error) {
 	var count int64
 	query := `SELECT COUNT(*) FROM documents WHERE chatbot_id = $1`
 

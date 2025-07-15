@@ -7,18 +7,16 @@ import (
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
-// userRepository implements UserRepository interface
-type userRepository struct {
+type UserRepository struct {
 	db *Database
 }
 
-// NewUserRepository creates a new user repository
-func NewUserRepository(db *Database) UserRepositoryTx {
-	return &userRepository{db: db}
+func NewUserRepository(db *Database) *UserRepository {
+	return &UserRepository{db: db}
 }
 
 // FindByID finds a user by ID
-func (r *userRepository) FindByID(ctx context.Context, id string) (*User, error) {
+func (r *UserRepository) FindByID(ctx context.Context, id string) (*User, error) {
 	var user User
 	query := `
 		SELECT id, name, email, provider, created_at, updated_at
@@ -38,7 +36,7 @@ func (r *userRepository) FindByID(ctx context.Context, id string) (*User, error)
 }
 
 // FindByEmail finds a user by email
-func (r *userRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
 	var user User
 	query := `
 		SELECT id, name, email, provider, created_at, updated_at
@@ -58,7 +56,7 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*User, 
 }
 
 // Create creates a new user
-func (r *userRepository) Create(ctx context.Context, user *User) error {
+func (r *UserRepository) Create(ctx context.Context, user *User) error {
 	if user.CreatedAt.IsZero() {
 		user.CreatedAt = time.Now()
 	}
@@ -83,7 +81,7 @@ func (r *userRepository) Create(ctx context.Context, user *User) error {
 }
 
 // CreateTx creates a new user within a transaction
-func (r *userRepository) CreateTx(ctx context.Context, tx *Transaction, user *User) error {
+func (r *UserRepository) CreateTx(ctx context.Context, tx *Transaction, user *User) error {
 	if user.CreatedAt.IsZero() {
 		user.CreatedAt = time.Now()
 	}
@@ -108,7 +106,7 @@ func (r *userRepository) CreateTx(ctx context.Context, tx *Transaction, user *Us
 }
 
 // Update updates an existing user
-func (r *userRepository) Update(ctx context.Context, user *User) error {
+func (r *UserRepository) Update(ctx context.Context, user *User) error {
 	user.UpdatedAt = time.Now()
 
 	query := `
@@ -138,7 +136,7 @@ func (r *userRepository) Update(ctx context.Context, user *User) error {
 }
 
 // UpdateTx updates an existing user within a transaction
-func (r *userRepository) UpdateTx(ctx context.Context, tx *Transaction, user *User) error {
+func (r *UserRepository) UpdateTx(ctx context.Context, tx *Transaction, user *User) error {
 	user.UpdatedAt = time.Now()
 
 	query := `
@@ -168,7 +166,7 @@ func (r *userRepository) UpdateTx(ctx context.Context, tx *Transaction, user *Us
 }
 
 // Delete deletes a user by ID
-func (r *userRepository) Delete(ctx context.Context, id string) error {
+func (r *UserRepository) Delete(ctx context.Context, id string) error {
 	query := `DELETE FROM users WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id)
@@ -189,7 +187,7 @@ func (r *userRepository) Delete(ctx context.Context, id string) error {
 }
 
 // DeleteTx deletes a user by ID within a transaction
-func (r *userRepository) DeleteTx(ctx context.Context, tx *Transaction, id string) error {
+func (r *UserRepository) DeleteTx(ctx context.Context, tx *Transaction, id string) error {
 	query := `DELETE FROM users WHERE id = $1`
 
 	result, err := tx.ExecContext(ctx, query, id)
