@@ -15,13 +15,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// APIKeyService handles API key operations
 type APIKeyService struct {
 	*CommonService
 	repo *db.APIKeyRepository
 }
 
-// NewAPIKeyService creates a new APIKeyService
 func NewAPIKeyService(repo *db.APIKeyRepository) *APIKeyService {
 	return &APIKeyService{
 		CommonService: NewCommonService(),

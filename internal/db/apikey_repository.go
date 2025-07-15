@@ -85,7 +85,7 @@ func (r *APIKeyRepository) FindByUserID(ctx context.Context, userID string) ([]*
 	query := `
 		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
 		FROM api_keys
-		WHERE user_id = $1
+		WHERE user_id = $1 AND revoked_at IS NULL
 		ORDER BY created_at DESC
 	`
 
@@ -100,7 +100,7 @@ func (r *APIKeyRepository) FindByUserID(ctx context.Context, userID string) ([]*
 // FindByUserIDWithPagination finds API keys for a user with pagination
 func (r *APIKeyRepository) FindByUserIDWithPagination(ctx context.Context, userID string, offset, limit int) ([]*APIKey, int64, error) {
 	var total int64
-	countQuery := `SELECT COUNT(*) FROM api_keys WHERE user_id = $1`
+	countQuery := `SELECT COUNT(*) FROM api_keys WHERE user_id = $1 AND revoked_at IS NULL`
 	err := r.db.GetContext(ctx, &total, countQuery, userID)
 	if err != nil {
 		return nil, 0, apperrors.Wrap(err, "failed to get total API keys count")
@@ -111,7 +111,7 @@ func (r *APIKeyRepository) FindByUserIDWithPagination(ctx context.Context, userI
 	query := `
 		SELECT id, user_id, key, name, created_at, expires_at, revoked_at
 		FROM api_keys
-		WHERE user_id = $1
+		WHERE user_id = $1 AND revoked_at IS NULL
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
 	`
