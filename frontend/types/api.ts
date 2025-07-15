@@ -72,6 +72,8 @@ export interface SessionResponse {
 
 export interface APIKeyResponse {
   api_key: APIKey;
+  message: string;
+  plain_key: string;
 }
 
 export interface GenerateAPIKeyRequest {

@@ -337,16 +337,10 @@ const handleGenerateKey = async (data: {
   expires_at?: string;
 }) => {
   try {
-    console.log("Generating API key with data:", data);
     await generateApiKey(data);
 
-    console.log("Generate API key response:", newKey.value);
-    console.log("newKey.value?.api_key:", newKey.value?.api_key);
-    console.log("newKey.value?.api_key?.key:", newKey.value?.api_key?.key);
-
-    if (newKey.value?.api_key?.key) {
-      generatedApiKey.value = newKey.value.api_key.key;
-      console.log("Setting generatedApiKey to:", generatedApiKey.value);
+    if (newKey.value?.plain_key) {
+      generatedApiKey.value = newKey.value?.plain_key;
       showCreateDialog.value = false;
       showGeneratedDialog.value = true;
 
