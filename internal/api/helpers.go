@@ -8,7 +8,6 @@ import (
 	"github.com/yourusername/vectorchat/pkg/models"
 )
 
-// GetUser extracts user from fiber context
 func GetUser(c *fiber.Ctx) (*db.User, error) {
 	user, ok := c.Locals("user").(*db.User)
 	if !ok {
