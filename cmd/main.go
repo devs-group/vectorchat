@@ -21,10 +21,11 @@ import (
 	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
 	swaggerDocs "github.com/yourusername/vectorchat/docs"
 	"github.com/yourusername/vectorchat/internal/api"
-	"github.com/yourusername/vectorchat/internal/config"
+	"github.com/yourusername/vectorchat/internal/db"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/internal/vectorize"
+	"github.com/yourusername/vectorchat/pkg/config"
 )
 
 // @title VectorChat API
@@ -96,18 +97,20 @@ func runApplication(appCfg *config.AppConfig) error {
 	}
 
 	// Initialize database
-	pool, err := services.NewDatabase(pgConnStr)
+	pool, err := db.NewDatabase(pgConnStr)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %v", err)
 	}
 	defer pool.Close()
 
+	log.Println("Connected to PostgreSQL database")
+
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
 
 	// Initialize repositories
-	repos := services.NewRepositories(pool)
-	reposTx := services.NewRepositoriesTx(pool)
+	repos := db.NewRepositories(pool)
+	reposTx := db.NewRepositoriesTx(pool)
 
 	// Create uploads directory if it doesn't exist
 	uploadsDir := "uploads"
@@ -119,6 +122,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	authService := services.NewAuthService(repos.User, repos.APIKey)
 	chatService := services.NewChatService(reposTx.Chatbot, reposTx.Document, reposTx.File, vectorizer, openaiKey, pool, uploadsDir)
 	apiKeyService := services.NewAPIKeyService(repos.APIKey)
+	commonService := services.NewCommonService()
 
 	// Initialize postgres storage with new config
 	sessionStore := postgres.New(postgres.Config{
@@ -170,9 +174,9 @@ func runApplication(appCfg *config.AppConfig) error {
 	}))
 
 	// Initialize API handlers
-	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, uploadsDir, ownershipMiddleware)
+	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, uploadsDir, ownershipMiddleware, commonService)
 	oAuthHandler := api.NewOAuthHandler(oAuthConfig, authService, authMiddleware)
-	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService)
+	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService, commonService)
 
 	// Register routes
 	chatbotHandler.RegisterRoutes(app)
@@ -198,7 +202,7 @@ func waitForPostgres(connStr string) error {
 	retryInterval := 2 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
-		pool, err := services.NewDatabase(connStr)
+		pool, err := db.NewDatabase(connStr)
 		if err == nil {
 			pool.Close()
 			log.Println("Successfully connected to PostgreSQL")

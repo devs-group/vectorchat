@@ -4,11 +4,13 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/yourusername/vectorchat/internal/services"
+	"github.com/yourusername/vectorchat/internal/db"
+	"github.com/yourusername/vectorchat/pkg/models"
 )
 
-func GetUser(c *fiber.Ctx) (*services.User, error) {
-	user, ok := c.Locals("user").(*services.User)
+// GetUser extracts user from fiber context
+func GetUser(c *fiber.Ctx) (*db.User, error) {
+	user, ok := c.Locals("user").(*db.User)
 	if !ok {
 		return nil, fiber.ErrUnauthorized
 	}
@@ -17,8 +19,8 @@ func GetUser(c *fiber.Ctx) (*services.User, error) {
 
 func ErrorResponse(c *fiber.Ctx, msg string, err error, statusCode ...int) error {
 	slog.Error(msg, "err", err)
-	res := fiber.Map{
-		"error": msg,
+	res := models.APIResponse{
+		Error: msg,
 	}
 	if len(statusCode) > 0 {
 		return c.Status(statusCode[0]).JSON(res)

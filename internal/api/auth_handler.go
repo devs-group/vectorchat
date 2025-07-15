@@ -8,9 +8,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/storage/postgres"
 	"github.com/google/uuid"
-	"github.com/yourusername/vectorchat/internal/config"
+	"github.com/yourusername/vectorchat/internal/db"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
+	"github.com/yourusername/vectorchat/pkg/config"
+	"github.com/yourusername/vectorchat/pkg/models"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 )
@@ -76,7 +78,7 @@ func (h *OAuthHandler) RegisterRoutes(app *fiber.App) {
 // @Accept json
 // @Produce json
 // @Success 302 {string} string "Redirect to GitHub OAuth"
-// @Failure 500 {object} APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Router /auth/github [get]
 func (h *OAuthHandler) GET_GitHubLogin(c *fiber.Ctx) error {
 	// Generate OAuth state using service
@@ -111,8 +113,8 @@ func (h *OAuthHandler) GET_GitHubLogin(c *fiber.Ctx) error {
 // @Param code query string true "OAuth code"
 // @Param state query string true "OAuth state"
 // @Success 302 {string} string "Redirect to /"
-// @Failure 400 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Router /auth/github/callback [get]
 func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 	stateKey := c.Cookies("oauth_state_key")
@@ -176,15 +178,15 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Success 200 {object} SessionResponse
-// @Failure 401 {object} APIResponse
+// @Success 200 {object} models.SessionResponse
+// @Failure 401 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Security CookieAuth
 // @Router /auth/session [get]
 func (h *OAuthHandler) GET_Session(c *fiber.Ctx) error {
-	user := c.Locals("user").(*services.User)
-	return c.JSON(SessionResponse{
-		User: User{
+	user := c.Locals("user").(*db.User)
+	return c.JSON(models.SessionResponse{
+		User: models.User{
 			ID:        user.ID,
 			Email:     user.Email,
 			Name:      user.Name,
@@ -200,9 +202,9 @@ func (h *OAuthHandler) GET_Session(c *fiber.Ctx) error {
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Success 200 {object} MessageResponse
-// @Failure 401 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Success 200 {object} models.MessageResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /auth/logout [post]
 func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
@@ -226,7 +228,7 @@ func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
 		Path:     "/",
 	})
 
-	return c.JSON(MessageResponse{
+	return c.JSON(models.MessageResponse{
 		Message: "Logged out successfully",
 	})
 }

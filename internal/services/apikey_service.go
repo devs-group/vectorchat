@@ -5,24 +5,27 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"math"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
+	"github.com/yourusername/vectorchat/pkg/models"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // APIKeyService handles API key operations
 type APIKeyService struct {
-	repo APIKeyRepository
+	*CommonService
+	repo db.APIKeyRepository
 }
 
 // NewAPIKeyService creates a new APIKeyService
-func NewAPIKeyService(repo APIKeyRepository) *APIKeyService {
+func NewAPIKeyService(repo db.APIKeyRepository) *APIKeyService {
 	return &APIKeyService{
-		repo: repo,
+		CommonService: NewCommonService(),
+		repo:          repo,
 	}
 }
 
@@ -59,30 +62,8 @@ func (s *APIKeyService) IsAPIKeyValid(storedHashedKey, providedPlainTextKey stri
 	return false, errors.Wrap(err, "failed to compare api key hash")
 }
 
-// APIKeyCreateRequest represents the request to create an API key
-type APIKeyCreateRequest struct {
-	Name      string  `json:"name"`
-	ExpiresAt *string `json:"expires_at,omitempty"`
-}
-
-// APIKeysListResponse represents the response for listing API keys with pagination
-type APIKeysListResponse struct {
-	APIKeys    []*APIKeyResponse   `json:"api_keys"`
-	Pagination *PaginationMetadata `json:"pagination"`
-}
-
-// PaginationMetadata represents pagination information
-type PaginationMetadata struct {
-	Page       int   `json:"page"`
-	Limit      int   `json:"limit"`
-	Total      int64 `json:"total"`
-	TotalPages int   `json:"total_pages"`
-	HasNext    bool  `json:"has_next"`
-	HasPrev    bool  `json:"has_prev"`
-}
-
 // ParseAPIKeyRequest parses and validates an API key creation request
-func (s *APIKeyService) ParseAPIKeyRequest(req *APIKeyCreateRequest) (string, *time.Time, error) {
+func (s *APIKeyService) ParseAPIKeyRequest(req *models.APIKeyCreateRequest) (string, *time.Time, error) {
 	name := req.Name
 	var expiresAt *time.Time
 
@@ -99,7 +80,7 @@ func (s *APIKeyService) ParseAPIKeyRequest(req *APIKeyCreateRequest) (string, *t
 }
 
 // CreateAPIKey creates a new API key
-func (s *APIKeyService) CreateAPIKey(ctx context.Context, userID, name string, expiresAt *time.Time) (*APIKeyResponse, string, error) {
+func (s *APIKeyService) CreateAPIKey(ctx context.Context, userID, name string, expiresAt *time.Time) (*db.APIKeyResponse, string, error) {
 	// Generate the API key
 	plainTextKey, hashedKey, err := s.CreateNewAPIKey(name, expiresAt)
 	if err != nil {
@@ -107,7 +88,7 @@ func (s *APIKeyService) CreateAPIKey(ctx context.Context, userID, name string, e
 	}
 
 	// Create the API key record
-	apiKey := &APIKey{
+	apiKey := &db.APIKey{
 		ID:        uuid.New().String(),
 		UserID:    userID,
 		Key:       hashedKey,
@@ -124,36 +105,23 @@ func (s *APIKeyService) CreateAPIKey(ctx context.Context, userID, name string, e
 	return apiKey.ToResponse(), plainTextKey, nil
 }
 
-// ParsePaginationParams parses and validates pagination parameters
-func (s *APIKeyService) ParsePaginationParams(pageStr, limitStr string) (page, limit, offset int) {
-	page = 1
-	if pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
-		}
-	}
-
-	limit = 10
-	if limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
-			limit = l
-		}
-	}
-
-	offset = (page - 1) * limit
-	return page, limit, offset
-}
-
 // GetAPIKeysWithPagination gets API keys for a user with pagination support
-func (s *APIKeyService) GetAPIKeysWithPagination(ctx context.Context, userID string, page, limit, offset int) (*APIKeysListResponse, error) {
+func (s *APIKeyService) GetAPIKeysWithPagination(ctx context.Context, userID string, page, limit, offset int) (*models.APIKeysListResponse, error) {
 	apiKeys, total, err := s.repo.FindByUserIDWithPagination(ctx, userID, offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	responses := make([]*APIKeyResponse, len(apiKeys))
+	responses := make([]*models.APIKeyResponse, len(apiKeys))
 	for i, apiKey := range apiKeys {
-		responses[i] = apiKey.ToResponse()
+		responses[i] = &models.APIKeyResponse{
+			ID:        apiKey.ToResponse().ID,
+			UserID:    apiKey.ToResponse().UserID,
+			Name:      apiKey.ToResponse().Name,
+			CreatedAt: apiKey.ToResponse().CreatedAt,
+			ExpiresAt: apiKey.ToResponse().ExpiresAt,
+			RevokedAt: apiKey.ToResponse().RevokedAt,
+		}
 	}
 
 	// Calculate pagination metadata
@@ -161,9 +129,9 @@ func (s *APIKeyService) GetAPIKeysWithPagination(ctx context.Context, userID str
 	hasNext := page < totalPages
 	hasPrev := page > 1
 
-	return &APIKeysListResponse{
+	return &models.APIKeysListResponse{
 		APIKeys: responses,
-		Pagination: &PaginationMetadata{
+		Pagination: &models.PaginationMetadata{
 			Page:       page,
 			Limit:      limit,
 			Total:      total,

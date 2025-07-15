@@ -7,6 +7,7 @@ import (
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
+	"github.com/yourusername/vectorchat/pkg/models"
 )
 
 // ChatHandler contains all the dependencies
@@ -15,6 +16,7 @@ type ChatHandler struct {
 	UploadsDir         string
 	AuthMiddleware     *middleware.AuthMiddleware
 	OwershipMiddleware *middleware.OwnershipMiddleware
+	CommonService      *services.CommonService
 }
 
 // NewChatHandler creates a new handler
@@ -23,12 +25,14 @@ func NewChatHandler(
 	chatService *services.ChatService,
 	uploadsDir string,
 	ownershipMiddlware *middleware.OwnershipMiddleware,
+	commonService *services.CommonService,
 ) *ChatHandler {
 	return &ChatHandler{
 		ChatService:        chatService,
 		UploadsDir:         uploadsDir,
 		AuthMiddleware:     authMiddleware,
 		OwershipMiddleware: ownershipMiddlware,
+		CommonService:      commonService,
 	}
 }
 
@@ -73,9 +77,9 @@ func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
 // @Produce json
 // @Param chatID path string true "Chat session ID"
 // @Param file formData file true "File to upload"
-// @Success 200 {object} FileUploadResponse
-// @Failure 400 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Success 200 {object} models.FileUploadResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/upload [post]
 func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
@@ -104,10 +108,10 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 // @Produce json
 // @Param chatID path string true "Chat session ID"
 // @Param filename path string true "File name"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} APIResponse
-// @Failure 404 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Success 200 {object} models.MessageResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/files/{filename} [delete]
 func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
@@ -122,7 +126,7 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Failed to delete file", err)
 	}
 
-	return c.JSON(MessageResponse{
+	return c.JSON(models.MessageResponse{
 		Message: "File deleted successfully",
 	})
 }
@@ -135,24 +139,16 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 // @Param chatID path string true "Chat session ID"
 // @Param filename path string true "File name"
 // @Param file formData file true "Updated file"
-// @Success 200 {object} FileUploadResponse
-// @Failure 400 {object} APIResponse
-// @Failure 404 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Success 200 {object} models.FileUploadResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/files/{filename} [put]
 func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
-	user, err := GetUser(c)
+	chatID, err := h.CommonService.ParseUUID(c.Params("chatID"))
 	if err != nil {
-		return err
-	}
-
-	chatID, err := h.ChatService.ValidateChatIDAndOwnership(c.Context(), c.Params("chatID"), user.ID)
-	if err != nil {
-		if apperrors.Is(err, apperrors.ErrUnauthorizedChatbotAccess) {
-			return ErrorResponse(c, "You don't have permission to access this chatbot", err, http.StatusForbidden)
-		}
-		return ErrorResponse(c, "Invalid chat ID or ownership", err, http.StatusBadRequest)
+		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
 	}
 
 	filename := c.Params("filename")
@@ -179,18 +175,18 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param chatID path string true "Chat session ID"
-// @Success 200 {object} ChatFilesResponse
-// @Failure 404 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Success 200 {object} models.ChatFilesResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/files [get]
 func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
-	chatbotUUID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
 	if err != nil {
 		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
 	}
 
-	response, err := h.ChatService.GetChatFilesFormatted(c.Context(), chatbotUUID)
+	response, err := h.ChatService.GetChatFilesFormatted(c.Context(), chatID)
 	if err != nil {
 		return ErrorResponse(c, "Failed to retrieve files", err)
 	}
@@ -203,9 +199,9 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 // @Tags chat
 // @Accept json
 // @Produce json
-// @Success 200 {array} services.ChatbotsListResponse
-// @Failure 401 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Success 200 {array} models.ChatbotsListResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /chat/chatbots [get]
 func (h *ChatHandler) GET_ListChatbots(c *fiber.Ctx) error {
@@ -227,15 +223,15 @@ func (h *ChatHandler) GET_ListChatbots(c *fiber.Ctx) error {
 // @Tags chat
 // @Accept json
 // @Produce json
-// @Param message body services.ChatMessageRequest true "Chat message"
+// @Param message body models.ChatMessageRequest true "Chat message"
 // @Param chatID path string true "Chat session ID"
-// @Success 200 {object} ChatResponse
-// @Failure 400 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Success 200 {object} models.ChatResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/message [post]
 func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
-	var req services.ChatMessageRequest
+	var req models.ChatMessageRequest
 
 	chatID := c.Params("chatID")
 	if chatID == "" {
@@ -278,11 +274,11 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 // @Tags chat
 // @Accept json
 // @Produce json
-// @Param chatbot body services.ChatbotCreateRequest true "Chatbot configuration"
-// @Success 201 {object} services.ChatbotResponse
-// @Failure 400 {object} APIResponse
-// @Failure 401 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Param chatbot body models.ChatbotCreateRequest true "Chatbot configuration"
+// @Success 201 {object} models.ChatbotResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /chat/chatbot [post]
 func (h *ChatHandler) POST_CreateChatbot(c *fiber.Ctx) error {
@@ -291,7 +287,7 @@ func (h *ChatHandler) POST_CreateChatbot(c *fiber.Ctx) error {
 		return err
 	}
 
-	var req services.ChatbotCreateRequest
+	var req models.ChatbotCreateRequest
 	if err := c.BodyParser(&req); err != nil {
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
@@ -310,12 +306,12 @@ func (h *ChatHandler) POST_CreateChatbot(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param chatbotID path string true "Chatbot ID"
-// @Success 200 {object} services.ChatbotResponse
-// @Failure 400 {object} APIResponse
-// @Failure 401 {object} APIResponse
-// @Failure 403 {object} APIResponse
-// @Failure 404 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Success 200 {object} models.ChatbotResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 403 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /chat/chatbot/{chatbotID} [get]
 func (h *ChatHandler) GET_ChatbotByID(c *fiber.Ctx) error {
@@ -345,13 +341,13 @@ func (h *ChatHandler) GET_ChatbotByID(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param chatbotID path string true "Chatbot ID"
-// @Param chatbot body services.ChatbotUpdateRequest true "Updated chatbot configuration"
-// @Success 200 {object} services.ChatbotResponse
-// @Failure 400 {object} APIResponse
-// @Failure 401 {object} APIResponse
-// @Failure 403 {object} APIResponse
-// @Failure 404 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Param chatbot body models.ChatbotUpdateRequest true "Updated chatbot configuration"
+// @Success 200 {object} models.ChatbotResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 403 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /chat/chatbot/{chatbotID} [put]
 func (h *ChatHandler) PUT_UpdateChatbot(c *fiber.Ctx) error {
@@ -360,7 +356,7 @@ func (h *ChatHandler) PUT_UpdateChatbot(c *fiber.Ctx) error {
 		return err
 	}
 
-	var req services.ChatbotUpdateRequest
+	var req models.ChatbotUpdateRequest
 	if err := c.BodyParser(&req); err != nil {
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
@@ -388,12 +384,12 @@ func (h *ChatHandler) PUT_UpdateChatbot(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param chatbotID path string true "Chatbot ID"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} APIResponse
-// @Failure 401 {object} APIResponse
-// @Failure 403 {object} APIResponse
-// @Failure 404 {object} APIResponse
-// @Failure 500 {object} APIResponse
+// @Success 200 {object} models.MessageResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 403 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
 // @Router /chat/chatbot/{chatbotID} [delete]
 func (h *ChatHandler) DELETE_Chatbot(c *fiber.Ctx) error {
@@ -412,7 +408,7 @@ func (h *ChatHandler) DELETE_Chatbot(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Failed to delete chatbot", err)
 	}
 
-	return c.JSON(MessageResponse{
+	return c.JSON(models.MessageResponse{
 		Message: "Chatbot deleted successfully",
 	})
 }

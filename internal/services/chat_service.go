@@ -16,114 +16,65 @@ import (
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/prompts"
+	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/vectorize"
+	"github.com/yourusername/vectorchat/pkg/models"
 )
 
 // ChatService handles chat interactions with context from vector database
 type ChatService struct {
-	chatbotRepo  ChatbotRepositoryTx
-	documentRepo DocumentRepositoryTx
-	fileRepo     FileRepositoryTx
+	*CommonService
+	chatbotRepo  db.ChatbotRepositoryTx
+	documentRepo db.DocumentRepositoryTx
+	fileRepo     db.FileRepositoryTx
 	vectorizer   vectorize.Vectorizer
 	openaiKey    string
-	db           *Database
+	db           *db.Database
 	uploadsDir   string
 }
 
 // NewChatService creates a new chat service
 func NewChatService(
-	chatbotRepo ChatbotRepositoryTx,
-	documentRepo DocumentRepositoryTx,
-	fileRepo FileRepositoryTx,
+	chatbotRepo db.ChatbotRepositoryTx,
+	documentRepo db.DocumentRepositoryTx,
+	fileRepo db.FileRepositoryTx,
 	vectorizer vectorize.Vectorizer,
 	openaiKey string,
-	db *Database,
+	db *db.Database,
 	uploadsDir string,
 ) *ChatService {
 	return &ChatService{
-		chatbotRepo:  chatbotRepo,
-		documentRepo: documentRepo,
-		fileRepo:     fileRepo,
-		vectorizer:   vectorizer,
-		openaiKey:    openaiKey,
-		db:           db,
-		uploadsDir:   uploadsDir,
+		CommonService: NewCommonService(),
+		chatbotRepo:   chatbotRepo,
+		documentRepo:  documentRepo,
+		fileRepo:      fileRepo,
+		vectorizer:    vectorizer,
+		openaiKey:     openaiKey,
+		db:            db,
+		uploadsDir:    uploadsDir,
 	}
 }
 
 // ChatbotCreateRequest represents the request to create a new chatbot
-type ChatbotCreateRequest struct {
-	Name               string  `json:"name"`
-	Description        string  `json:"description"`
-	SystemInstructions string  `json:"system_instructions"`
-	ModelName          string  `json:"model_name"`
-	TemperatureParam   float64 `json:"temperature_param"`
-	MaxTokens          int     `json:"max_tokens"`
-}
-
-// ChatbotUpdateRequest represents the request to update a chatbot
-type ChatbotUpdateRequest struct {
-	Name               *string  `json:"name,omitempty"`
-	Description        *string  `json:"description,omitempty"`
-	SystemInstructions *string  `json:"system_instructions,omitempty"`
-	ModelName          *string  `json:"model_name,omitempty"`
-	TemperatureParam   *float64 `json:"temperature_param,omitempty"`
-	MaxTokens          *int     `json:"max_tokens,omitempty"`
-}
-
-// ChatbotResponse represents a chatbot in responses
-type ChatbotResponse struct {
-	ID                 uuid.UUID `json:"id"`
-	UserID             string    `json:"user_id"`
-	Name               string    `json:"name"`
-	Description        string    `json:"description"`
-	SystemInstructions string    `json:"system_instructions"`
-	ModelName          string    `json:"model_name"`
-	TemperatureParam   float64   `json:"temperature_param"`
-	MaxTokens          int       `json:"max_tokens"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
-}
-
-// ChatMessageRequest represents a chat message request
-type ChatMessageRequest struct {
-	Query string `json:"query"`
-}
-
-// FileUploadResponse represents a file upload response
-type FileUploadResponse struct {
-	Message   string    `json:"message"`
-	ChatID    uuid.UUID `json:"chat_id"`
-	ChatbotID uuid.UUID `json:"chatbot_id"`
-	File      string    `json:"file"`
-}
-
-// ChatFilesResponse represents the response for listing chat files
-type ChatFilesResponse struct {
-	ChatID uuid.UUID  `json:"chat_id"`
-	Files  []FileInfo `json:"files"`
-}
-
-// FileInfo represents file information
-type FileInfo struct {
-	Filename   string    `json:"filename"`
-	ID         uuid.UUID `json:"id"`
-	UploadedAt time.Time `json:"uploaded_at"`
-}
-
-// MessageResponse represents a simple message response
-type MessageResponse struct {
-	Message string `json:"message"`
-}
-
-// ChatbotsListResponse represents the response for listing chatbots
-type ChatbotsListResponse struct {
-	Chatbots []ChatbotResponse `json:"chatbots"`
+// Helper function to convert database Chatbot to models.ChatbotResponse
+func (s *ChatService) toChatbotResponse(chatbot *db.Chatbot) *models.ChatbotResponse {
+	return &models.ChatbotResponse{
+		ID:                 chatbot.ID,
+		UserID:             chatbot.UserID,
+		Name:               chatbot.Name,
+		Description:        chatbot.Description,
+		SystemInstructions: chatbot.SystemInstructions,
+		ModelName:          chatbot.ModelName,
+		TemperatureParam:   chatbot.TemperatureParam,
+		MaxTokens:          chatbot.MaxTokens,
+		CreatedAt:          chatbot.CreatedAt,
+		UpdatedAt:          chatbot.UpdatedAt,
+	}
 }
 
 // ValidateAndCreateChatbot validates the request and creates a new chatbot
-func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID string, req *ChatbotCreateRequest) (*ChatbotResponse, error) {
+func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID string, req *models.ChatbotCreateRequest) (*models.ChatbotResponse, error) {
 	// Validate request
 	if req.Name == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "name is required")
@@ -150,22 +101,11 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 		return nil, err
 	}
 
-	return &ChatbotResponse{
-		ID:                 chatbot.ID,
-		UserID:             chatbot.UserID,
-		Name:               chatbot.Name,
-		Description:        chatbot.Description,
-		SystemInstructions: chatbot.SystemInstructions,
-		ModelName:          chatbot.ModelName,
-		TemperatureParam:   chatbot.TemperatureParam,
-		MaxTokens:          chatbot.MaxTokens,
-		CreatedAt:          chatbot.CreatedAt,
-		UpdatedAt:          chatbot.UpdatedAt,
-	}, nil
+	return s.toChatbotResponse(chatbot), nil
 }
 
 // CreateChatbot creates a new chatbot with default settings
-func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions string) (*Chatbot, error) {
+func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions string) (*db.Chatbot, error) {
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
@@ -179,7 +119,7 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 	}
 
 	now := time.Now()
-	chatbot := &Chatbot{
+	chatbot := &db.Chatbot{
 		ID:                 uuid.New(),
 		UserID:             userID,
 		Name:               name,
@@ -201,7 +141,7 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 }
 
 // GetChatbotByID retrieves a chatbot by ID without ownership validation
-func (s *ChatService) GetChatbotByID(ctx context.Context, chatbotID string) (*Chatbot, error) {
+func (s *ChatService) GetChatbotByID(ctx context.Context, chatbotID string) (*db.Chatbot, error) {
 	chatbot, err := s.chatbotRepo.FindByID(ctx, uuid.MustParse(chatbotID))
 	if err != nil {
 		return nil, err
@@ -211,7 +151,7 @@ func (s *ChatService) GetChatbotByID(ctx context.Context, chatbotID string) (*Ch
 }
 
 // ListChatbots lists all chatbots owned by a user
-func (s *ChatService) ListChatbots(ctx context.Context, userID string) ([]*Chatbot, error) {
+func (s *ChatService) ListChatbots(ctx context.Context, userID string) ([]*db.Chatbot, error) {
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
@@ -220,57 +160,35 @@ func (s *ChatService) ListChatbots(ctx context.Context, userID string) ([]*Chatb
 }
 
 // ListChatbotsFormatted lists all chatbots owned by a user with formatted response
-func (s *ChatService) ListChatbotsFormatted(ctx context.Context, userID string) (*ChatbotsListResponse, error) {
+func (s *ChatService) ListChatbotsFormatted(ctx context.Context, userID string) (*models.ChatbotsListResponse, error) {
 	chatbots, err := s.ListChatbots(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Format the response
-	response := make([]ChatbotResponse, 0, len(chatbots))
+	var formattedChatbots []models.ChatbotResponse
 	for _, chatbot := range chatbots {
-		response = append(response, ChatbotResponse{
-			ID:                 chatbot.ID,
-			UserID:             chatbot.UserID,
-			Name:               chatbot.Name,
-			Description:        chatbot.Description,
-			SystemInstructions: chatbot.SystemInstructions,
-			ModelName:          chatbot.ModelName,
-			TemperatureParam:   chatbot.TemperatureParam,
-			MaxTokens:          chatbot.MaxTokens,
-			CreatedAt:          chatbot.CreatedAt,
-			UpdatedAt:          chatbot.UpdatedAt,
-		})
+		formattedChatbots = append(formattedChatbots, *s.toChatbotResponse(chatbot))
 	}
 
-	return &ChatbotsListResponse{
-		Chatbots: response,
+	return &models.ChatbotsListResponse{
+		Chatbots: formattedChatbots,
 	}, nil
 }
 
 // UpdateChatbotFromRequest updates a chatbot from request data
-func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatbotID, userID string, req *ChatbotUpdateRequest) (*ChatbotResponse, error) {
-	chatbot, err := s.UpdateChatbotAll(ctx, chatbotID, userID, req.Name, req.Description, req.SystemInstructions, req.ModelName, req.TemperatureParam, req.MaxTokens)
+func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatID, userID string, req *models.ChatbotUpdateRequest) (*models.ChatbotResponse, error) {
+	chatbot, err := s.UpdateChatbotAll(ctx, chatID, userID, req.Name, req.Description, req.SystemInstructions, req.ModelName, req.TemperatureParam, req.MaxTokens)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ChatbotResponse{
-		ID:                 chatbot.ID,
-		UserID:             chatbot.UserID,
-		Name:               chatbot.Name,
-		Description:        chatbot.Description,
-		SystemInstructions: chatbot.SystemInstructions,
-		ModelName:          chatbot.ModelName,
-		TemperatureParam:   chatbot.TemperatureParam,
-		MaxTokens:          chatbot.MaxTokens,
-		CreatedAt:          chatbot.CreatedAt,
-		UpdatedAt:          chatbot.UpdatedAt,
-	}, nil
+	return s.toChatbotResponse(chatbot), nil
 }
 
 // UpdateChatbotAll updates all chatbot fields in a single operation
-func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID string, name, description, systemInstructions, modelName *string, temperature *float64, maxTokens *int) (*Chatbot, error) {
+func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID string, name, description, systemInstructions, modelName *string, temperature *float64, maxTokens *int) (*db.Chatbot, error) {
 	// Validate inputs
 	if chatbotID == "" || userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
@@ -395,8 +313,8 @@ func (s *ChatService) CheckChatbotOwnership(ctx context.Context, chatbotID uuid.
 }
 
 // GetChatbotFormatted retrieves a chatbot by ID with formatted response
-func (s *ChatService) GetChatbotFormatted(ctx context.Context, chatbotID, userID string) (*ChatbotResponse, error) {
-	chatbotUUID, err := uuid.Parse(chatbotID)
+func (s *ChatService) GetChatbotFormatted(ctx context.Context, chatID, userID string) (*models.ChatbotResponse, error) {
+	chatbotUUID, err := uuid.Parse(chatID)
 	if err != nil {
 		return nil, apperrors.Wrap(err, "invalid chatbot ID format")
 	}
@@ -411,7 +329,7 @@ func (s *ChatService) GetChatbotFormatted(ctx context.Context, chatbotID, userID
 	}
 
 	// Get chatbot details
-	chatbot, err := s.GetChatbotByID(ctx, chatbotID)
+	chatbot, err := s.GetChatbotByID(ctx, chatbotUUID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -420,28 +338,17 @@ func (s *ChatService) GetChatbotFormatted(ctx context.Context, chatbotID, userID
 		return nil, apperrors.ErrChatbotNotFound
 	}
 
-	return &ChatbotResponse{
-		ID:                 chatbot.ID,
-		UserID:             chatbot.UserID,
-		Name:               chatbot.Name,
-		Description:        chatbot.Description,
-		SystemInstructions: chatbot.SystemInstructions,
-		ModelName:          chatbot.ModelName,
-		TemperatureParam:   chatbot.TemperatureParam,
-		MaxTokens:          chatbot.MaxTokens,
-		CreatedAt:          chatbot.CreatedAt,
-		UpdatedAt:          chatbot.UpdatedAt,
-	}, nil
+	return s.toChatbotResponse(chatbot), nil
 }
 
 // ProcessFileUpload handles file upload processing
-func (s *ChatService) ProcessFileUpload(ctx context.Context, chatbotID uuid.UUID, file *multipart.FileHeader, uploadsDir string) (*FileUploadResponse, error) {
+func (s *ChatService) ProcessFileUpload(ctx context.Context, chatbotID uuid.UUID, fileHeader *multipart.FileHeader, uploadsDir string) (*models.FileUploadResponse, error) {
 	// Create a unique filename
-	filename := fmt.Sprintf("%s-%s", chatbotID, filepath.Base(file.Filename))
+	filename := fmt.Sprintf("%s-%s", chatbotID, filepath.Base(fileHeader.Filename))
 	uploadPath := filepath.Join(uploadsDir, filename)
 
 	// Save the file
-	src, err := file.Open()
+	src, err := fileHeader.Open()
 	if err != nil {
 		return nil, apperrors.Wrap(err, "failed to open uploaded file")
 	}
@@ -458,21 +365,24 @@ func (s *ChatService) ProcessFileUpload(ctx context.Context, chatbotID uuid.UUID
 	}
 
 	// Add file to vector database
-	docID := fmt.Sprintf("%s-%s", chatbotID, file.Filename)
-	if err := s.AddFile(ctx, docID, uploadPath, chatbotID); err != nil {
+	if err := s.AddFile(ctx, filename, uploadPath, chatbotID); err != nil {
+		// Remove the uploaded file if vectorization fails
+		os.Remove(uploadPath)
 		return nil, apperrors.Wrap(err, "failed to vectorize file")
 	}
 
-	return &FileUploadResponse{
-		Message:   "File uploaded and vectorized successfully",
+	return &models.FileUploadResponse{
+		Message:   "File processed successfully",
 		ChatID:    chatbotID,
 		ChatbotID: chatbotID,
-		File:      file.Filename,
+		File:      filepath.Base(fileHeader.Filename),
+		Filename:  filepath.Base(fileHeader.Filename),
+		Size:      fileHeader.Size,
 	}, nil
 }
 
 // ProcessFileUpdate handles file update processing
-func (s *ChatService) ProcessFileUpdate(ctx context.Context, chatbotID uuid.UUID, filename string, file *multipart.FileHeader, uploadsDir string) (*MessageResponse, error) {
+func (s *ChatService) ProcessFileUpdate(ctx context.Context, chatbotID uuid.UUID, filename string, fileHeader *multipart.FileHeader, uploadsDir string) (*models.FileUploadResponse, error) {
 	// Create file path
 	uploadPath := filepath.Join(uploadsDir, fmt.Sprintf("%s-%s", chatbotID, filename))
 
@@ -482,7 +392,7 @@ func (s *ChatService) ProcessFileUpdate(ctx context.Context, chatbotID uuid.UUID
 	}
 
 	// Save the new file
-	src, err := file.Open()
+	src, err := fileHeader.Open()
 	if err != nil {
 		return nil, apperrors.Wrap(err, "failed to open uploaded file")
 	}
@@ -506,8 +416,13 @@ func (s *ChatService) ProcessFileUpdate(ctx context.Context, chatbotID uuid.UUID
 		return nil, apperrors.Wrap(err, "failed to vectorize file")
 	}
 
-	return &MessageResponse{
-		Message: "File updated successfully",
+	return &models.FileUploadResponse{
+		Message:   "File updated successfully",
+		ChatID:    chatbotID,
+		ChatbotID: chatbotID,
+		File:      filename,
+		Filename:  filename,
+		Size:      fileHeader.Size,
 	}, nil
 }
 
@@ -534,32 +449,32 @@ func (s *ChatService) ProcessFileDelete(ctx context.Context, chatbotID, filename
 }
 
 // GetChatFilesFormatted retrieves all files for a chatbot with formatted response
-func (s *ChatService) GetChatFilesFormatted(ctx context.Context, chatbotID uuid.UUID) (*ChatFilesResponse, error) {
+func (s *ChatService) GetChatFilesFormatted(ctx context.Context, chatbotID uuid.UUID) (*models.ChatFilesResponse, error) {
 	files, err := s.GetFilesByChatbotID(ctx, chatbotID)
 	if err != nil {
 		return nil, err
 	}
 
-	respFiles := make([]FileInfo, 0, len(files))
+	respFiles := make([]models.FileInfo, 0, len(files))
 	for _, f := range files {
-		respFiles = append(respFiles, FileInfo{
+		respFiles = append(respFiles, models.FileInfo{
 			Filename:   f.Filename,
 			ID:         f.ID,
 			UploadedAt: f.UploadedAt,
 		})
 	}
 
-	return &ChatFilesResponse{
+	return &models.ChatFilesResponse{
 		ChatID: chatbotID,
 		Files:  respFiles,
 	}, nil
 }
 
 // ValidateAndParseQuery validates and parses a chat message request
-func (s *ChatService) ValidateAndParseQuery(req *ChatMessageRequest, queryForm string) (string, error) {
+func (s *ChatService) ValidateAndParseQuery(req *models.ChatMessageRequest, formQuery string) (string, error) {
 	query := req.Query
-	if query == "" && queryForm != "" {
-		query = queryForm
+	if query == "" && formQuery != "" {
+		query = formQuery
 	}
 
 	if query == "" {
@@ -582,7 +497,7 @@ func (s *ChatService) AddFile(ctx context.Context, id string, filePath string, c
 	defer tx.Rollback()
 
 	// Insert file metadata
-	file := &File{
+	file := &db.File{
 		ID:         fileID,
 		ChatbotID:  chatbotID,
 		Filename:   filename,
@@ -616,7 +531,7 @@ func (s *ChatService) AddFile(ctx context.Context, id string, filePath string, c
 }
 
 // processPDFFile processes a PDF file by extracting text and chunking it
-func (s *ChatService) processPDFFile(ctx context.Context, tx *Transaction, id, filePath string, chatbotID uuid.UUID, fileID *uuid.UUID) error {
+func (s *ChatService) processPDFFile(ctx context.Context, tx *db.Transaction, id, filePath string, chatbotID uuid.UUID, fileID *uuid.UUID) error {
 	// Extract text from PDF
 	pdfText, err := vectorize.ExtractTextFromPDF(filePath)
 	if err != nil {
@@ -633,7 +548,7 @@ func (s *ChatService) processPDFFile(ctx context.Context, tx *Transaction, id, f
 			return apperrors.Wrapf(err, "failed to vectorize PDF chunk %d", i)
 		}
 
-		doc := &DocumentWithEmbedding{
+		doc := &db.DocumentWithEmbedding{
 			ID:         fmt.Sprintf("%s-%d", id, i),
 			Content:    []byte(chunk),
 			Embedding:  embedding,
@@ -652,7 +567,7 @@ func (s *ChatService) processPDFFile(ctx context.Context, tx *Transaction, id, f
 }
 
 // processRegularFile processes a regular file by vectorizing its content
-func (s *ChatService) processRegularFile(ctx context.Context, tx *Transaction, id, filePath string, chatbotID uuid.UUID, fileID *uuid.UUID) error {
+func (s *ChatService) processRegularFile(ctx context.Context, tx *db.Transaction, id, filePath string, chatbotID uuid.UUID, fileID *uuid.UUID) error {
 	embedding, err := s.vectorizer.VectorizeFile(ctx, filePath)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to vectorize file")
@@ -663,7 +578,7 @@ func (s *ChatService) processRegularFile(ctx context.Context, tx *Transaction, i
 		return apperrors.Wrap(err, "failed to read file")
 	}
 
-	doc := &DocumentWithEmbedding{
+	doc := &db.DocumentWithEmbedding{
 		ID:         id,
 		Content:    content,
 		Embedding:  embedding,
@@ -676,7 +591,7 @@ func (s *ChatService) processRegularFile(ctx context.Context, tx *Transaction, i
 }
 
 // GetFilesByChatbotID retrieves all files for a given chatbot
-func (s *ChatService) GetFilesByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
+func (s *ChatService) GetFilesByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*db.File, error) {
 	return s.fileRepo.FindByChatbotID(ctx, chatbotID)
 }
 
@@ -687,22 +602,13 @@ func (s *ChatService) DeleteDocumentByID(ctx context.Context, documentID string)
 
 // ParseChatID parses and validates a chat ID
 func (s *ChatService) ParseChatID(chatIDStr string) (uuid.UUID, error) {
-	if chatIDStr == "" {
-		return uuid.Nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chat ID is required")
-	}
-
-	chatID, err := uuid.Parse(chatIDStr)
-	if err != nil {
-		return uuid.Nil, apperrors.Wrap(err, "invalid chat ID format")
-	}
-
-	return chatID, nil
+	return s.ParseUUID(chatIDStr)
 }
 
 // ChatWithChatbot handles chat interactions with chatbot context
-func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, query string) (string, error) {
+func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query string) (string, error) {
 	// Retrieve the chatbot with authorization check
-	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, uuid.MustParse(chatbotID), userID)
+	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, uuid.MustParse(chatID), userID)
 	if err != nil {
 		return "", err
 	}
@@ -714,14 +620,14 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, qu
 	}
 
 	// Find relevant documents for this chatbot
-	docs, err := s.documentRepo.FindSimilarByChatbot(ctx, queryEmbedding, chatbotID, 5)
+	docs, err := s.documentRepo.FindSimilarByChatbot(ctx, queryEmbedding, chatID, 5)
 	if err != nil {
 		return "", apperrors.Wrapf(apperrors.ErrDatabaseOperation, "find similar documents: %v", err)
 	}
 
 	// Check if any documents were found for this chatbot
 	if len(docs) == 0 {
-		return "", apperrors.Wrapf(apperrors.ErrNoDocumentsFound, "chatbot ID: %s", chatbotID)
+		return "", apperrors.Wrapf(apperrors.ErrNoDocumentsFound, "chatbot ID: %s", chatID)
 	}
 
 	// Build context from documents
@@ -770,26 +676,6 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbotID, userID, qu
 
 	return completion, nil
 }
-
-// ValidateChatIDAndOwnership validates chat ID and user ownership
-func (s *ChatService) ValidateChatIDAndOwnership(ctx context.Context, chatIDStr, userID string) (uuid.UUID, error) {
-	chatID, err := s.ParseChatID(chatIDStr)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	isOwner, err := s.CheckChatbotOwnership(ctx, chatID, userID)
-	if err != nil {
-		return uuid.Nil, apperrors.Wrap(err, "failed to verify chatbot ownership")
-	}
-	if !isOwner {
-		return uuid.Nil, apperrors.ErrUnauthorizedChatbotAccess
-	}
-
-	return chatID, nil
-}
-
-// Helper functions
 
 // chunkText splits text into chunks of the given size
 func chunkText(text string, size int) []string {

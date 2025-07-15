@@ -10,20 +10,23 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
 // AuthService handles user authentication and user-related operations
 type AuthService struct {
-	userRepo   UserRepository
-	apiKeyRepo APIKeyRepository
+	*CommonService
+	userRepo   db.UserRepository
+	apiKeyRepo db.APIKeyRepository
 }
 
 // NewAuthService creates a new auth service
-func NewAuthService(userRepo UserRepository, apiKeyRepo APIKeyRepository) *AuthService {
+func NewAuthService(userRepo db.UserRepository, apiKeyRepo db.APIKeyRepository) *AuthService {
 	return &AuthService{
-		userRepo:   userRepo,
-		apiKeyRepo: apiKeyRepo,
+		CommonService: NewCommonService(),
+		userRepo:      userRepo,
+		apiKeyRepo:    apiKeyRepo,
 	}
 }
 
@@ -49,22 +52,22 @@ type OAuthState struct {
 }
 
 // FindUserByID finds a user by ID
-func (s *AuthService) FindUserByID(ctx context.Context, id string) (*User, error) {
+func (s *AuthService) FindUserByID(ctx context.Context, id string) (*db.User, error) {
 	return s.userRepo.FindByID(ctx, id)
 }
 
 // FindUserByEmail finds a user by email
-func (s *AuthService) FindUserByEmail(ctx context.Context, email string) (*User, error) {
+func (s *AuthService) FindUserByEmail(ctx context.Context, email string) (*db.User, error) {
 	return s.userRepo.FindByEmail(ctx, email)
 }
 
 // CreateUser creates a new user
-func (s *AuthService) CreateUser(ctx context.Context, id, name, email, provider string) (*User, error) {
+func (s *AuthService) CreateUser(ctx context.Context, id, name, email, provider string) (*db.User, error) {
 	if id == "" {
 		id = uuid.New().String()
 	}
 
-	user := &User{
+	user := &db.User{
 		ID:        id,
 		Name:      name,
 		Email:     email,
@@ -82,7 +85,7 @@ func (s *AuthService) CreateUser(ctx context.Context, id, name, email, provider 
 }
 
 // FindAPIKeyByPlaintext finds an API key by comparing against stored hashes
-func (s *AuthService) FindAPIKeyByPlaintext(ctx context.Context, plainTextKey string, compareFunc func(hashedKey string) (bool, error)) (*APIKey, error) {
+func (s *AuthService) FindAPIKeyByPlaintext(ctx context.Context, plainTextKey string, compareFunc func(hashedKey string) (bool, error)) (*db.APIKey, error) {
 	return s.apiKeyRepo.FindByHashComparison(ctx, compareFunc)
 }
 
@@ -102,7 +105,7 @@ func (s *AuthService) GenerateOAuthState() (*OAuthState, error) {
 }
 
 // ProcessGitHubCallback processes the GitHub OAuth callback
-func (s *AuthService) ProcessGitHubCallback(ctx context.Context, client *http.Client) (*User, error) {
+func (s *AuthService) ProcessGitHubCallback(ctx context.Context, client *http.Client) (*db.User, error) {
 	// Get user info from GitHub
 	resp, err := client.Get("https://api.github.com/user")
 	if err != nil {
