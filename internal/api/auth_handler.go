@@ -78,27 +78,44 @@ func (h *OAuthHandler) RegisterRoutes(app *fiber.App) {
 // @Failure 500 {object} models.APIResponse
 // @Router /auth/github [get]
 func (h *OAuthHandler) GET_GitHubLogin(c *fiber.Ctx) error {
+	log.Printf("[DEBUG] GitHub login initiated - URL: %s", c.OriginalURL())
+
 	// Generate OAuth state using service
 	oauthState, err := h.authService.GenerateOAuthState()
 	if err != nil {
+		log.Printf("[ERROR] Failed to generate OAuth state: %v", err)
 		return ErrorResponse(c, "failed to generate state", err)
 	}
+	log.Printf("[DEBUG] Generated OAuth state - StateKey: '%s', State: '%s'", oauthState.StateKey, oauthState.State)
 
 	err = h.store.Set(oauthState.StateKey, []byte(oauthState.State), time.Hour)
 	if err != nil {
+		log.Printf("[ERROR] Failed to save state to store: %v", err)
 		return ErrorResponse(c, "failed to save state", err)
 	}
+	log.Printf("[DEBUG] Saved state to store successfully")
 
 	url := h.githubOAuth.AuthCodeURL(oauthState.State)
+	log.Printf("[DEBUG] Generated GitHub OAuth URL: %s", url)
+
+	// Determine cookie settings based on environment
+	isSecure := h.config.Env == "production"
+	sameSite := "Lax" // Use Lax for OAuth flows
+
+	log.Printf("[DEBUG] Setting cookie - Name: oauth_state_key, Value: %s, Secure: %t, SameSite: %s",
+		oauthState.StateKey, isSecure, sameSite)
+
 	c.Cookie(&fiber.Cookie{
 		Name:     "oauth_state_key",
 		Value:    oauthState.StateKey,
 		Expires:  time.Now().Add(time.Hour),
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "Strict",
+		Secure:   isSecure,
+		SameSite: sameSite,
 		Path:     "/",
 	})
+
+	log.Printf("[DEBUG] Redirecting to GitHub OAuth URL")
 	return c.Redirect(url)
 }
 
@@ -167,13 +184,16 @@ func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
 		return ErrorResponse(c, "failed to save session", err)
 	}
 
+	// Use consistent cookie settings
+	isSecure := h.config.Env == "production"
+
 	c.Cookie(&fiber.Cookie{
 		Name:     "session_id",
 		Value:    sessionID,
 		Expires:  time.Now().Add(8 * time.Hour),
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "Strict",
+		Secure:   isSecure,
+		SameSite: "Lax",
 		Path:     "/",
 	})
 	var appCfg config.AppConfig
@@ -233,13 +253,16 @@ func (h *OAuthHandler) POST_Logout(c *fiber.Ctx) error {
 		return ErrorResponse(c, "failed to get session", err)
 	}
 
+	// Use consistent cookie settings with login
+	isSecure := h.config.Env == "production"
+
 	c.Cookie(&fiber.Cookie{
 		Name:     "session_id",
 		Value:    "",
 		Expires:  time.Now().Add(-1 * time.Hour),
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "Strict",
+		Secure:   isSecure,
+		SameSite: "Lax",
 		Path:     "/",
 	})
 
