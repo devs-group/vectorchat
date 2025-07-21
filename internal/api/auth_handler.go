@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -113,19 +114,37 @@ func (h *OAuthHandler) GET_GitHubLogin(c *fiber.Ctx) error {
 // @Failure 500 {object} models.APIResponse
 // @Router /auth/github/callback [get]
 func (h *OAuthHandler) GET_GitHubCallback(c *fiber.Ctx) error {
+	log.Printf("[DEBUG] OAuth callback started - URL: %s", c.OriginalURL())
+
 	stateKey := c.Cookies("oauth_state_key")
+	log.Printf("[DEBUG] Retrieved stateKey from cookie: '%s'", stateKey)
+
 	if stateKey == "" {
+		log.Printf("[ERROR] No oauth_state_key cookie found")
 		return ErrorResponse(c, "auth state is invalid", nil, http.StatusBadRequest)
 	}
+
 	expectedState, err := h.store.Get(stateKey)
+	log.Printf("[DEBUG] Retrieved expectedState from store - key: '%s', value: '%s', error: %v",
+		stateKey, string(expectedState), err)
+
 	if err != nil || expectedState == nil {
+		log.Printf("[ERROR] Failed to get state from store - key: '%s', error: %v, expectedState is nil: %t",
+			stateKey, err, expectedState == nil)
 		return ErrorResponse(c, "auth state is invalid", err, http.StatusBadRequest)
 	}
 
-	if c.Query("state") != string(expectedState) {
+	receivedState := c.Query("state")
+	log.Printf("[DEBUG] State comparison - received: '%s', expected: '%s', match: %t",
+		receivedState, string(expectedState), receivedState == string(expectedState))
+
+	if receivedState != string(expectedState) {
+		log.Printf("[ERROR] OAuth state mismatch - received: '%s', expected: '%s'",
+			receivedState, string(expectedState))
 		return ErrorResponse(c, "auth state is invalid", nil, http.StatusBadRequest)
 	}
 
+	log.Printf("[DEBUG] OAuth state validation successful, proceeding with token exchange")
 	defer h.store.Delete(stateKey)
 
 	code := c.Query("code")
