@@ -4,8 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineNuxtConfig({
   runtimeConfig: {
     public: {
-      apiBase:
-        process.env.API_BASE_URL || "https://lingering-mountain.podseidon.io",
+      apiBase: process.env.API_BASE_URL || "https://hidden-wave.podseidon.io",
     },
   },
   devtools: { enabled: true },
