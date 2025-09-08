@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/storage/postgres"
 	"github.com/gofiber/swagger"
 	"github.com/pressly/goose/v3"
@@ -26,6 +26,7 @@ import (
 	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/internal/vectorize"
 	"github.com/yourusername/vectorchat/pkg/config"
+	stripe_sub "github.com/yourusername/vectorchat/pkg/stripe_sub"
 )
 
 // @title VectorChat API
@@ -75,6 +76,8 @@ func main() {
 
 // runApplication starts the vectorchat application
 func runApplication(appCfg *config.AppConfig) error {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
 	// Load environment variables
 	pgConnStr := appCfg.PGConnection
 	if pgConnStr == "" {
@@ -103,7 +106,26 @@ func runApplication(appCfg *config.AppConfig) error {
 	}
 	defer pool.Close()
 
-	log.Println("Connected to PostgreSQL database")
+	logger.Info("Connected to PostgreSQL database")
+
+	c, err := stripe_sub.NewClient(
+		stripe_sub.WithLogger(slogAdapter{l: logger}),
+		stripe_sub.WithDB(pool.DB),
+		stripe_sub.WithWebhookSecret(os.Getenv("STRIPE_WEBHOOK_SECRET")),
+		stripe_sub.WithStripe(stripe_sub.NewStripeClient(os.Getenv("STRIPE_API_KEY"))),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Migrate(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := c.EnsurePlans(context.Background(), defaultPlans()); err != nil {
+		log.Fatal(err)
+	}
 
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
@@ -155,9 +177,6 @@ func runApplication(appCfg *config.AppConfig) error {
 		BodyLimit: 10 * 1024 * 1024, // 10MB limit for file uploads
 	})
 
-	// Add middleware
-	app.Use(logger.New())
-
 	// Configure CORS with more permissive settings
 	frontendURL := fmt.Sprintf("http://%s", appCfg.FrontendURL)
 	if appCfg.IsSSL {
@@ -176,11 +195,13 @@ func runApplication(appCfg *config.AppConfig) error {
 	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, uploadsDir, ownershipMiddleware, commonService)
 	oAuthHandler := api.NewOAuthHandler(oAuthConfig, authService, authMiddleware)
 	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService, commonService)
+	subsHandler := api.NewStripeSubHandler(authMiddleware, c)
 
 	// Register routes
 	chatbotHandler.RegisterRoutes(app)
 	oAuthHandler.RegisterRoutes(app)
 	apiKeyHandler.RegisterRoutes(app)
+	subsHandler.RegisterRoutes(app)
 
 	// Add swagger route
 	app.Get("/swagger/*", swagger.HandlerDefault)
@@ -193,6 +214,76 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	log.Printf("Server starting on port %s", port)
 	return app.Listen(":" + port)
+}
+
+// slogAdapter adapts slog.Logger to stripe_sub.Logger
+type slogAdapter struct{ l *slog.Logger }
+
+func (s slogAdapter) Debugf(f string, a ...any) { s.l.Debug(fmt.Sprintf(f, a...)) }
+func (s slogAdapter) Infof(f string, a ...any)  { s.l.Info(fmt.Sprintf(f, a...)) }
+func (s slogAdapter) Warnf(f string, a ...any)  { s.l.Warn(fmt.Sprintf(f, a...)) }
+func (s slogAdapter) Errorf(f string, a ...any) { s.l.Error(fmt.Sprintf(f, a...)) }
+
+// defaultPlans returns the requested initial plans seeded on startup.
+func defaultPlans() []stripe_sub.PlanSpec {
+	freeFeatures := map[string]any{
+		"message_credits_per_month":   100,
+		"training_data_per_chatbot":   "400 KB",
+		"chatbots":                    1,
+		"limit_to_train_on":           "5 data sources (websites, files)",
+		"embed_on_unlimited_websites": true,
+		"api_access":                  true,
+		"inactivity_delete_days":      14,
+	}
+	hobbyFeatures := map[string]any{
+		"includes":                  "Everything in Free",
+		"access_to_advanced_models": true,
+		"message_credits_per_month": 2000,
+		"training_data_per_chatbot": "33 MB",
+		"chatbots":                  3,
+		"limit_to_train_on":         "20 data sources (websites, files)",
+		"api_access":                true,
+		"basic_analytics":           true,
+	}
+	standardFeatures := map[string]any{
+		"includes":                  "Everything in Hobby",
+		"message_credits_per_month": 10000,
+		"training_data_per_chatbot": "33 MB",
+		"chatbots":                  5,
+		"limit_to_train_on":         "50 data sources",
+		"seats":                     3,
+		"custom_branding":           true,
+		"team_collaboration_tools":  true,
+		"priority_email_support":    true,
+	}
+
+	priceFree := os.Getenv("STRIPE_PRICE_FREE")
+	if priceFree == "" {
+		priceFree = "price_free"
+	}
+	priceHobby := os.Getenv("STRIPE_PRICE_HOBBY")
+	if priceHobby == "" {
+		priceHobby = "price_hobby"
+	}
+	priceStandard := os.Getenv("STRIPE_PRICE_STANDARD")
+	if priceStandard == "" {
+		priceStandard = "price_standard"
+	}
+
+	return []stripe_sub.PlanSpec{
+		{
+			Key: "free", DisplayName: "Free", Active: true, BillingInterval: "month", AmountCents: 0, Currency: "usd",
+			Definition: stripe_sub.PlanDefinition{StripePriceID: priceFree, Features: freeFeatures},
+		},
+		{
+			Key: "hobby", DisplayName: "Hobby", Active: true, BillingInterval: "month", AmountCents: 4000, Currency: "usd",
+			Definition: stripe_sub.PlanDefinition{StripePriceID: priceHobby, Features: hobbyFeatures},
+		},
+		{
+			Key: "standard", DisplayName: "Standard", Active: true, BillingInterval: "month", AmountCents: 15000, Currency: "usd",
+			Definition: stripe_sub.PlanDefinition{StripePriceID: priceStandard, Features: standardFeatures, Tags: []string{"Popular"}},
+		},
+	}
 }
 
 // waitForPostgres attempts to connect to PostgreSQL with retries
