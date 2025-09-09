@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import type { ChatbotResponse } from "~/types/api";
+import IconUserCircle from "@/components/icons/IconUserCircle.vue";
+import IconSun from "@/components/icons/IconSun.vue";
 
 interface Props {
   chatbot?: ChatbotResponse | null;
@@ -125,10 +127,7 @@ const models = [
         <div class="px-6 py-5 border-b border-border/70">
           <div class="flex items-start gap-3">
           <div class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
-              <path d="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5z"></path>
-              <path d="M20 22a8 8 0 1 0-16 0"></path>
-            </svg>
+            <IconUserCircle class="h-5 w-5" />
           </div>
           <div class="">
             <h2 class="text-lg font-medium">Basic Configuration</h2>
@@ -183,16 +182,7 @@ const models = [
       <div class="px-6 py-5 border-b border-border/70">
         <div class="flex items-start gap-3">
           <div class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-violet-500 text-white shadow-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
-              <path d="M12 6V2"></path>
-              <path d="M12 22v-4"></path>
-              <path d="M4.93 4.93l2.83 2.83"></path>
-              <path d="M16.24 16.24l2.83 2.83"></path>
-              <path d="M2 12h4"></path>
-              <path d="M18 12h4"></path>
-              <path d="M4.93 19.07l2.83-2.83"></path>
-              <path d="M16.24 7.76l2.83-2.83"></path>
-            </svg>
+            <IconSun class="h-5 w-5" />
           </div>
           <div>
             <h2 class="text-lg font-medium">Advanced Settings</h2>

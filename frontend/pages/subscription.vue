@@ -7,22 +7,42 @@
     <div class="rounded-lg border p-6" v-if="!isLoadingSub">
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold mb-2">Your subscription</h2>
-        <Button v-if="currentSub" size="sm" variant="secondary" :disabled="isOpeningPortal" @click="openPortal">
-          {{ isOpeningPortal ? 'Opening…' : 'Manage Billing' }}
+        <Button
+          v-if="currentSub"
+          size="sm"
+          variant="secondary"
+          :disabled="isOpeningPortal"
+          @click="openPortal"
+        >
+          {{ isOpeningPortal ? "Opening…" : "Manage Billing" }}
         </Button>
       </div>
       <div v-if="currentSub">
         <div class="flex flex-wrap items-center gap-3 text-sm">
           <span>
             Status:
-            <span :class="statusClass(currentSub.status)" class="px-2 py-0.5 rounded-full">{{ prettyStatus(currentSub.status) }}</span>
+            <span
+              :class="statusClass(currentSub.status)"
+              class="px-2 py-0.5 rounded-full"
+              >{{ prettyStatus(currentSub.status) }}</span
+            >
           </span>
-          <span v-if="willCancelAtPeriodEnd" class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">Will not renew</span>
-          <span v-if="showNextDate">{{ nextDateLabel }}: {{ nextDateFormatted }}</span>
-          <span v-if="isSubActive && currentPlan && currentPlan.display_name">Plan: <strong>{{ currentPlan.display_name }}</strong></span>
+          <span
+            v-if="willCancelAtPeriodEnd"
+            class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700"
+            >Will not renew</span
+          >
+          <span v-if="showNextDate"
+            >{{ nextDateLabel }}: {{ nextDateFormatted }}</span
+          >
+          <span v-if="isSubActive && currentPlan && currentPlan.display_name"
+            >Plan: <strong>{{ currentPlan.display_name }}</strong></span
+          >
         </div>
       </div>
-      <div v-else class="text-sm text-muted-foreground">No active subscription.</div>
+      <div v-else class="text-sm text-muted-foreground">
+        No active subscription.
+      </div>
     </div>
 
     <div class="rounded-lg border">
@@ -37,10 +57,19 @@
           v-for="plan in plans || []"
           :key="plan.id"
           class="border rounded-lg p-4 flex flex-col justify-between relative"
-          :class="{ 'border-green-500 border-2 ring-1 ring-green-200': isSubActive && currentPlanKey === plan.key }"
+          :class="{
+            'border-green-500 border-2 ring-1 ring-green-200':
+              isSubActive && currentPlanKey === plan.key,
+          }"
         >
-          <div v-if="isSubActive && currentPlanKey === plan.key" class="absolute -top-3 left-3">
-            <span class="text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200 shadow-sm">Current</span>
+          <div
+            v-if="isSubActive && currentPlanKey === plan.key"
+            class="absolute -top-3 left-3"
+          >
+            <span
+              class="text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200 shadow-sm"
+              >Current</span
+            >
           </div>
           <div>
             <div class="flex items-center justify-between mb-2">
@@ -71,8 +100,19 @@
             </ul>
           </div>
           <div class="mt-4">
-            <Button :disabled="isCreatingCheckout || isBlockingSub" @click="subscribe(plan)">
-              {{ isCreatingCheckout ? "Redirecting…" : (currentPlanKey === plan.key ? "Subscribed" : (isBlockingSub ? "Manage in Billing" : "Subscribe")) }}
+            <Button
+              :disabled="isCreatingCheckout || isBlockingSub"
+              @click="subscribe(plan)"
+            >
+              {{
+                isCreatingCheckout
+                  ? "Redirecting…"
+                  : currentPlanKey === plan.key
+                    ? "Subscribed"
+                    : isBlockingSub
+                      ? "Manage in Billing"
+                      : "Subscribe"
+              }}
             </Button>
           </div>
         </div>
@@ -131,26 +171,40 @@ const {
   execute: fetchPlans,
   isLoading: isLoadingPlans,
 } = apiService.listPlans();
-const { data: subResp, execute: fetchSubscription, isLoading: isLoadingSub } = apiService.getSubscription();
-const { execute: createPortal, isLoading: isOpeningPortal, data: portalResp } = apiService.createPortalSession();
+const {
+  data: subResp,
+  execute: fetchSubscription,
+  isLoading: isLoadingSub,
+} = apiService.getSubscription();
+const {
+  execute: createPortal,
+  isLoading: isOpeningPortal,
+  data: portalResp,
+} = apiService.createPortalSession();
 const {
   execute: createCheckout,
   isLoading: isCreatingCheckout,
   data: checkoutResp,
 } = apiService.createCheckoutSession();
 
-const currentSub = computed(() => (subResp.value as any)?.subscription as Subscription | null | undefined);
+const currentSub = computed(
+  () => (subResp.value as any)?.subscription as Subscription | null | undefined,
+);
 const currentPlanKey = computed(() => {
   const meta = currentSub.value?.metadata || null;
   if (!meta) return undefined;
   return (meta["plan_key"] as string) || undefined;
 });
-const currentPlan = computed(() => (plans.value || []).find((p: any) => p.key === currentPlanKey.value));
+const currentPlan = computed(() =>
+  (plans.value || []).find((p: any) => p.key === currentPlanKey.value),
+);
 const isSubActive = computed(() => {
   const s = (currentSub.value?.status || "").toLowerCase();
   return s === "active" || s === "trialing" || s === "past_due";
 });
-const isBlockingSub = computed(() => isSubActive.value && !willCancelAtPeriodEnd.value);
+const isBlockingSub = computed(
+  () => isSubActive.value && !willCancelAtPeriodEnd.value,
+);
 
 const formatPrice = (amountCents: number, currency: string) => {
   const amount = (amountCents || 0) / 100;
@@ -173,13 +227,16 @@ const formatFeature = (v: any) => {
 const formatDate = (iso: string) => {
   try {
     const d = new Date(iso);
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(d);
+    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
+      d,
+    );
   } catch {
     return iso;
   }
 };
 
-const prettyStatus = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+const prettyStatus = (s: string) =>
+  s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 const statusClass = (s: string) => {
   const ok = ["active", "trialing"];
   const warn = ["past_due", "incomplete", "incomplete_expired"];
@@ -190,11 +247,21 @@ const statusClass = (s: string) => {
   return "bg-gray-100 text-gray-700";
 };
 
-const isCanceled = computed(() => (currentSub.value?.status || "").toLowerCase() === "canceled");
-const willCancelAtPeriodEnd = computed(() => !!currentSub.value?.cancel_at_period_end && !isCanceled.value);
-const showNextDate = computed(() => !!currentSub.value?.current_period_end && !isCanceled.value);
-const nextDateLabel = computed(() => (willCancelAtPeriodEnd.value ? "Ends on" : "Renews on"));
-const nextDateFormatted = computed(() => formatDate(currentSub.value?.current_period_end as string));
+const isCanceled = computed(
+  () => (currentSub.value?.status || "").toLowerCase() === "canceled",
+);
+const willCancelAtPeriodEnd = computed(
+  () => !!currentSub.value?.cancel_at_period_end && !isCanceled.value,
+);
+const showNextDate = computed(
+  () => !!currentSub.value?.current_period_end && !isCanceled.value,
+);
+const nextDateLabel = computed(() =>
+  willCancelAtPeriodEnd.value ? "Ends on" : "Renews on",
+);
+const nextDateFormatted = computed(() =>
+  formatDate(currentSub.value?.current_period_end as string),
+);
 
 const subscribe = async (plan: Plan) => {
   const userId = sessionRef.value?.user?.id;

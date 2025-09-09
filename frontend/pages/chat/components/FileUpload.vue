@@ -6,12 +6,7 @@
       <div class="px-6 py-5 border-b border-border/70">
         <div class="flex items-start gap-3">
           <div class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
-              <rect x="3" y="3" width="7" height="7" rx="1"/>
-              <rect x="14" y="3" width="7" height="7" rx="1"/>
-              <rect x="14" y="14" width="7" height="7" rx="1"/>
-              <rect x="3" y="14" width="7" height="7" rx="1"/>
-            </svg>
+            <IconGrid class="h-5 w-5" />
           </div>
           <div>
             <h2 class="text-lg font-medium">Knowledge Base</h2>
@@ -28,10 +23,7 @@
             :class="activeTab==='files' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'"
             @click="activeTab='files'"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
-              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-              <polyline points="13 2 13 9 20 9"></polyline>
-            </svg>
+            <IconFile class="h-4 w-4" />
             Files
           </button>
           <button
@@ -39,13 +31,7 @@
             :class="activeTab==='text' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'"
             @click="activeTab='text'"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
-              <path d="M4 20h16"></path>
-              <path d="M6 16h12"></path>
-              <path d="M8 12h8"></path>
-              <path d="M10 8h4"></path>
-              <path d="M12 4h0"></path>
-            </svg>
+            <IconText class="h-4 w-4" />
             Text
           </button>
           <button
@@ -53,11 +39,7 @@
             :class="activeTab==='website' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'"
             @click="activeTab='website'"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
-              <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Z"></path>
-              <path d="M2 12h20"></path>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10"></path>
-            </svg>
+            <IconGlobe class="h-4 w-4" />
             Website
           </button>
         </div>
@@ -75,11 +57,7 @@
             :class="{ 'ring-2 ring-primary/40 ring-offset-2 ring-offset-background': isDragging }"
           >
             <div class="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-              </svg>
+              <IconUpload class="h-6 w-6" />
             </div>
             <h4 class="mt-3 text-base font-medium">Upload Files</h4>
             <p class="mt-1 text-xs text-muted-foreground">PDF, TXT, DOC, and more (max 10MB each)</p>
@@ -143,10 +121,7 @@
           >
             <div class="flex min-w-0 flex-1 items-center gap-3">
               <div class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
-                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-                  <polyline points="13 2 13 9 20 9"></polyline>
-                </svg>
+                <IconFile class="h-4 w-4" />
               </div>
               <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-medium">{{ file.filename }}</div>
@@ -154,13 +129,8 @@
               </div>
             </div>
             <Button variant="ghost" size="sm" class="h-8 w-8 p-0" @click="deleteFile(file.filename)" :disabled="isDeletingFile === file.filename">
-              <svg v-if="isDeletingFile === file.filename" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 animate-spin">
-                <path d="M21 12a9 9 0 11-6.219-8.56"/>
-              </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
-                <path d="M18 6L6 18"></path>
-                <path d="M6 6l12 12"></path>
-              </svg>
+              <IconSpinnerArc v-if="isDeletingFile === file.filename" class="h-4 w-4 animate-spin" />
+              <IconX v-else class="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -176,6 +146,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ChatFile } from "~/types/api";
+import IconGrid from "@/components/icons/IconGrid.vue";
+import IconFile from "@/components/icons/IconFile.vue";
+import IconText from "@/components/icons/IconText.vue";
+import IconGlobe from "@/components/icons/IconGlobe.vue";
+import IconUpload from "@/components/icons/IconUpload.vue";
+import IconSpinnerArc from "@/components/icons/IconSpinnerArc.vue";
+import IconX from "@/components/icons/IconX.vue";
 
 interface Props {
   chatId: string;
@@ -310,4 +287,3 @@ defineExpose({ fetchChatFiles, files });
 <style scoped>
 .shadow-xs { box-shadow: 0 1px 1px rgba(0,0,0,0.04); }
 </style>
-
