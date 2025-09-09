@@ -2,7 +2,9 @@ package stripe_sub
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -20,19 +22,15 @@ import (
 type Config struct {
 	DB           *sqlx.DB
 	StripeAPIKey string
-	// StripeAPIVersion sets the Stripe API version used by stripe-go (e.g. "2023-10-16").
-	// If empty, the stripe-go default is used.
-	StripeAPIVersion string
 	// WebhookSecret is used by the webhook handler to verify signatures.
 	WebhookSecret string
 }
 
 // Service is the main entrypoint to interact with the package.
 type Service struct {
-	db               *sqlx.DB
-	webhookSecret    string
-	stripe           *client.API
-	stripeAPIVersion string
+	db            *sqlx.DB
+	webhookSecret string
+	stripe        *client.API
 }
 
 var ErrActiveSubscription = errors.New("an active subscription already exists")
@@ -47,13 +45,6 @@ func New(ctx context.Context, cfg Config) (*Service, error) {
 	}
 	// Initialize Stripe client.
 	stripesdk.Key = cfg.StripeAPIKey
-	if strings.TrimSpace(cfg.StripeAPIVersion) == "" {
-		{
-			fmt.Println("Stripe API version not set; set STRIPE_API_VERSION to match your Stripe webhook endpoint version.")
-			fmt.Println("Update in Stripe Dashboard: Developers → Webhooks → Select endpoint → Version")
-		}
-		return nil, errors.New("stripe_sub: cfg.StripeAPIVersion is required and must match your Stripe webhook endpoint version")
-	}
 	api := client.New(cfg.StripeAPIKey, nil)
 
 	// Run migrations for this package.
@@ -61,7 +52,7 @@ func New(ctx context.Context, cfg Config) (*Service, error) {
 		return nil, fmt.Errorf("stripe_sub: migrate: %w", err)
 	}
 
-	s := &Service{db: cfg.DB, webhookSecret: cfg.WebhookSecret, stripe: api, stripeAPIVersion: cfg.StripeAPIVersion}
+	s := &Service{db: cfg.DB, webhookSecret: cfg.WebhookSecret, stripe: api}
 	return s, nil
 }
 
@@ -151,14 +142,14 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, req CheckoutRequest
 		return "", "", err
 	}
 	// Refresh from Stripe to avoid stale DB state, then block if active
-    if err := s.syncStripeCustomerSubscriptions(ctx, cust.StripeCustomerID); err != nil {
-        return "", "", err
-    }
-    if active, err := s.hasBlockingActiveSubscription(ctx, cust.ID); err != nil {
-        return "", "", err
-    } else if active {
-        return "", "", ErrActiveSubscription
-    }
+	if err := s.syncStripeCustomerSubscriptions(ctx, cust.StripeCustomerID); err != nil {
+		return "", "", err
+	}
+	if active, err := s.hasBlockingActiveSubscription(ctx, cust.ID); err != nil {
+		return "", "", err
+	} else if active {
+		return "", "", ErrActiveSubscription
+	}
 
 	params := &stripesdk.CheckoutSessionParams{
 		Mode:       stripesdk.String(string(stripesdk.CheckoutSessionModeSubscription)),
@@ -184,6 +175,11 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, req CheckoutRequest
 			Metadata: map[string]string{"plan_key": plan.Key},
 		},
 	}
+	// Add an idempotency key based on request + customer fingerprint
+	{
+		fp := idempotencyKey("checkout", cust.StripeCustomerID, plan.Key, req.SuccessURL, req.CancelURL, strings.ToLower(plan.Currency), plan.BillingInterval, fmt.Sprintf("%d", plan.AmountCents))
+		params.SetIdempotencyKey(fp)
+	}
 	sess, err := s.stripe.CheckoutSessions.New(params)
 	if err != nil {
 		return "", "", err
@@ -207,10 +203,13 @@ func (s *Service) CreatePortalSession(ctx context.Context, req PortalRequest) (s
 	if err != nil {
 		return "", err
 	}
-	ps, err := s.stripe.BillingPortalSessions.New(&stripesdk.BillingPortalSessionParams{
+	p := &stripesdk.BillingPortalSessionParams{
 		Customer:  stripesdk.String(cust.StripeCustomerID),
 		ReturnURL: stripesdk.String(req.ReturnURL),
-	})
+	}
+	// Add idempotency key for portal session creation
+	p.SetIdempotencyKey(idempotencyKey("portal", cust.StripeCustomerID, req.ReturnURL))
+	ps, err := s.stripe.BillingPortalSessions.New(p)
 	if err != nil {
 		return "", err
 	}
@@ -240,48 +239,31 @@ func (s *Service) inferPlanKeyFromStripeSub(sub *stripesdk.Subscription) (string
 	// Match active plan by amount + currency + interval
 	err := s.db.Get(&key, `SELECT key FROM stripe_sub_pkg_plans WHERE active=true AND amount_cents=$1 AND currency=$2 AND billing_interval=$3 LIMIT 1`, amount, strings.ToLower(currency), interval)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
 		return "", err
 	}
 	return key, nil
 }
 
 // hasActiveSubscription checks if the customer has an active-like subscription.
-func (s *Service) hasActiveSubscription(ctx context.Context, customerID string) (bool, *Subscription, error) {
-	var sub Subscription
-	err := s.db.GetContext(ctx, &sub, `SELECT * FROM stripe_sub_pkg_subscriptions WHERE customer_id=$1 ORDER BY updated_at DESC LIMIT 1`, customerID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil, nil
-		}
-		return false, nil, err
-	}
-	if isActiveLike(sub.Status) {
-		return true, &sub, nil
-	}
-	return false, &sub, nil
-}
-
-func isActiveLike(status string) bool {
-	switch strings.ToLower(status) {
-	case "active", "trialing", "past_due":
-		return true
-	default:
-		return false
-	}
-}
+// (removed) hasActiveSubscription and isActiveLike: unused helpers
 
 // hasBlockingActiveSubscription returns true if there exists an active-like subscription that is NOT scheduled to cancel.
 func (s *Service) hasBlockingActiveSubscription(ctx context.Context, customerID string) (bool, error) {
-    var exists bool
-    err := s.db.GetContext(ctx, &exists, `
+	var exists bool
+	err := s.db.GetContext(ctx, &exists, `
         SELECT EXISTS (
             SELECT 1 FROM stripe_sub_pkg_subscriptions
             WHERE customer_id=$1
               AND lower(status) IN ('active','trialing','past_due')
               AND cancel_at_period_end = false
         )`, customerID)
-    if err != nil { return false, err }
-    return exists, nil
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 // EnsureSubscriptionPlanKey ensures the subscription row has a plan_key in metadata, attempting Stripe fetch + inference.
@@ -364,6 +346,8 @@ func (s *Service) GetPlan(ctx context.Context, key string) (*Plan, error) {
 
 // EnsureCustomer ensures we have a local + Stripe customer for the given external ID or email.
 func (s *Service) EnsureCustomer(ctx context.Context, externalID *string, email string) (*Customer, error) {
+	// Normalize email for consistent matching
+	email = strings.ToLower(strings.TrimSpace(email))
 	// Try by external id if provided
 	var c Customer
 	if externalID != nil && *externalID != "" {
@@ -433,6 +417,7 @@ func (s *Service) lookupCustomer(ctx context.Context, externalID *string, email 
 			return nil, err
 		}
 	}
+	email = strings.ToLower(strings.TrimSpace(email))
 	if err := s.db.GetContext(ctx, &c, `SELECT * FROM stripe_sub_pkg_customers WHERE email=$1 ORDER BY created_at ASC LIMIT 1`, email); err == nil {
 		return &c, nil
 	} else if errors.Is(err, sql.ErrNoRows) {
@@ -440,6 +425,16 @@ func (s *Service) lookupCustomer(ctx context.Context, externalID *string, email 
 	} else {
 		return nil, err
 	}
+}
+
+// idempotencyKey produces a deterministic hex key for Stripe idempotency based on input parts.
+func idempotencyKey(parts ...string) string {
+	h := sha256.New()
+	for _, p := range parts {
+		_, _ = h.Write([]byte(p))
+		_, _ = h.Write([]byte{'|'})
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // GetUserSubscription returns the most recently updated subscription for a given user identity.
@@ -461,39 +456,45 @@ func (s *Service) GetUserSubscription(ctx context.Context, externalID *string, e
 
 // GetUserCurrentSubscription prefers an active-like subscription; falls back to the latest record if none active.
 func (s *Service) GetUserCurrentSubscription(ctx context.Context, externalID *string, email string) (*Subscription, error) {
-    cust, err := s.lookupCustomer(ctx, externalID, email)
-    if err != nil || cust == nil {
-        return nil, err
-    }
-    var sub Subscription
-    // Prefer active-like subscriptions; among them, prioritize those not scheduled to cancel,
-    // then by furthest current_period_end, then by most recently updated.
-    err = s.db.GetContext(ctx, &sub, `
+	cust, err := s.lookupCustomer(ctx, externalID, email)
+	if err != nil || cust == nil {
+		return nil, err
+	}
+	var sub Subscription
+	// Prefer active-like subscriptions; among them, prioritize those not scheduled to cancel,
+	// then by furthest current_period_end, then by most recently updated.
+	err = s.db.GetContext(ctx, &sub, `
         SELECT * FROM stripe_sub_pkg_subscriptions
         WHERE customer_id=$1 AND lower(status) IN ('active','trialing','past_due')
         ORDER BY (CASE WHEN cancel_at_period_end THEN 1 ELSE 0 END) ASC,
                  current_period_end DESC NULLS LAST,
                  updated_at DESC
         LIMIT 1`, cust.ID)
-    if err == nil { return &sub, nil }
-    if !errors.Is(err, sql.ErrNoRows) { return nil, err }
-    // Fallback to most recent by updated_at
-    err = s.db.GetContext(ctx, &sub, `
+	if err == nil {
+		return &sub, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	// Fallback to most recent by updated_at
+	err = s.db.GetContext(ctx, &sub, `
         SELECT * FROM stripe_sub_pkg_subscriptions
         WHERE customer_id=$1
         ORDER BY updated_at DESC
         LIMIT 1`, cust.ID)
-    if err != nil {
-        if errors.Is(err, sql.ErrNoRows) { return nil, nil }
-        return nil, err
-    }
-    return &sub, nil
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &sub, nil
 }
 
 // GetUserPlan returns the user's active plan and the latest subscription record.
 // If there is no subscription or it is not active, plan will be nil.
 func (s *Service) GetUserPlan(ctx context.Context, externalID *string, email string) (*Plan, *Subscription, error) {
-    sub, err := s.GetUserCurrentSubscription(ctx, externalID, email)
+	sub, err := s.GetUserCurrentSubscription(ctx, externalID, email)
 	if err != nil || sub == nil {
 		return nil, sub, err
 	}

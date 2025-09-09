@@ -38,10 +38,4 @@ CREATE TABLE IF NOT EXISTS stripe_sub_pkg_subscriptions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS stripe_sub_pkg_schema_migrations (
-  version TEXT PRIMARY KEY,
-  applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 COMMIT;
-

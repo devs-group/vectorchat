@@ -50,6 +50,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Delete("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_Chatbot)
     chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
     chat.Post("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadText)
+    chat.Post("/:chatID/website", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadWebsite)
     chat.Get("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.GET_TextSources)
     chat.Delete("/:chatID/text/:id", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_TextSource)
     chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
@@ -57,7 +58,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
     chat.Get("/:chatID/files", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatFiles)
 
 	// Chat
-	chat.Post("/:chatID/message", h.OwershipMiddleware.IsChatbotOwner, h.POST_ChatMessage)
+    chat.Post("/:chatID/message", h.OwershipMiddleware.IsChatbotOwner, h.POST_ChatMessage)
 }
 
 // @Summary Health check endpoint
@@ -95,7 +96,7 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 		return ErrorResponse(c, "No file uploaded", err, http.StatusBadRequest)
 	}
 
-	response, err := h.ChatService.ProcessFileUpload(c.Context(), chatID, file, h.UploadsDir)
+    response, err := h.ChatService.ProcessFileUpload(c.Context(), chatID, file)
 	if err != nil {
 		return ErrorResponse(c, "Failed to upload file", err)
 	}
@@ -134,6 +135,35 @@ func (h *ChatHandler) POST_UploadText(c *fiber.Ctx) error {
     }
 
     return c.JSON(models.MessageResponse{Message: "Text processed successfully"})
+}
+
+// @Summary Add website
+// @Description Crawl a website from a root URL and index its text content
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Param body body models.WebsiteUploadRequest true "Website URL"
+// @Success 200 {object} models.MessageResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/{chatID}/website [post]
+func (h *ChatHandler) POST_UploadWebsite(c *fiber.Ctx) error {
+    chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+    if err != nil {
+        return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+    }
+    var req models.WebsiteUploadRequest
+    if err := c.BodyParser(&req); err != nil || strings.TrimSpace(req.URL) == "" {
+        return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+    }
+
+    if err := h.ChatService.AddWebsite(c.Context(), chatID, req.URL); err != nil {
+        return ErrorResponse(c, "Failed to index website", err)
+    }
+
+    return c.JSON(models.MessageResponse{Message: "Website indexed successfully"})
 }
 
 // @Summary List text sources
@@ -222,9 +252,9 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Chat ID and filename are required", nil, http.StatusBadRequest)
 	}
 
-	if err := h.ChatService.ProcessFileDelete(c.Context(), chatID, filename, h.UploadsDir); err != nil {
-		return ErrorResponse(c, "Failed to delete file", err)
-	}
+    if err := h.ChatService.ProcessFileDelete(c.Context(), chatID, filename); err != nil {
+        return ErrorResponse(c, "Failed to delete file", err)
+    }
 
 	return c.JSON(models.MessageResponse{
 		Message: "File deleted successfully",
@@ -261,7 +291,7 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 		return ErrorResponse(c, "No file uploaded", err, http.StatusBadRequest)
 	}
 
-	response, err := h.ChatService.ProcessFileUpdate(c.Context(), chatID, filename, file, h.UploadsDir)
+    response, err := h.ChatService.ProcessFileUpdate(c.Context(), chatID, filename, file)
 	if err != nil {
 		return ErrorResponse(c, "Failed to update file", err)
 	}

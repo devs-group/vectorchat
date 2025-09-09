@@ -1,4 +1,9 @@
-import type { ChatbotResponse, GenerateAPIKeyRequest, Plan, Subscription } from "~/types/api";
+import type {
+  ChatbotResponse,
+  GenerateAPIKeyRequest,
+  Plan,
+  Subscription,
+} from "~/types/api";
 
 /**
  * Composable for the VectorChat API service
@@ -228,6 +233,21 @@ export function useApiService() {
     );
   };
 
+  const uploadWebsite = (chatID: string, url: string) => {
+    return useApi(
+      async () => {
+        return await useApiFetch(`/chat/${chatID}/website`, {
+          method: "POST",
+          body: { url },
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Website indexing started",
+      },
+    );
+  };
+
   const updateFile = (chatID: string, filename: string, file: File) => {
     return useApi(
       async () => {
@@ -287,7 +307,9 @@ export function useApiService() {
   const deleteTextSource = (chatID: string, id: string) => {
     return useApi(
       async () => {
-        return await useApiFetch(`/chat/${chatID}/text/${id}`, { method: "DELETE" });
+        return await useApiFetch(`/chat/${chatID}/text/${id}`, {
+          method: "DELETE",
+        });
       },
       {
         showSuccessToast: true,
@@ -339,7 +361,10 @@ export function useApiService() {
   const getSubscription = () => {
     return useApi(
       async () => {
-        return await useApiFetch<{ subscription: Subscription | null }>("/billing/subscription", { method: "GET" });
+        return await useApiFetch<{ subscription: Subscription | null }>(
+          "/billing/subscription",
+          { method: "GET" },
+        );
       },
       { errorMessage: "Failed to fetch subscription" },
     );
@@ -376,6 +401,7 @@ export function useApiService() {
     sendChatMessage,
     uploadFile,
     uploadText,
+    uploadWebsite,
     updateFile,
     deleteFile,
     listChatFiles,

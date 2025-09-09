@@ -56,6 +56,11 @@ type TextUploadRequest struct {
     Text string `json:"text" binding:"required" example:"Paste your knowledge base text here."`
 }
 
+// WebsiteUploadRequest represents a request to index a website starting at a URL
+type WebsiteUploadRequest struct {
+    URL string `json:"url" binding:"required" example:"https://docs.example.com"`
+}
+
 type FileInfo struct {
 	Filename   string    `json:"filename" example:"document.pdf"`
 	ID         uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
