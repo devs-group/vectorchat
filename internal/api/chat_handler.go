@@ -1,9 +1,9 @@
 package api
 
 import (
-    "net/http"
-    "net/url"
-    "strings"
+	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
@@ -48,17 +48,17 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Get("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatbotByID)
 	chat.Put("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateChatbot)
 	chat.Delete("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_Chatbot)
-    chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
-    chat.Post("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadText)
-    chat.Post("/:chatID/website", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadWebsite)
-    chat.Get("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.GET_TextSources)
-    chat.Delete("/:chatID/text/:id", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_TextSource)
-    chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
-    chat.Put("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateFile)
-    chat.Get("/:chatID/files", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatFiles)
+	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
+	chat.Post("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadText)
+	chat.Post("/:chatID/website", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadWebsite)
+	chat.Get("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.GET_TextSources)
+	chat.Delete("/:chatID/text/:id", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_TextSource)
+	chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
+	chat.Put("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateFile)
+	chat.Get("/:chatID/files", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatFiles)
 
 	// Chat
-    chat.Post("/:chatID/message", h.OwershipMiddleware.IsChatbotOwner, h.POST_ChatMessage)
+	chat.Post("/:chatID/message", h.OwershipMiddleware.IsChatbotOwner, h.POST_ChatMessage)
 }
 
 // @Summary Health check endpoint
@@ -70,7 +70,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 // @Security ApiKeyAuth
 // @Router /health [get]
 func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
-    return c.SendString("VectorChat API is running")
+	return c.SendString("VectorChat API is running")
 }
 
 // @Summary Upload file
@@ -96,7 +96,7 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 		return ErrorResponse(c, "No file uploaded", err, http.StatusBadRequest)
 	}
 
-    response, err := h.ChatService.ProcessFileUpload(c.Context(), chatID, file)
+	response, err := h.ChatService.ProcessFileUpload(c.Context(), chatID, file)
 	if err != nil {
 		return ErrorResponse(c, "Failed to upload file", err)
 	}
@@ -117,24 +117,24 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/text [post]
 func (h *ChatHandler) POST_UploadText(c *fiber.Ctx) error {
-    chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
-    if err != nil {
-        return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
-    }
+	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+	}
 
-    var req models.TextUploadRequest
-    if err := c.BodyParser(&req); err != nil {
-        return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
-    }
-    if strings.TrimSpace(req.Text) == "" {
-        return ErrorResponse(c, "Text is required", nil, http.StatusBadRequest)
-    }
+	var req models.TextUploadRequest
+	if err := c.BodyParser(&req); err != nil {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
+	if strings.TrimSpace(req.Text) == "" {
+		return ErrorResponse(c, "Text is required", nil, http.StatusBadRequest)
+	}
 
-    if err := h.ChatService.ProcessTextUpload(c.Context(), chatID, req.Text); err != nil {
-        return ErrorResponse(c, "Failed to upload text", err)
-    }
+	if err := h.ChatService.ProcessTextUpload(c.Context(), chatID, req.Text); err != nil {
+		return ErrorResponse(c, "Failed to upload text", err)
+	}
 
-    return c.JSON(models.MessageResponse{Message: "Text processed successfully"})
+	return c.JSON(models.MessageResponse{Message: "Text processed successfully"})
 }
 
 // @Summary Add website
@@ -150,20 +150,20 @@ func (h *ChatHandler) POST_UploadText(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/website [post]
 func (h *ChatHandler) POST_UploadWebsite(c *fiber.Ctx) error {
-    chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
-    if err != nil {
-        return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
-    }
-    var req models.WebsiteUploadRequest
-    if err := c.BodyParser(&req); err != nil || strings.TrimSpace(req.URL) == "" {
-        return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
-    }
+	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+	}
+	var req models.WebsiteUploadRequest
+	if err := c.BodyParser(&req); err != nil || strings.TrimSpace(req.URL) == "" {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
 
-    if err := h.ChatService.AddWebsite(c.Context(), chatID, req.URL); err != nil {
-        return ErrorResponse(c, "Failed to index website", err)
-    }
+	if err := h.ChatService.AddWebsite(c.Context(), chatID, req.URL); err != nil {
+		return ErrorResponse(c, "Failed to index website", err)
+	}
 
-    return c.JSON(models.MessageResponse{Message: "Website indexed successfully"})
+	return c.JSON(models.MessageResponse{Message: "Website indexed successfully"})
 }
 
 // @Summary List text sources
@@ -178,26 +178,26 @@ func (h *ChatHandler) POST_UploadWebsite(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/text [get]
 func (h *ChatHandler) GET_TextSources(c *fiber.Ctx) error {
-    chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
-    if err != nil {
-        return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
-    }
+	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+	}
 
-    files, err := h.ChatService.GetTextSources(c.Context(), chatID)
-    if err != nil {
-        return ErrorResponse(c, "Failed to retrieve text sources", err)
-    }
+	files, err := h.ChatService.GetTextSources(c.Context(), chatID)
+	if err != nil {
+		return ErrorResponse(c, "Failed to retrieve text sources", err)
+	}
 
-    sources := make([]models.TextSourceInfo, 0, len(files))
-    for _, f := range files {
-        sources = append(sources, models.TextSourceInfo{
-            ID:         f.ID,
-            Title:      f.Filename,
-            UploadedAt: f.UploadedAt,
-        })
-    }
+	sources := make([]models.TextSourceInfo, 0, len(files))
+	for _, f := range files {
+		sources = append(sources, models.TextSourceInfo{
+			ID:         f.ID,
+			Title:      f.Filename,
+			UploadedAt: f.UploadedAt,
+		})
+	}
 
-    return c.JSON(models.TextSourcesResponse{ChatID: chatID, Sources: sources})
+	return c.JSON(models.TextSourcesResponse{ChatID: chatID, Sources: sources})
 }
 
 // @Summary Delete text source
@@ -214,19 +214,19 @@ func (h *ChatHandler) GET_TextSources(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/text/{id} [delete]
 func (h *ChatHandler) DELETE_TextSource(c *fiber.Ctx) error {
-    chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
-    if err != nil {
-        return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
-    }
-    id := c.Params("id")
-    if id == "" {
-        return ErrorResponse(c, "Text source ID is required", nil, http.StatusBadRequest)
-    }
+	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+	}
+	id := c.Params("id")
+	if id == "" {
+		return ErrorResponse(c, "Text source ID is required", nil, http.StatusBadRequest)
+	}
 
-    if err := h.ChatService.DeleteTextSource(c.Context(), chatID, id); err != nil {
-        return ErrorResponse(c, "Failed to delete text source", err)
-    }
-    return c.JSON(models.MessageResponse{Message: "Text source deleted successfully"})
+	if err := h.ChatService.DeleteTextSource(c.Context(), chatID, id); err != nil {
+		return ErrorResponse(c, "Failed to delete text source", err)
+	}
+	return c.JSON(models.MessageResponse{Message: "Text source deleted successfully"})
 }
 
 // @Summary Delete chat file
@@ -252,9 +252,9 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Chat ID and filename are required", nil, http.StatusBadRequest)
 	}
 
-    if err := h.ChatService.ProcessFileDelete(c.Context(), chatID, filename); err != nil {
-        return ErrorResponse(c, "Failed to delete file", err)
-    }
+	if err := h.ChatService.ProcessFileDelete(c.Context(), chatID, filename); err != nil {
+		return ErrorResponse(c, "Failed to delete file", err)
+	}
 
 	return c.JSON(models.MessageResponse{
 		Message: "File deleted successfully",
@@ -291,7 +291,7 @@ func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
 		return ErrorResponse(c, "No file uploaded", err, http.StatusBadRequest)
 	}
 
-    response, err := h.ChatService.ProcessFileUpdate(c.Context(), chatID, filename, file)
+	response, err := h.ChatService.ProcessFileUpdate(c.Context(), chatID, filename, file)
 	if err != nil {
 		return ErrorResponse(c, "Failed to update file", err)
 	}

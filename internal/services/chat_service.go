@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -893,7 +892,7 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 	}
 
 	// Generate response using the LLM with chatbot's max tokens
-	completion, err := llm.Call(ctx, prompt, llms.WithMaxTokens(chatbot.MaxTokens))
+	completion, err := llm.Call(ctx, prompt, llms.WithMaxTokens(chatbot.MaxTokens), llms.WithTemperature(chatbot.TemperatureParam))
 	if err != nil {
 		return "", apperrors.Wrap(err, "failed to generate completion")
 	}
@@ -917,12 +916,4 @@ func chunkText(text string, size int) []string {
 // intPtr returns a pointer to the given int
 func intPtr(i int) *int {
 	return &i
-}
-
-// parsePositiveInt parses a string to positive integer with validation
-func parsePositiveInt(s string) (int, error) {
-	if s == "" {
-		return 0, apperrors.New("empty string")
-	}
-	return strconv.Atoi(s)
 }

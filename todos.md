@@ -1,0 +1,6 @@
+- remove description from chatbot keep only system instructions
+- use gpt5
+- model and temp changes should work
+- limit upload size and monitor
+- add guards based on subscription
+-
