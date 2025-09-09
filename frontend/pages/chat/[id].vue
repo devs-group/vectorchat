@@ -85,7 +85,11 @@
           />
 
           <!-- File Upload Section -->
-          <div v-if="chatbot" class="mt-8 pt-8 border-t border-border">
+          <div
+            v-if="chatbot"
+            ref="knowledgeSection"
+            class="mt-8 pt-8 border-t border-border"
+          >
             <FileUpload :chat-id="chatId" ref="fileUpload" />
           </div>
         </div>
@@ -111,13 +115,66 @@
             </p>
           </div>
 
+          <!-- Loading skeleton for test panel -->
+          <div
+            v-if="isLoadingChatbot"
+            class="rounded-2xl border border-border bg-card p-6"
+          >
+            <div class="animate-pulse space-y-4">
+              <div class="h-5 w-40 bg-muted rounded"></div>
+              <div class="h-28 bg-muted/70 rounded"></div>
+              <div class="h-10 bg-muted rounded"></div>
+            </div>
+          </div>
+
+          <!-- Knowledge required state -->
+          <div
+            v-else-if="chatbot && knowledgeChecked && !hasKnowledgeBase"
+            class="rounded-2xl border border-border bg-card p-6 md:p-8 text-center shadow-sm"
+          >
+            <div
+              class="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                class="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M4 4v16" />
+              </svg>
+            </div>
+            <h3 class="mt-4 text-lg font-medium">
+              Add Knowledge to Start Chatting
+            </h3>
+            <p class="mt-2 text-sm text-muted-foreground">
+              Add files, text, or websites to your knowledge base before
+              starting a conversation.
+            </p>
+            <div class="mt-5 flex items-center justify-center gap-3">
+              <Button variant="secondary" @click="scrollToKnowledge"
+                >Add Data Sources</Button
+              >
+            </div>
+          </div>
+
           <!-- Chat Interface -->
-          <ChatInterface
-            v-if="chatId"
-            :chat-id="chatId"
-            @error="handleChatError"
-            ref="chatInterface"
-          />
+          <div
+            v-else-if="chatId && hasKnowledgeBase"
+            class="rounded-2xl border border-border bg-card shadow-sm p-6 md:p-8"
+          >
+            <ChatInterface
+              class="chat-interface"
+              :chat-id="chatId"
+              @error="handleChatError"
+              ref="chatInterface"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -175,7 +232,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, nextTick } from "vue";
 import { toast } from "vue-sonner";
 import ChatInterface from "./components/ChatInterface.vue";
 import ChatbotForm from "./components/ChatbotForm.vue";
@@ -206,6 +263,20 @@ const activeTab = ref<"edit" | "test">("edit");
 // Refs
 const chatInterface = ref<InstanceType<typeof ChatInterface> | null>(null);
 const fileUpload = ref<InstanceType<typeof FileUpload> | null>(null);
+const knowledgeSection = ref<HTMLElement | null>(null);
+const hasKnowledgeBase = ref(false);
+const knowledgeChecked = ref(false);
+
+const updateKnowledgeFromChild = () => {
+  const filesLen = Array.isArray(fileUpload.value?.files)
+    ? (fileUpload.value!.files as any as any[]).length
+    : 0;
+  const textLen = Array.isArray((fileUpload.value as any)?.textSources)
+    ? ((fileUpload.value as any).textSources as any[]).length
+    : 0;
+  hasKnowledgeBase.value = filesLen + textLen > 0;
+  knowledgeChecked.value = true;
+};
 
 // Fetch chatbot data
 const fetchChatbotData = async () => {
@@ -296,6 +367,18 @@ const toggleTab = () => {
   activeTab.value = activeTab.value === "edit" ? "test" : "edit";
 };
 
+// Smoothly jump user to the knowledge base section
+const scrollToKnowledge = async () => {
+  if (activeTab.value !== "edit") {
+    activeTab.value = "edit";
+  }
+  await nextTick();
+  knowledgeSection.value?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+};
+
 // Watch for route changes
 watch(
   () => route.params.id,
@@ -308,9 +391,29 @@ watch(
 );
 
 // Initialize on mount
-onMounted(() => {
+onMounted(async () => {
   fetchChatbotData();
+  await nextTick();
 });
+
+// Watch child sources to keep knowledge state in sync
+watch(
+  () => [
+    fileUpload.value?.files.length,
+    (fileUpload.value as any)?.textSources?.length,
+  ],
+  () => updateKnowledgeFromChild(),
+  { immediate: true },
+);
+
+// Also update when the child ref attaches
+watch(
+  () => fileUpload.value,
+  (val) => {
+    if (val) updateKnowledgeFromChild();
+  },
+  { immediate: true },
+);
 </script>
 
 <style scoped>

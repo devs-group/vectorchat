@@ -315,17 +315,22 @@ const fetchChatFiles = async () => {
     const { data: filesData, execute: executeFetchFiles } =
       apiService.listChatFiles(props.chatId);
     await executeFetchFiles();
-    if (
+    if (Array.isArray(filesData.value)) {
+      files.value = (filesData.value as ChatFile[]) || [];
+    } else if (
       filesData.value &&
       typeof filesData.value === "object" &&
       "files" in filesData.value
     ) {
       files.value = (filesData.value.files as ChatFile[]) || [];
     }
+
     const { data: textData, execute: executeFetchTexts } =
       apiService.listTextSources(props.chatId);
     await executeFetchTexts();
-    if (
+    if (Array.isArray(textData.value)) {
+      textSources.value = (textData.value as any[]) || [];
+    } else if (
       textData.value &&
       typeof textData.value === "object" &&
       "sources" in textData.value
@@ -473,8 +478,8 @@ onMounted(async () => {
   if (props.chatId) await fetchChatFiles();
 });
 
-// Expose methods for parent component
-defineExpose({ fetchChatFiles, files });
+// Expose methods and reactive state for parent component
+defineExpose({ fetchChatFiles, files, textSources });
 </script>
 
 <style scoped>
