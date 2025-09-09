@@ -1,57 +1,85 @@
-stripeSub — Minimal Stripe Subscriptions for Go
+# stripe_sub – Simple Stripe subscriptions for Go
 
-What it is
-- Small Go package to manage Stripe subscriptions with Postgres + sqlx.
-- Zero global state. Simple, production‑oriented defaults. No caching, no DB idempotency.
-- Use Stripe Checkout + webhooks to create/update subscriptions automatically.
+Goals:
 
-Key features
-- Plans in DB with JSONB definition (Stripe price ID, features, limits).
-- EnsurePlans on startup to declare/seed plans programmatically.
-- Hosted Checkout: create a session, let webhook write the DB.
-- SetupIntent: get a client secret for Payment Element to save/update PMs.
-- Query/update: GetPlans, GetPlan, GetSubscription, UpdateSubscription, CancelSubscription.
+- Minimal API: init, create plans, use 3 handlers
+- Auto‑migrations of its own tables
+- Checkout Sessions only (no portal, no invoices UI)
 
-Install
-- go get github.com/yourusername/vectorchat/pkg/stripe_sub
+## Quickstart
 
-Requirements
-- Postgres. The migration enables pgcrypto for UUIDs.
-- Env vars:
-  - DATABASE_URL (e.g., postgres://user:pass@host:5432/db?sslmode=disable)
-  - STRIPE_API_KEY
-  - STRIPE_WEBHOOK_SECRET (for the webhook handler)
+```go
+package main
 
-Tables (created by Migrate)
-- stripe_sub_pkg_customers
-- stripe_sub_pkg_plans
-- stripe_sub_pkg_subscriptions
-- stripe_sub_pkg_schema_migrations
+import (
+    "context"
+    "database/sql"
+    "log"
+    "net/http"
 
-Quick start (server)
-1) Create client and migrate
+    _ "github.com/lib/pq"
+    "github.com/jmoiron/sqlx"
+    sub "github.com/yourusername/vectorchat/pkg/stripe_sub"
+)
 
-  c, _ := stripe_sub.NewClient(
-    stripe_sub.WithDB(db),
-    stripe_sub.WithWebhookSecret(os.Getenv("STRIPE_WEBHOOK_SECRET")),
-  )
-  _ = c.Migrate(ctx)
+func main() {
+    ctx := context.Background()
+    sqldb, _ := sql.Open("postgres", "postgres://user:pass@localhost:5432/dbname?sslmode=disable")
+    db := sqlx.NewDb(sqldb, "postgres")
 
-2) Declare plans on startup (idempotent)
+    svc, err := sub.New(ctx, sub.Config{
+        DB:            db,
+        StripeAPIKey:  "sk_live_or_test",
+        WebhookSecret: "whsec_...",
+    })
+    if err != nil { log.Fatal(err) }
 
-  _ = c.EnsurePlans(ctx, []stripe_sub.PlanSpec{{
-    Key: "pro", DisplayName: "Pro", Active: true, BillingInterval: "month", AmountCents: 2000, Currency: "usd",
-    Definition: stripe_sub.PlanDefinition{StripePriceID: "price_123", Features: []string{"feature1"}, Limits: map[string]int{"seats": 5}},
-  }})
+    // Define plans at startup (idempotent)
+    _, _ = svc.UpsertPlan(ctx, sub.PlanParams{
+        Key:             "starter",
+        DisplayName:     "Starter",
+        Active:          true,
+        BillingInterval: "month", // day|week|month|year
+        AmountCents:     900,
+        Currency:        "usd",
+        PlanDefinition:  map[string]any{"seats": 1},
+    })
 
-3) Mount endpoints (stdlib http)
+    mux := http.NewServeMux()
+    mux.HandleFunc("/api/plans", svc.PlansHandler())
+    mux.HandleFunc("/api/checkout", svc.CheckoutHandler())
+    mux.HandleFunc("/api/stripe/webhook", svc.WebhookHandler())
 
-  http.Handle("/api/stripe/checkout-session", stripe_sub.CheckoutSessionHTTPHandler(c, logger))
-  http.Handle("/api/stripe/setup-intent",     stripe_sub.SetupIntentHTTPHandler(c, logger))
-  http.Handle("/api/plans",                    stripe_sub.PlansHTTPHandler(c, logger))
+    log.Fatal(http.ListenAndServe(":8080", mux))
+}
+```
 
-  wh, _ := c.WebhookHandler(stripe_sub.Hooks{})
-  http.Handle("/stripe/webhook", wh)
+### Checkout request body
 
-That’s it. Checkout + webhook will create/update subscriptions in your DB.
+```json
+{
+  "plan_key": "starter",
+  "external_id": "user-123", // optional
+  "email": "user@example.com",
+  "success_url": "https://app.example.com/billing/success?session_id={CHECKOUT_SESSION_ID}",
+  "cancel_url": "https://app.example.com/billing/cancel"
+}
+```
+
+Response:
+
+```json
+{ "id": "cs_test_...", "url": "https://checkout.stripe.com/c/pay/cs_test_..." }
+```
+
+### Webhooks
+
+Configure the endpoint to `/api/stripe/webhook` and send at least:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+
+The handler verifies the signature and keeps your subscriptions table in sync.
 

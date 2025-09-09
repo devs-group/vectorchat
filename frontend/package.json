@@ -12,6 +12,7 @@
   "dependencies": {
     "@nuxt/fonts": "^0.11.2",
     "@nuxt/scripts": "^0.11.6",
+    "@stripe/stripe-js": "^7.9.0",
     "@tailwindcss/vite": "^4.1.5",
     "@unhead/vue": "^2.0.8",
     "@vueuse/core": "^13.5.0",

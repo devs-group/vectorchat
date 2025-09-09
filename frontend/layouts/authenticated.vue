@@ -33,6 +33,28 @@
                 Chats
               </NuxtLink>
               <NuxtLink
+                to="/subscription"
+                class="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground"
+                active-class="bg-muted text-foreground"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="h-4 w-4"
+                >
+                  <rect width="20" height="14" x="2" y="5" rx="2" />
+                  <line x1="2" x2="22" y1="10" y2="10" />
+                </svg>
+                Subscription
+              </NuxtLink>
+              <NuxtLink
                 to="/settings"
                 class="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-foreground"
                 active-class="bg-muted text-foreground"
@@ -58,26 +80,12 @@
           </div>
           <div class="mt-auto p-4">
             <div class="flex items-center gap-4 rounded-lg border p-4">
-              <div class="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="h-4 w-4"
-                >
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
+              <div class="flex h-9 w-9 items-center justify-center rounded-full bg-muted uppercase text-xs font-medium">
+                {{ initials }}
               </div>
-              <div class="flex flex-col">
-                <span class="text-sm font-medium">User Name</span>
-                <span class="text-xs text-muted-foreground">user@example.com</span>
+              <div class="flex flex-col min-w-0">
+                <span class="text-sm font-medium truncate">{{ displayName }}</span>
+                <span class="text-xs text-muted-foreground truncate">{{ email }}</span>
               </div>
             </div>
           </div>
@@ -117,5 +125,16 @@
 </template>
 
 <script setup lang="ts">
-// Layout logic can be added here if needed
-</script> 
+const { get } = useSession();
+const session = get();
+
+const displayName = computed(() => session.value?.user?.name || "User");
+const email = computed(() => session.value?.user?.email || "");
+const initials = computed(() => {
+  const n = displayName.value.trim();
+  if (!n) return "";
+  const parts = n.split(/\s+/).filter(Boolean);
+  const chars = parts.slice(0, 2).map(p => p[0]).join("").toUpperCase();
+  return chars || (email.value[0]?.toUpperCase() || "");
+});
+</script>

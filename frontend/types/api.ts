@@ -104,3 +104,34 @@ export interface FileUploadResponse {
 export interface ChatFilesResponse {
   files: ChatFile[];
 }
+
+// Billing
+export interface Plan {
+  id: string;
+  key: string;
+  display_name: string;
+  active: boolean;
+  billing_interval: string; // day|week|month|year
+  amount_cents: number;
+  currency: string;
+  plan_definition?: {
+    features?: Record<string, any>;
+    tags?: string[];
+    [k: string]: any;
+  } | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Subscription {
+  id: string;
+  customer_id: string;
+  stripe_subscription_id: string;
+  status: string;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  cancel_at_period_end: boolean;
+  metadata?: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+}

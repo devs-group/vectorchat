@@ -108,23 +108,21 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	logger.Info("Connected to PostgreSQL database")
 
-	c, err := stripe_sub.NewClient(
-		stripe_sub.WithLogger(slogAdapter{l: logger}),
-		stripe_sub.WithDB(pool.DB),
-		stripe_sub.WithWebhookSecret(os.Getenv("STRIPE_WEBHOOK_SECRET")),
-		stripe_sub.WithStripe(stripe_sub.NewStripeClient(os.Getenv("STRIPE_API_KEY"))),
-	)
+	// Initialize Stripe Subscriptions service and migrate its tables
+	svc, err := stripe_sub.New(context.Background(), stripe_sub.Config{
+		DB:            pool.DB,
+		StripeAPIKey:  os.Getenv("STRIPE_API_KEY"),
+		WebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = c.Migrate(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := c.EnsurePlans(context.Background(), defaultPlans()); err != nil {
-		log.Fatal(err)
+	// Seed default plans idempotently
+	for _, p := range defaultPlans() {
+		if _, err := svc.UpsertPlan(context.Background(), p); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Initialize vectorizer
@@ -195,7 +193,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, uploadsDir, ownershipMiddleware, commonService)
 	oAuthHandler := api.NewOAuthHandler(oAuthConfig, authService, authMiddleware)
 	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService, commonService)
-	subsHandler := api.NewStripeSubHandler(authMiddleware, c)
+	subsHandler := api.NewStripeSubHandler(authMiddleware, svc)
 
 	// Register routes
 	chatbotHandler.RegisterRoutes(app)
@@ -217,15 +215,8 @@ func runApplication(appCfg *config.AppConfig) error {
 }
 
 // slogAdapter adapts slog.Logger to stripe_sub.Logger
-type slogAdapter struct{ l *slog.Logger }
-
-func (s slogAdapter) Debugf(f string, a ...any) { s.l.Debug(fmt.Sprintf(f, a...)) }
-func (s slogAdapter) Infof(f string, a ...any)  { s.l.Info(fmt.Sprintf(f, a...)) }
-func (s slogAdapter) Warnf(f string, a ...any)  { s.l.Warn(fmt.Sprintf(f, a...)) }
-func (s slogAdapter) Errorf(f string, a ...any) { s.l.Error(fmt.Sprintf(f, a...)) }
-
 // defaultPlans returns the requested initial plans seeded on startup.
-func defaultPlans() []stripe_sub.PlanSpec {
+func defaultPlans() []stripe_sub.PlanParams {
 	freeFeatures := map[string]any{
 		"message_credits_per_month":   100,
 		"training_data_per_chatbot":   "400 KB",
@@ -257,31 +248,18 @@ func defaultPlans() []stripe_sub.PlanSpec {
 		"priority_email_support":    true,
 	}
 
-	priceFree := os.Getenv("STRIPE_PRICE_FREE")
-	if priceFree == "" {
-		priceFree = "price_free"
-	}
-	priceHobby := os.Getenv("STRIPE_PRICE_HOBBY")
-	if priceHobby == "" {
-		priceHobby = "price_hobby"
-	}
-	priceStandard := os.Getenv("STRIPE_PRICE_STANDARD")
-	if priceStandard == "" {
-		priceStandard = "price_standard"
-	}
-
-	return []stripe_sub.PlanSpec{
+	return []stripe_sub.PlanParams{
 		{
 			Key: "free", DisplayName: "Free", Active: true, BillingInterval: "month", AmountCents: 0, Currency: "usd",
-			Definition: stripe_sub.PlanDefinition{StripePriceID: priceFree, Features: freeFeatures},
+			PlanDefinition: map[string]any{"features": freeFeatures},
 		},
 		{
 			Key: "hobby", DisplayName: "Hobby", Active: true, BillingInterval: "month", AmountCents: 4000, Currency: "usd",
-			Definition: stripe_sub.PlanDefinition{StripePriceID: priceHobby, Features: hobbyFeatures},
+			PlanDefinition: map[string]any{"features": hobbyFeatures},
 		},
 		{
 			Key: "standard", DisplayName: "Standard", Active: true, BillingInterval: "month", AmountCents: 15000, Currency: "usd",
-			Definition: stripe_sub.PlanDefinition{StripePriceID: priceStandard, Features: standardFeatures, Tags: []string{"Popular"}},
+			PlanDefinition: map[string]any{"features": standardFeatures, "tags": []string{"Popular"}},
 		},
 	}
 }

@@ -1,4 +1,4 @@
-import type { ChatbotResponse, GenerateAPIKeyRequest } from "~/types/api";
+import type { ChatbotResponse, GenerateAPIKeyRequest, Plan, Subscription } from "~/types/api";
 
 /**
  * Composable for the VectorChat API service
@@ -264,6 +264,60 @@ export function useApiService() {
     });
   };
 
+  // Billing
+  const listPlans = () => {
+    return useApi(
+      async () => {
+        return await useApiFetch<Plan[]>("/billing/plans", { method: "GET" });
+      },
+      { errorMessage: "Failed to fetch plans" },
+    );
+  };
+
+  const createCheckoutSession = () => {
+    return useApi(
+      async (body: {
+        customer_id: string;
+        plan_key: string;
+        success_url: string;
+        cancel_url: string;
+        allow_promotion_codes?: boolean;
+        idempotency_key?: string;
+        metadata?: Record<string, string>;
+      }) => {
+        return await useApiFetch<{ session_id: string; url: string }>(
+          "/billing/checkout-session",
+          {
+            method: "POST",
+            body,
+          },
+        );
+      },
+      { errorMessage: "Failed to create checkout session" },
+    );
+  };
+
+  const getSubscription = () => {
+    return useApi(
+      async () => {
+        return await useApiFetch<{ subscription: Subscription | null }>("/billing/subscription", { method: "GET" });
+      },
+      { errorMessage: "Failed to fetch subscription" },
+    );
+  };
+
+  const createPortalSession = () => {
+    return useApi(
+      async (body: { return_url: string }) => {
+        return await useApiFetch<{ url: string }>("/billing/portal-session", {
+          method: "POST",
+          body,
+        });
+      },
+      { errorMessage: "Failed to open billing portal" },
+    );
+  };
+
   return {
     // Auth
     getSession,
@@ -288,5 +342,11 @@ export function useApiService() {
 
     // Health
     healthCheck,
+
+    // Billing
+    listPlans,
+    createCheckoutSession,
+    getSubscription,
+    createPortalSession,
   };
 }
