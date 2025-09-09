@@ -95,91 +95,191 @@ const submitButtonText = computed(() => {
 const formTitle = computed(() => {
   return props.mode === "edit" ? "Edit Chatbot" : "Create a New Chatbot";
 });
+
+// UI helpers
+const creativityLabel = computed(() => {
+  const t = Number(temperatureParam.value);
+  if (t < 0.4) return "Focused";
+  if (t < 1.2) return "Balanced";
+  return "Creative";
+});
+
+const models = [
+  {
+    id: "gpt-4",
+    name: "GPT-4",
+    hint: "Most capable, best for complex tasks",
+  },
+  { id: "gpt-4o", name: "GPT-4o", hint: "Fast multimodal reasoning" },
+  { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", hint: "Great speed & value" },
+];
 </script>
 
 <template>
-  <div class="flex flex-col w-full max-w-xl justify-start">
-    <h1 class="mb-8 text-2xl font-bold tracking-tight text-left">
-      {{ formTitle }}
-    </h1>
-    <form @submit.prevent="handleSubmit" class="space-y-6 w-full">
-      <div>
-        <Label for="name">Name <span class="text-destructive">*</span></Label>
-        <Input
-          id="name"
-          v-model="name"
-          placeholder="My AI Assistant"
-          required
-          class="mt-2"
-        />
-      </div>
+  <div class="flex flex-col w-full max-w-3xl">
+    <h1 class="mb-6 text-2xl font-semibold tracking-tight">{{ formTitle }}</h1>
 
-      <div>
-        <Label for="description">Description</Label>
-        <Textarea
-          id="description"
-          v-model="description"
-          placeholder="A helpful AI assistant for my project"
-          class="mt-2 min-h-[80px]"
-        />
-      </div>
-
-      <div>
-        <Label for="systemInstructions">System Instructions</Label>
-        <Textarea
-          id="systemInstructions"
-          v-model="systemInstructions"
-          placeholder="You are a helpful AI assistant"
-          class="mt-2 min-h-[80px]"
-        />
-      </div>
-
-      <div>
-        <Label for="modelName">Model Name</Label>
-        <Input
-          id="modelName"
-          v-model="modelName"
-          placeholder="gpt-4"
-          class="mt-2"
-        />
-      </div>
-
-      <div class="flex gap-4">
-        <div class="flex-1">
-          <Label for="temperatureParam">Temperature</Label>
-          <Input
-            id="temperatureParam"
-            v-model="temperatureParam"
-            type="number"
-            step="0.01"
-            min="0"
-            max="2"
-            placeholder="0.7"
-            class="mt-2"
-          />
+    <form @submit.prevent="handleSubmit" class="space-y-6">
+      <!-- Basic Configuration Card -->
+      <div class="rounded-2xl border border-border bg-card shadow-sm">
+        <div class="px-6 py-5 border-b border-border/70">
+          <div class="flex items-start gap-3">
+          <div class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+              <path d="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5z"></path>
+              <path d="M20 22a8 8 0 1 0-16 0"></path>
+            </svg>
+          </div>
+          <div class="">
+            <h2 class="text-lg font-medium">Basic Configuration</h2>
+            <p class="text-sm text-muted-foreground">Set up your assistant's identity and core behavior</p>
+          </div>
         </div>
-        <div class="flex-1">
-          <Label for="maxTokens">Max Tokens</Label>
-          <Input
-            id="maxTokens"
-            v-model="maxTokens"
-            type="number"
-            min="1"
-            max="4000"
-            placeholder="2000"
-            class="mt-2"
-          />
+        </div>
+
+        <div class="p-6 md:p-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <Label for="name">Assistant Name <span class="text-destructive">*</span></Label>
+            <Input id="name" v-model="name" placeholder="Customer Support Assistant" required class="mt-2" />
+          </div>
+
+          <div>
+            <Label for="modelName">AI Model</Label>
+            <div class="mt-2">
+              <select
+                id="modelName"
+                v-model="modelName"
+                class="block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2"
+              >
+                <option v-for="m in models" :key="m.id" :value="m.id">{{ m.name }}</option>
+              </select>
+              <p class="mt-2 text-xs text-muted-foreground">
+                {{ models.find(m=>m.id===modelName)?.hint }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <Label for="description">Description</Label>
+          <Textarea id="description" v-model="description" placeholder="A friendly AI assistant that helps customers with their questions and provides detailed support" class="mt-2 min-h-[84px]" />
+        </div>
+
+        <div class="mt-6">
+          <Label for="systemInstructions">System Instructions</Label>
+          <Textarea id="systemInstructions" v-model="systemInstructions" placeholder="You are a helpful customer support assistant. Be friendly, professional, and provide accurate information. Always ask clarifying questions when needed." class="mt-2 min-h-[92px]" />
+        </div>
+
+        <!-- Submit on small screens inside the first card for convenience -->
+        <div class="mt-6 md:hidden">
+          <Button type="submit" :loading="isLoading" :disabled="isLoading" class="w-full">{{ submitButtonText }}</Button>
+        </div>
         </div>
       </div>
 
-      <Button
-        type="submit"
-        :loading="isLoading"
-        :disabled="isLoading"
-        class="mt-4 w-full sm:w-auto"
-      >
-        {{ submitButtonText }}
-      </Button>
+      <!-- Advanced Settings Card -->
+      <div class="rounded-2xl border border-border bg-card shadow-sm">
+      <div class="px-6 py-5 border-b border-border/70">
+        <div class="flex items-start gap-3">
+          <div class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-violet-500 text-white shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+              <path d="M12 6V2"></path>
+              <path d="M12 22v-4"></path>
+              <path d="M4.93 4.93l2.83 2.83"></path>
+              <path d="M16.24 16.24l2.83 2.83"></path>
+              <path d="M2 12h4"></path>
+              <path d="M18 12h4"></path>
+              <path d="M4.93 19.07l2.83-2.83"></path>
+              <path d="M16.24 7.76l2.83-2.83"></path>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-lg font-medium">Advanced Settings</h2>
+            <p class="text-sm text-muted-foreground">Fine‑tune response behavior and performance</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-6 md:p-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <!-- Creativity Level -->
+          <div>
+            <div class="flex items-center justify-between">
+              <Label>Creativity Level</Label>
+              <div class="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground">{{ temperatureParam.toFixed(1) }}</div>
+            </div>
+            <div class="mt-3">
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                v-model.number="temperatureParam"
+                class="w-full appearance-none bg-transparent"
+                aria-label="Creativity level"
+              />
+              <!-- Custom track -->
+              <div class="relative mt-2 h-2 rounded-full bg-muted">
+                <div
+                  class="absolute h-2 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600"
+                  :style="{ width: `${(Number(temperatureParam)/2)*100}%` }"
+                />
+              </div>
+              <div class="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Focused</span>
+                <span>Balanced</span>
+                <span>Creative</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Response length -->
+          <div>
+            <Label for="maxTokens">Response Length</Label>
+            <Input id="maxTokens" v-model="maxTokens" type="number" min="100" max="4000" step="50" placeholder="2000" class="mt-2 max-w-xs" />
+            <p class="mt-2 text-xs text-muted-foreground">Maximum tokens per response (100–4000)</p>
+          </div>
+        </div>
+
+        <div class="mt-8">
+          <Button type="submit" :loading="isLoading" :disabled="isLoading">{{ submitButtonText }}</Button>
+        </div>
+      </div>
+      </div>
     </form>
   </div>
 </template>
+
+<style scoped>
+/* Improve native range appearance cross‑browser */
+input[type='range'] { height: 28px; }
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  background: white;
+  border: 2px solid rgb(99 102 241); /* indigo-500 */
+  margin-top: -4px; /* center on track */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+input[type='range']::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border: 2px solid rgb(99 102 241);
+  border-radius: 9999px;
+  background: white;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 8px;
+  background: rgba(0,0,0,0.08);
+  border-radius: 9999px;
+}
+input[type='range']::-moz-range-track {
+  height: 8px;
+  background: rgba(0,0,0,0.08);
+  border-radius: 9999px;
+}
+</style>

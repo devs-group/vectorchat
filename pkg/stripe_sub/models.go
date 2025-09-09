@@ -56,17 +56,90 @@ func (j *JSONB) Scan(value any) error {
 
 // Plan represents a subscription plan stored in DB and exposed via API.
 type Plan struct {
-	ID              string    `db:"id" json:"id"`
-	Key             string    `db:"key" json:"key"`
-	DisplayName     string    `db:"display_name" json:"display_name"`
-	Active          bool      `db:"active" json:"active"`
-	BillingInterval string    `db:"billing_interval" json:"billing_interval"`
-	AmountCents     int64     `db:"amount_cents" json:"amount_cents"`
-	Currency        string    `db:"currency" json:"currency"`
-	Metadata        JSONB     `db:"metadata" json:"metadata"`
-	PlanDefinition  JSONB     `db:"plan_definition" json:"plan_definition"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
+    ID              string    `db:"id" json:"id"`
+    Key             string    `db:"key" json:"key"`
+    DisplayName     string    `db:"display_name" json:"display_name"`
+    Active          bool      `db:"active" json:"active"`
+    BillingInterval string    `db:"billing_interval" json:"billing_interval"`
+    AmountCents     int64     `db:"amount_cents" json:"amount_cents"`
+    Currency        string    `db:"currency" json:"currency"`
+    Metadata        JSONB     `db:"metadata" json:"metadata"`
+    PlanDefinition  JSONB     `db:"plan_definition" json:"plan_definition"`
+    CreatedAt       time.Time `db:"created_at" json:"created_at"`
+    UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
+}
+
+// Feature returns a raw feature value from PlanDefinition.
+func (p *Plan) Feature(key string) (any, bool) {
+    if p == nil || p.PlanDefinition == nil {
+        return nil, false
+    }
+    v, ok := p.PlanDefinition[key]
+    return v, ok
+}
+
+// FeatureString returns a string feature if present.
+func (p *Plan) FeatureString(key string) (string, bool) {
+    v, ok := p.Feature(key)
+    if !ok || v == nil { return "", false }
+    s, ok := v.(string)
+    return s, ok
+}
+
+// FeatureBool returns a bool feature if present.
+func (p *Plan) FeatureBool(key string) (bool, bool) {
+    v, ok := p.Feature(key)
+    if !ok || v == nil { return false, false }
+    b, ok := v.(bool)
+    return b, ok
+}
+
+// FeatureFloat returns a float64 feature if present.
+func (p *Plan) FeatureFloat(key string) (float64, bool) {
+    v, ok := p.Feature(key)
+    if !ok || v == nil { return 0, false }
+    switch n := v.(type) {
+    case float64:
+        return n, true
+    case float32:
+        return float64(n), true
+    case int:
+        return float64(n), true
+    case int64:
+        return float64(n), true
+    case int32:
+        return float64(n), true
+    case json.Number:
+        f, err := n.Float64()
+        if err != nil { return 0, false }
+        return f, true
+    default:
+        return 0, false
+    }
+}
+
+// FeatureInt returns an int64 feature with best-effort conversion from JSON numbers.
+func (p *Plan) FeatureInt(key string) (int64, bool) {
+    v, ok := p.Feature(key)
+    if !ok || v == nil { return 0, false }
+    switch n := v.(type) {
+    case int64:
+        return n, true
+    case int:
+        return int64(n), true
+    case int32:
+        return int64(n), true
+    case float64:
+        return int64(n), true
+    case float32:
+        return int64(n), true
+    case json.Number:
+        i, err := n.Int64()
+        if err != nil { return 0, false }
+        return i, true
+    default:
+        return 0, false
+    }
 }
 
 // Customer maps your app user to a Stripe customer

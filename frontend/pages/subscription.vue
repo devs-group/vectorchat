@@ -17,7 +17,9 @@
             Status:
             <span :class="statusClass(currentSub.status)" class="px-2 py-0.5 rounded-full">{{ prettyStatus(currentSub.status) }}</span>
           </span>
-          <span v-if="currentSub.current_period_end">Period ends: {{ formatDate(currentSub.current_period_end as string) }}</span>
+          <span v-if="willCancelAtPeriodEnd" class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">Will not renew</span>
+          <span v-if="showNextDate">{{ nextDateLabel }}: {{ nextDateFormatted }}</span>
+          <span v-if="isSubActive && currentPlan && currentPlan.display_name">Plan: <strong>{{ currentPlan.display_name }}</strong></span>
         </div>
       </div>
       <div v-else class="text-sm text-muted-foreground">No active subscription.</div>
@@ -34,8 +36,12 @@
         <div
           v-for="plan in plans || []"
           :key="plan.id"
-          class="border rounded-lg p-4 flex flex-col justify-between"
+          class="border rounded-lg p-4 flex flex-col justify-between relative"
+          :class="{ 'border-green-500 border-2 ring-1 ring-green-200': isSubActive && currentPlanKey === plan.key }"
         >
+          <div v-if="isSubActive && currentPlanKey === plan.key" class="absolute -top-3 left-3">
+            <span class="text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200 shadow-sm">Current</span>
+          </div>
           <div>
             <div class="flex items-center justify-between mb-2">
               <h3 class="text-base font-semibold">{{ plan.display_name }}</h3>
@@ -64,13 +70,9 @@
               </li>
             </ul>
           </div>
-          <div class="mt-4 space-y-2">
-            <div class="flex items-center justify-between">
-              <span v-if="currentPlanKey === plan.key" class="text-xs px-2 py-1 rounded bg-green-100 text-green-700">Current</span>
-              <span v-else class="text-xs text-transparent">.</span>
-            </div>
-            <Button :disabled="isCreatingCheckout || currentPlanKey === plan.key" @click="subscribe(plan)">
-              {{ isCreatingCheckout ? "Redirecting…" : (currentPlanKey === plan.key ? "Subscribed" : "Subscribe") }}
+          <div class="mt-4">
+            <Button :disabled="isCreatingCheckout || isBlockingSub" @click="subscribe(plan)">
+              {{ isCreatingCheckout ? "Redirecting…" : (currentPlanKey === plan.key ? "Subscribed" : (isBlockingSub ? "Manage in Billing" : "Subscribe")) }}
             </Button>
           </div>
         </div>
@@ -143,6 +145,12 @@ const currentPlanKey = computed(() => {
   if (!meta) return undefined;
   return (meta["plan_key"] as string) || undefined;
 });
+const currentPlan = computed(() => (plans.value || []).find((p: any) => p.key === currentPlanKey.value));
+const isSubActive = computed(() => {
+  const s = (currentSub.value?.status || "").toLowerCase();
+  return s === "active" || s === "trialing" || s === "past_due";
+});
+const isBlockingSub = computed(() => isSubActive.value && !willCancelAtPeriodEnd.value);
 
 const formatPrice = (amountCents: number, currency: string) => {
   const amount = (amountCents || 0) / 100;
@@ -181,6 +189,12 @@ const statusClass = (s: string) => {
   if (bad.includes(s)) return "bg-red-100 text-red-700";
   return "bg-gray-100 text-gray-700";
 };
+
+const isCanceled = computed(() => (currentSub.value?.status || "").toLowerCase() === "canceled");
+const willCancelAtPeriodEnd = computed(() => !!currentSub.value?.cancel_at_period_end && !isCanceled.value);
+const showNextDate = computed(() => !!currentSub.value?.current_period_end && !isCanceled.value);
+const nextDateLabel = computed(() => (willCancelAtPeriodEnd.value ? "Ends on" : "Renews on"));
+const nextDateFormatted = computed(() => formatDate(currentSub.value?.current_period_end as string));
 
 const subscribe = async (plan: Plan) => {
   const userId = sessionRef.value?.user?.id;

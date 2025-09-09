@@ -1,157 +1,170 @@
 <template>
-  <div class="max-w-lg mx-auto">
-    <div class="mb-6">
-      <h3 class="text-lg font-semibold mb-2">Files</h3>
-      <p class="text-sm text-muted-foreground">
-        Upload files for your chatbot to reference during conversations
-      </p>
-    </div>
-
-    <!-- Upload Button -->
-    <div class="mb-4">
-      <Button
-        @click="handleUploadFile"
-        class="transition-all hover:shadow-md"
-        variant="outline"
-        :disabled="isUploading"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="mr-2 h-4 w-4"
-        >
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="17 8 12 3 7 8"></polyline>
-          <line x1="12" y1="3" x2="12" y2="15"></line>
-        </svg>
-        <span v-if="isUploading">Uploading...</span>
-        <span v-else>Upload File</span>
-      </Button>
-      <input
-        type="file"
-        ref="fileInput"
-        class="hidden"
-        @change="onFileSelected"
-      />
-    </div>
-
-    <!-- Loading State -->
-    <div
-      v-if="isLoadingFiles"
-      class="flex items-center justify-center py-8"
-    >
-      <div
-        class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"
-      ></div>
-    </div>
-
-    <!-- Files List -->
-    <div v-else-if="files.length > 0" class="rounded border p-4 bg-white/60">
-      <h4 class="font-medium text-base mb-3">Uploaded Files</h4>
-      <div class="space-y-2">
-        <div
-          v-for="file in files"
-          :key="file.filename"
-          class="flex items-center justify-between gap-3 rounded border px-3 py-2 bg-white"
-        >
-          <div class="flex items-center gap-2 flex-1 min-w-0">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="h-4 w-4 text-muted-foreground flex-shrink-0"
-            >
-              <path
-                d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"
-              ></path>
-              <polyline points="13 2 13 9 20 9"></polyline>
+  <div class="max-w-3xl mx-auto">
+    <!-- Card container -->
+    <div class="rounded-2xl border border-border bg-card shadow-sm">
+      <!-- Header -->
+      <div class="px-6 py-5 border-b border-border/70">
+        <div class="flex items-start gap-3">
+          <div class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
             </svg>
-            <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium truncate">{{ file.filename }}</div>
-              <div class="text-xs text-muted-foreground">
-                {{ formatFileSize(file.size) }}
-              </div>
-            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-8 w-8 p-0"
-            @click="deleteFile(file.filename)"
-            :disabled="isDeletingFile === file.filename"
-          >
-            <svg
-              v-if="isDeletingFile === file.filename"
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="h-4 w-4 animate-spin"
-            >
-              <path d="M21 12a9 9 0 11-6.219-8.56"/>
-            </svg>
-            <svg
-              v-else
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="h-4 w-4"
-            >
-              <path d="M18 6L6 18"></path>
-              <path d="M6 6l12 12"></path>
-            </svg>
-          </Button>
+          <div>
+            <h2 class="text-lg font-medium">Knowledge Base</h2>
+            <p class="text-sm text-muted-foreground">Add information sources for your assistant to reference</p>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Empty State -->
-    <div
-      v-else
-      class="text-center py-8 rounded border border-dashed bg-muted/20"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="32"
-        height="32"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1"
-        class="mx-auto mb-2 text-muted-foreground"
-      >
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="17 8 12 3 7 8"></polyline>
-        <line x1="12" y1="3" x2="12" y2="15"></line>
-      </svg>
-      <h4 class="font-medium text-sm mb-1">No files uploaded</h4>
-      <p class="text-xs text-muted-foreground">
-        Upload files to help your chatbot provide more accurate responses
-      </p>
+      <!-- Tabs -->
+      <div class="px-6 pt-6">
+        <div class="flex rounded-full bg-muted/60 p-1 text-sm">
+          <button
+            class="flex-1 inline-flex items-center justify-center gap-2 rounded-full py-2 transition-colors"
+            :class="activeTab==='files' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+            @click="activeTab='files'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+              <polyline points="13 2 13 9 20 9"></polyline>
+            </svg>
+            Files
+          </button>
+          <button
+            class="flex-1 inline-flex items-center justify-center gap-2 rounded-full py-2 transition-colors"
+            :class="activeTab==='text' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+            @click="activeTab='text'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
+              <path d="M4 20h16"></path>
+              <path d="M6 16h12"></path>
+              <path d="M8 12h8"></path>
+              <path d="M10 8h4"></path>
+              <path d="M12 4h0"></path>
+            </svg>
+            Text
+          </button>
+          <button
+            class="flex-1 inline-flex items-center justify-center gap-2 rounded-full py-2 transition-colors"
+            :class="activeTab==='website' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+            @click="activeTab='website'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
+              <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Z"></path>
+              <path d="M2 12h20"></path>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10"></path>
+            </svg>
+            Website
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab content -->
+      <div class="p-6 md:p-8">
+        <!-- Files tab -->
+        <div v-show="activeTab==='files'">
+          <div
+            class="relative rounded-xl border border-dashed border-border/70 bg-muted/20 p-6 md:p-8 text-center"
+            @dragover.prevent="isDragging=true"
+            @dragleave.prevent="isDragging=false"
+            @drop.prevent="handleDrop"
+            :class="{ 'ring-2 ring-primary/40 ring-offset-2 ring-offset-background': isDragging }"
+          >
+            <div class="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+            </div>
+            <h4 class="mt-3 text-base font-medium">Upload Files</h4>
+            <p class="mt-1 text-xs text-muted-foreground">PDF, TXT, DOC, and more (max 10MB each)</p>
+            <div class="mt-5">
+              <Button variant="secondary" @click="handleUploadFile" :disabled="isUploading">
+                <span v-if="isUploading">Uploading...</span>
+                <span v-else>Choose Files</span>
+              </Button>
+              <input type="file" ref="fileInput" class="hidden" @change="onFileSelected" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Text tab -->
+        <div v-show="activeTab==='text'">
+          <div>
+            <Textarea v-model="textSource" class="min-h-[120px]" placeholder="Paste reference text here (not yet persisted)" />
+            <div class="mt-3">
+              <Button variant="secondary" @click="addTextSource" :disabled="!textSource.trim()">Add Text</Button>
+              <span class="ml-3 text-xs text-muted-foreground">This is UI-only for now</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Website tab -->
+        <div v-show="activeTab==='website'">
+          <div class="max-w-xl">
+            <Input v-model="websiteUrl" placeholder="https://docs.company.com" />
+            <div class="mt-3">
+              <Button variant="secondary" @click="addWebsite" :disabled="!websiteUrl.trim()">Add Website</Button>
+              <span class="ml-3 text-xs text-muted-foreground">Crawling not implemented yet</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="my-8 h-px bg-border"></div>
+
+        <!-- Current knowledge sources header -->
+        <div class="mb-3 flex items-center justify-between">
+          <h4 class="font-medium">Current Knowledge Sources</h4>
+          <span class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">{{ files.length }} item(s)</span>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="isLoadingFiles" class="flex items-center justify-center py-8">
+          <div class="h-6 w-6 animate-spin rounded-full border-b-2 border-primary"></div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="files.length === 0" class="rounded-xl border border-dashed bg-muted/20 p-8 text-center text-sm text-muted-foreground">
+          No sources yet — add files, text, or websites above.
+        </div>
+
+        <!-- List of files -->
+        <div v-else class="space-y-3">
+          <div
+            v-for="file in files"
+            :key="file.filename"
+            class="flex items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3 shadow-xs"
+          >
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+              <div class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
+                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                  <polyline points="13 2 13 9 20 9"></polyline>
+                </svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-medium">{{ file.filename }}</div>
+                <div class="text-xs text-muted-foreground">{{ formatFileSize(file.size) }}</div>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" class="h-8 w-8 p-0" @click="deleteFile(file.filename)" :disabled="isDeletingFile === file.filename">
+              <svg v-if="isDeletingFile === file.filename" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 animate-spin">
+                <path d="M21 12a9 9 0 11-6.219-8.56"/>
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
+                <path d="M18 6L6 18"></path>
+                <path d="M6 6l12 12"></path>
+              </svg>
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -160,6 +173,8 @@
 import { ref, onMounted, watch } from "vue";
 import { toast } from "vue-sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type { ChatFile } from "~/types/api";
 
 interface Props {
@@ -177,29 +192,26 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const isLoadingFiles = ref(false);
 const isUploading = ref(false);
 const isDeletingFile = ref<string | null>(null);
+const isDragging = ref(false);
+
+// Tabs & inputs
+const activeTab = ref<'files'|'text'|'website'>('files');
+const textSource = ref('');
+const websiteUrl = ref('');
 
 // Fetch chat files
 const fetchChatFiles = async () => {
   if (!props.chatId) return;
-
   isLoadingFiles.value = true;
-
   try {
-    const { data: filesData, execute: executeFetchFiles } =
-      apiService.listChatFiles(props.chatId);
-
+    const { data: filesData, execute: executeFetchFiles } = apiService.listChatFiles(props.chatId);
     await executeFetchFiles();
-
-    if (
-      filesData.value &&
-      typeof filesData.value === "object" &&
-      "files" in filesData.value
-    ) {
+    if (filesData.value && typeof filesData.value === 'object' && 'files' in filesData.value) {
       files.value = (filesData.value.files as ChatFile[]) || [];
     }
   } catch (error) {
-    console.error("Error fetching chat files:", error);
-    toast.error("Failed to load files");
+    console.error('Error fetching chat files:', error);
+    toast.error('Failed to load files');
   } finally {
     isLoadingFiles.value = false;
   }
@@ -214,20 +226,35 @@ const handleUploadFile = () => {
 const onFileSelected = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (!input.files || input.files.length === 0) return;
-
   const file = input.files[0];
   isUploading.value = true;
-
   try {
     await apiService.uploadFile(props.chatId, file);
-    toast.success("File uploaded successfully");
+    toast.success('File uploaded successfully');
     await fetchChatFiles();
-    input.value = "";
+    input.value = '';
   } catch (error) {
-    console.error("Error uploading file:", error);
-    toast.error("Error uploading file", {
-      description: (error as Error)?.message
-    });
+    console.error('Error uploading file:', error);
+    toast.error('Error uploading file', { description: (error as Error)?.message });
+  } finally {
+    isUploading.value = false;
+  }
+};
+
+// Drag & drop
+const handleDrop = async (e: DragEvent) => {
+  isDragging.value = false;
+  const dt = e.dataTransfer;
+  if (!dt || !dt.files || dt.files.length === 0) return;
+  const file = dt.files[0];
+  isUploading.value = true;
+  try {
+    await apiService.uploadFile(props.chatId, file);
+    toast.success('File uploaded successfully');
+    await fetchChatFiles();
+  } catch (error) {
+    console.error('Error uploading via drop:', error);
+    toast.error('Error uploading file');
   } finally {
     isUploading.value = false;
   }
@@ -236,16 +263,14 @@ const onFileSelected = async (event: Event) => {
 // Delete a file
 const deleteFile = async (filename: string) => {
   isDeletingFile.value = filename;
-
   try {
     const { execute: executeDelete } = apiService.deleteFile(props.chatId, filename);
     await executeDelete();
-
-    toast.success("File deleted successfully");
+    toast.success('File deleted successfully');
     await fetchChatFiles();
   } catch (error) {
-    console.error("Error deleting file:", error);
-    toast.error("Error deleting file");
+    console.error('Error deleting file:', error);
+    toast.error('Error deleting file');
   } finally {
     isDeletingFile.value = null;
   }
@@ -253,35 +278,36 @@ const deleteFile = async (filename: string) => {
 
 // Format file size
 const formatFileSize = (sizeInBytes: number) => {
-  if (sizeInBytes < 1024) {
-    return `${sizeInBytes} B`;
-  } else if (sizeInBytes < 1024 * 1024) {
-    return `${(sizeInBytes / 1024).toFixed(1)} KB`;
-  } else {
-    return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
+  if (sizeInBytes < 1024) return `${sizeInBytes} B`;
+  if (sizeInBytes < 1024 * 1024) return `${(sizeInBytes / 1024).toFixed(1)} KB`;
+  return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+// Placeholder actions for non-file tabs
+const addTextSource = () => {
+  toast.message('Text source added (UI-only)', { description: 'Backend endpoint not configured yet.' });
+  textSource.value = '';
+};
+const addWebsite = () => {
+  toast.message('Website saved (UI-only)', { description: websiteUrl.value });
+  websiteUrl.value = '';
 };
 
 // Watch for chatId changes
-watch(
-  () => props.chatId,
-  async (newChatId) => {
-    if (newChatId) {
-      await fetchChatFiles();
-    }
-  },
-);
+watch(() => props.chatId, async (newChatId) => {
+  if (newChatId) await fetchChatFiles();
+});
 
 // Initialize on mount
 onMounted(async () => {
-  if (props.chatId) {
-    await fetchChatFiles();
-  }
+  if (props.chatId) await fetchChatFiles();
 });
 
 // Expose methods for parent component
-defineExpose({
-  fetchChatFiles,
-  files,
-});
+defineExpose({ fetchChatFiles, files });
 </script>
+
+<style scoped>
+.shadow-xs { box-shadow: 0 1px 1px rgba(0,0,0,0.04); }
+</style>
+

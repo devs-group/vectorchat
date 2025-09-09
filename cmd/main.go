@@ -110,9 +110,10 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Initialize Stripe Subscriptions service and migrate its tables
 	svc, err := stripe_sub.New(context.Background(), stripe_sub.Config{
-		DB:            pool.DB,
-		StripeAPIKey:  os.Getenv("STRIPE_API_KEY"),
-		WebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
+		DB:               pool.DB,
+		StripeAPIKey:     os.Getenv("STRIPE_API_KEY"),
+		StripeAPIVersion: os.Getenv("STRIPE_API_VERSION"),
+		WebhookSecret:    os.Getenv("STRIPE_WEBHOOK_SECRET"),
 	})
 	if err != nil {
 		log.Fatal(err)

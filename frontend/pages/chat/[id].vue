@@ -37,7 +37,7 @@
           activeTab === 'edit' || 'md:block hidden',
         ]"
       >
-        <div class="max-w-lg mx-auto">
+        <div class="max-w-3xl mx-auto">
           <!-- Loading State -->
           <div
             v-if="isLoadingChatbot"
@@ -98,9 +98,9 @@
           activeTab === 'test' || 'md:block hidden',
         ]"
       >
-        <div class="max-w-lg mx-auto">
+        <div class="max-w-3xl mx-auto">
           <div class="mb-6">
-            <h2 class="text-xl font-semibold mb-2">Test Your Chatbot</h2>
+            <h2 class="text-xl font-semibold mb-1">Test Your Chatbot</h2>
             <p class="text-sm text-muted-foreground">
               <span class="hidden md:inline"
                 >Make changes on the left and test them here in real-time</span
@@ -118,9 +118,6 @@
             @error="handleChatError"
             ref="chatInterface"
           />
-
-          <!-- API Documentation -->
-          <ApiDocumentation v-if="chatId" :chat-id="chatId" />
         </div>
       </div>
     </div>
@@ -183,7 +180,6 @@ import { toast } from "vue-sonner";
 import ChatInterface from "./components/ChatInterface.vue";
 import ChatbotForm from "./components/ChatbotForm.vue";
 import FileUpload from "./components/FileUpload.vue";
-import ApiDocumentation from "./components/ApiDocumentation.vue";
 import { Button } from "@/components/ui/button";
 import type { ChatbotResponse } from "~/types/api";
 
