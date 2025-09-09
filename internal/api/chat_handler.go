@@ -1,8 +1,9 @@
 package api
 
 import (
-	"net/http"
-	"net/url"
+    "net/http"
+    "net/url"
+    "strings"
 
 	"github.com/gofiber/fiber/v2"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
@@ -47,10 +48,13 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Get("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatbotByID)
 	chat.Put("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateChatbot)
 	chat.Delete("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_Chatbot)
-	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
-	chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
-	chat.Put("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateFile)
-	chat.Get("/:chatID/files", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatFiles)
+    chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
+    chat.Post("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadText)
+    chat.Get("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.GET_TextSources)
+    chat.Delete("/:chatID/text/:id", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_TextSource)
+    chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
+    chat.Put("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateFile)
+    chat.Get("/:chatID/files", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatFiles)
 
 	// Chat
 	chat.Post("/:chatID/message", h.OwershipMiddleware.IsChatbotOwner, h.POST_ChatMessage)
@@ -65,7 +69,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 // @Security ApiKeyAuth
 // @Router /health [get]
 func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
-	return c.SendString("VectorChat API is running")
+    return c.SendString("VectorChat API is running")
 }
 
 // @Summary Upload file
@@ -97,6 +101,102 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(response)
+}
+
+// @Summary Upload plain text
+// @Description Upload plain text to be indexed for chat context
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Param body body models.TextUploadRequest true "Text payload"
+// @Success 200 {object} models.MessageResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/{chatID}/text [post]
+func (h *ChatHandler) POST_UploadText(c *fiber.Ctx) error {
+    chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+    if err != nil {
+        return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+    }
+
+    var req models.TextUploadRequest
+    if err := c.BodyParser(&req); err != nil {
+        return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+    }
+    if strings.TrimSpace(req.Text) == "" {
+        return ErrorResponse(c, "Text is required", nil, http.StatusBadRequest)
+    }
+
+    if err := h.ChatService.ProcessTextUpload(c.Context(), chatID, req.Text); err != nil {
+        return ErrorResponse(c, "Failed to upload text", err)
+    }
+
+    return c.JSON(models.MessageResponse{Message: "Text processed successfully"})
+}
+
+// @Summary List text sources
+// @Description List text sources indexed for a chat session
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Success 200 {object} models.TextSourcesResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/{chatID}/text [get]
+func (h *ChatHandler) GET_TextSources(c *fiber.Ctx) error {
+    chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+    if err != nil {
+        return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+    }
+
+    files, err := h.ChatService.GetTextSources(c.Context(), chatID)
+    if err != nil {
+        return ErrorResponse(c, "Failed to retrieve text sources", err)
+    }
+
+    sources := make([]models.TextSourceInfo, 0, len(files))
+    for _, f := range files {
+        sources = append(sources, models.TextSourceInfo{
+            ID:         f.ID,
+            Title:      f.Filename,
+            UploadedAt: f.UploadedAt,
+        })
+    }
+
+    return c.JSON(models.TextSourcesResponse{ChatID: chatID, Sources: sources})
+}
+
+// @Summary Delete text source
+// @Description Delete a text source and its associated chunks
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Param id path string true "Text source ID"
+// @Success 200 {object} models.MessageResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/{chatID}/text/{id} [delete]
+func (h *ChatHandler) DELETE_TextSource(c *fiber.Ctx) error {
+    chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+    if err != nil {
+        return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+    }
+    id := c.Params("id")
+    if id == "" {
+        return ErrorResponse(c, "Text source ID is required", nil, http.StatusBadRequest)
+    }
+
+    if err := h.ChatService.DeleteTextSource(c.Context(), chatID, id); err != nil {
+        return ErrorResponse(c, "Failed to delete text source", err)
+    }
+    return c.JSON(models.MessageResponse{Message: "Text source deleted successfully"})
 }
 
 // @Summary Delete chat file

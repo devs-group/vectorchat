@@ -105,6 +105,17 @@ export interface ChatFilesResponse {
   files: ChatFile[];
 }
 
+export interface TextSource {
+  id: string;
+  title: string;
+  uploaded_at: string;
+}
+
+export interface TextSourcesResponse {
+  chat_id: string;
+  sources: TextSource[];
+}
+
 // Billing
 export interface Plan {
   id: string;

@@ -94,13 +94,13 @@ func (r *FileRepository) FindByID(ctx context.Context, id uuid.UUID) (*File, err
 
 // FindByChatbotID finds all files for a chatbot
 func (r *FileRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
-	var files []*File
-	query := `
-		SELECT id, chatbot_id, filename, uploaded_at
-		FROM files
-		WHERE chatbot_id = $1
-		ORDER BY uploaded_at DESC
-	`
+    var files []*File
+    query := `
+        SELECT id, chatbot_id, filename, uploaded_at
+        FROM files
+        WHERE chatbot_id = $1
+        ORDER BY uploaded_at DESC
+    `
 
 	err := r.db.SelectContext(ctx, &files, query, chatbotID)
 	if err != nil {
@@ -108,6 +108,24 @@ func (r *FileRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUI
 	}
 
 	return files, nil
+}
+
+// FindNonTextByChatbotID finds all non-text files for a chatbot
+func (r *FileRepository) FindNonTextByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
+    var files []*File
+    query := `
+        SELECT id, chatbot_id, filename, uploaded_at
+        FROM files
+        WHERE chatbot_id = $1 AND filename NOT LIKE 'text-%'
+        ORDER BY uploaded_at DESC
+    `
+
+    err := r.db.SelectContext(ctx, &files, query, chatbotID)
+    if err != nil {
+        return nil, apperrors.Wrap(err, "failed to find non-text files by chatbot ID")
+    }
+
+    return files, nil
 }
 
 // FindByChatbotIDAndFilename finds a single file by chatbot and filename
@@ -157,6 +175,24 @@ func (r *FileRepository) FindByChatbotIDWithPagination(ctx context.Context, chat
 	}
 
 	return files, total, nil
+}
+
+// FindTextByChatbotID finds text sources (files with filename starting with 'text-')
+func (r *FileRepository) FindTextByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
+    var files []*File
+    query := `
+        SELECT id, chatbot_id, filename, uploaded_at
+        FROM files
+        WHERE chatbot_id = $1 AND filename LIKE 'text-%'
+        ORDER BY uploaded_at DESC
+    `
+
+    err := r.db.SelectContext(ctx, &files, query, chatbotID)
+    if err != nil {
+        return nil, apperrors.Wrap(err, "failed to find text sources by chatbot ID")
+    }
+
+    return files, nil
 }
 
 // Update updates a file

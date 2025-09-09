@@ -213,6 +213,21 @@ export function useApiService() {
     });
   };
 
+  const uploadText = (chatID: string, text: string) => {
+    return useApi(
+      async () => {
+        return await useApiFetch(`/chat/${chatID}/text`, {
+          method: "POST",
+          body: { text },
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Text added successfully",
+      },
+    );
+  };
+
   const updateFile = (chatID: string, filename: string, file: File) => {
     return useApi(
       async () => {
@@ -253,6 +268,30 @@ export function useApiService() {
       {
         errorMessage: "Failed to fetch chat files",
         cacheKey: `chatFiles-${chatID}`,
+      },
+    );
+  };
+
+  const listTextSources = (chatID: string) => {
+    return useApi(
+      async () => {
+        return await useApiFetch(`/chat/${chatID}/text`);
+      },
+      {
+        errorMessage: "Failed to fetch text sources",
+        cacheKey: `textSources-${chatID}`,
+      },
+    );
+  };
+
+  const deleteTextSource = (chatID: string, id: string) => {
+    return useApi(
+      async () => {
+        return await useApiFetch(`/chat/${chatID}/text/${id}`, { method: "DELETE" });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Text source deleted successfully",
       },
     );
   };
@@ -336,9 +375,12 @@ export function useApiService() {
     deleteChatbot,
     sendChatMessage,
     uploadFile,
+    uploadText,
     updateFile,
     deleteFile,
     listChatFiles,
+    listTextSources,
+    deleteTextSource,
 
     // Health
     healthCheck,

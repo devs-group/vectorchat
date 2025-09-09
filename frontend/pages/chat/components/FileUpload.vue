@@ -74,10 +74,9 @@
         <!-- Text tab -->
         <div v-show="activeTab==='text'">
           <div>
-            <Textarea v-model="textSource" class="min-h-[120px]" placeholder="Paste reference text here (not yet persisted)" />
+            <Textarea v-model="textSource" class="min-h-[120px]" placeholder="Paste reference text here" />
             <div class="mt-3">
               <Button variant="secondary" @click="addTextSource" :disabled="!textSource.trim()">Add Text</Button>
-              <span class="ml-3 text-xs text-muted-foreground">This is UI-only for now</span>
             </div>
           </div>
         </div>
@@ -99,7 +98,7 @@
         <!-- Current knowledge sources header -->
         <div class="mb-3 flex items-center justify-between">
           <h4 class="font-medium">Current Knowledge Sources</h4>
-          <span class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">{{ files.length }} item(s)</span>
+          <span class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">{{ files.length + textSources.length }} item(s)</span>
         </div>
 
         <!-- Loading -->
@@ -108,7 +107,7 @@
         </div>
 
         <!-- Empty state -->
-        <div v-else-if="files.length === 0" class="rounded-xl border border-dashed bg-muted/20 p-8 text-center text-sm text-muted-foreground">
+        <div v-else-if="files.length + textSources.length === 0" class="rounded-xl border border-dashed bg-muted/20 p-8 text-center text-sm text-muted-foreground">
           No sources yet — add files, text, or websites above.
         </div>
 
@@ -131,6 +130,21 @@
             <Button variant="ghost" size="sm" class="h-8 w-8 p-0" @click="deleteFile(file.filename)" :disabled="isDeletingFile === file.filename">
               <IconSpinnerArc v-if="isDeletingFile === file.filename" class="h-4 w-4 animate-spin" />
               <IconX v-else class="h-4 w-4" />
+            </Button>
+          </div>
+          <!-- Text sources list -->
+          <div v-for="src in textSources" :key="src.id" class="flex items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3 shadow-xs">
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+              <div class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <IconText class="h-4 w-4" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-medium">{{ src.title }}</div>
+                <div class="text-xs text-muted-foreground">{{ new Date(src.uploaded_at).toLocaleString() }}</div>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" class="h-8 w-8 p-0" @click="deleteText(src.id)">
+              <IconX class="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -165,6 +179,7 @@ const apiService = useApiService();
 
 // State
 const files = ref<ChatFile[]>([]);
+const textSources = ref<{ id: string; title: string; uploaded_at: string }[]>([]);
 const fileInput = ref<HTMLInputElement | null>(null);
 const isLoadingFiles = ref(false);
 const isUploading = ref(false);
@@ -185,6 +200,11 @@ const fetchChatFiles = async () => {
     await executeFetchFiles();
     if (filesData.value && typeof filesData.value === 'object' && 'files' in filesData.value) {
       files.value = (filesData.value.files as ChatFile[]) || [];
+    }
+    const { data: textData, execute: executeFetchTexts } = apiService.listTextSources(props.chatId);
+    await executeFetchTexts();
+    if (textData.value && typeof textData.value === 'object' && 'sources' in textData.value) {
+      textSources.value = (textData.value.sources as any[]) || [];
     }
   } catch (error) {
     console.error('Error fetching chat files:', error);
@@ -260,10 +280,31 @@ const formatFileSize = (sizeInBytes: number) => {
   return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-// Placeholder actions for non-file tabs
-const addTextSource = () => {
-  toast.message('Text source added (UI-only)', { description: 'Backend endpoint not configured yet.' });
-  textSource.value = '';
+// Add text source (calls backend)
+const addTextSource = async () => {
+  if (!props.chatId || !textSource.value.trim()) return;
+  try {
+    const { execute } = apiService.uploadText(props.chatId, textSource.value.trim());
+    await execute();
+    toast.success('Text added successfully');
+    textSource.value = '';
+    await fetchChatFiles();
+  } catch (e) {
+    console.error('Error uploading text:', e);
+    toast.error('Error uploading text');
+  }
+};
+// Delete a text source
+const deleteText = async (id: string) => {
+  try {
+    const { execute } = apiService.deleteTextSource(props.chatId, id);
+    await execute();
+    toast.success('Text source deleted successfully');
+    await fetchChatFiles();
+  } catch (e) {
+    console.error('Error deleting text source:', e);
+    toast.error('Error deleting text source');
+  }
 };
 const addWebsite = () => {
   toast.message('Website saved (UI-only)', { description: websiteUrl.value });

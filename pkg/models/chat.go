@@ -42,13 +42,18 @@ type ChatbotsListResponse struct {
 }
 
 type ChatMessageRequest struct {
-	Query string `json:"query" binding:"required" example:"Hello, how can you help me?"`
+    Query string `json:"query" binding:"required" example:"Hello, how can you help me?"`
 }
 
 type ChatResponse struct {
-	Message string `json:"message" example:"Hello! I'm here to help you with any questions you might have."`
-	ChatID  string `json:"chat_id" example:"chat_123"`
-	Context string `json:"context,omitempty" example:"Previous conversation context"`
+    Message string `json:"message" example:"Hello! I'm here to help you with any questions you might have."`
+    ChatID  string `json:"chat_id" example:"chat_123"`
+    Context string `json:"context,omitempty" example:"Previous conversation context"`
+}
+
+// TextUploadRequest represents a plain text payload to index for a chatbot
+type TextUploadRequest struct {
+    Text string `json:"text" binding:"required" example:"Paste your knowledge base text here."`
 }
 
 type FileInfo struct {
@@ -67,8 +72,8 @@ type FileUploadResponse struct {
 }
 
 type ChatFilesResponse struct {
-	ChatID uuid.UUID  `json:"chat_id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Files  []FileInfo `json:"files"`
+    ChatID uuid.UUID  `json:"chat_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+    Files  []FileInfo `json:"files"`
 }
 
 type ChatFilesListResponse struct {
@@ -77,4 +82,15 @@ type ChatFilesListResponse struct {
 		Size      int64     `json:"size" example:"1024"`
 		UpdatedAt time.Time `json:"updated_at" example:"2023-01-01T00:00:00Z"`
 	} `json:"files"`
+}
+
+type TextSourceInfo struct {
+    ID         uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+    Title      string    `json:"title" example:"text-20240101-120000.txt"`
+    UploadedAt time.Time `json:"uploaded_at" example:"2023-01-01T00:00:00Z"`
+}
+
+type TextSourcesResponse struct {
+    ChatID  uuid.UUID       `json:"chat_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+    Sources []TextSourceInfo `json:"sources"`
 }
