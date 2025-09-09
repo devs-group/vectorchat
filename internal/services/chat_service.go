@@ -86,9 +86,9 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 		modelName = "gpt-4" // or your default model
 	}
 
-	temperatureParam := req.TemperatureParam
-	if temperatureParam == 0 {
-		temperatureParam = 0.7
+	temperature := req.TemperatureParam
+	if temperature == 0 {
+		temperature = 0.7
 	}
 
 	maxTokens := req.MaxTokens
@@ -96,7 +96,7 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 		maxTokens = 2000
 	}
 
-	chatbot, err := s.CreateChatbot(ctx, userID, req.Name, req.Description, req.SystemInstructions)
+	chatbot, err := s.CreateChatbot(ctx, userID, req.Name, req.Description, req.SystemInstructions, modelName, temperature, maxTokens)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 }
 
 // CreateChatbot creates a new chatbot with default settings
-func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions string) (*db.Chatbot, error) {
+func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions, modelName string, temperature float64, maxTokens int) (*db.Chatbot, error) {
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
@@ -125,9 +125,9 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 		Name:               name,
 		Description:        description,
 		SystemInstructions: systemInstructions,
-		ModelName:          "gpt-3.5-turbo", // Default model
-		TemperatureParam:   0.7,             // Default temperature
-		MaxTokens:          2000,            // Default max tokens
+		ModelName:          modelName,
+		TemperatureParam:   temperature,
+		MaxTokens:          maxTokens,
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
@@ -294,9 +294,13 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 	}
 
 	// Delete physical files from uploads directory
-	for _, file := range files {
-		storedFilename := fmt.Sprintf("%s-%s", chatbotID, file.Filename)
-		filePath := filepath.Join(s.uploadsDir, storedFilename)
+    for _, file := range files {
+        storedFilename := file.Filename
+        // Ensure we use the stored form "<chatbotID>-<original>" exactly once
+        if !strings.HasPrefix(storedFilename, chatbotUUID.String()+"-") {
+            storedFilename = fmt.Sprintf("%s-%s", chatbotUUID, storedFilename)
+        }
+        filePath := filepath.Join(s.uploadsDir, storedFilename)
 
 		if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
 			// Log the error but don't fail the entire operation if file doesn't exist
@@ -428,18 +432,65 @@ func (s *ChatService) ProcessFileUpdate(ctx context.Context, chatbotID uuid.UUID
 
 // ProcessFileDelete handles file deletion
 func (s *ChatService) ProcessFileDelete(ctx context.Context, chatbotID, filename, uploadsDir string) error {
-	// Create the document ID that was used when uploading
-	docID := fmt.Sprintf("%s-%s", chatbotID, filename)
+	// Parse chatbot ID
+	botID, err := s.ParseUUID(chatbotID)
+	if err != nil {
+		return apperrors.Wrap(err, "invalid chatbot ID")
+	}
 
-	// Remove from database
-	if err := s.DeleteDocumentByID(ctx, docID); err != nil {
+    // Look up the file metadata using chatbot + filename, with fallbacks
+    file, err := s.fileRepo.FindByChatbotIDAndFilename(ctx, botID, filename)
+    if err != nil {
+        // Try alternate forms in case the client sent original or stored filename
+        // 1) If the given filename is original, try "<chatbotID>-<filename>"
+        alt1 := fmt.Sprintf("%s-%s", botID, filename)
+        if f, e := s.fileRepo.FindByChatbotIDAndFilename(ctx, botID, alt1); e == nil {
+            file = f
+        } else {
+            // 2) If the given filename is stored, try stripping the prefix
+            prefix := fmt.Sprintf("%s-", botID)
+            alt2 := strings.TrimPrefix(filename, prefix)
+            if alt2 != filename {
+                if f2, e2 := s.fileRepo.FindByChatbotIDAndFilename(ctx, botID, alt2); e2 == nil {
+                    file = f2
+                }
+            }
+        }
+        if file == nil {
+            return apperrors.Wrap(err, "failed to find file")
+        }
+    }
+
+	// Begin transaction to delete documents and file metadata atomically
+	tx, err := s.db.BeginTx(ctx)
+	if err != nil {
+		return apperrors.Wrap(err, "failed to start transaction")
+	}
+	defer tx.Rollback()
+
+	// Delete all documents linked to this file
+	if err := s.documentRepo.DeleteByFileIDTx(ctx, tx, file.ID); err != nil {
 		return apperrors.Wrap(err, "failed to delete document")
 	}
 
-	// Remove the file from the uploads directory
-	storedFilename := fmt.Sprintf("%s-%s", chatbotID, filename)
-	filePath := filepath.Join(uploadsDir, storedFilename)
+	// Delete the file metadata row
+	if err := s.fileRepo.DeleteTx(ctx, tx, file.ID); err != nil {
+		return apperrors.Wrap(err, "failed to delete file metadata")
+	}
 
+	// Commit DB changes
+	if err := tx.Commit(); err != nil {
+		return apperrors.Wrap(err, "failed to commit transaction")
+	}
+
+    // Remove the physical file from the uploads directory
+    // Physical file is stored as "<chatbotID>-<original>". Use the stored form.
+    storedName := file.Filename
+    // If DB stored original name, prefix with chatbotID
+    if !strings.HasPrefix(storedName, botID.String()+"-") {
+        storedName = fmt.Sprintf("%s-%s", botID, storedName)
+    }
+    filePath := filepath.Join(uploadsDir, storedName)
 	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
 		// Log the error but don't fail the request if file doesn't exist
 		log.Printf("Warning: Failed to delete file %s: %v", filePath, err)

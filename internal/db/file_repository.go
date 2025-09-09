@@ -9,7 +9,7 @@ import (
 )
 
 type FileRepository struct {
-	db *Database
+    db *Database
 }
 
 func NewFileRepository(db *Database) *FileRepository {
@@ -108,6 +108,27 @@ func (r *FileRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUI
 	}
 
 	return files, nil
+}
+
+// FindByChatbotIDAndFilename finds a single file by chatbot and filename
+func (r *FileRepository) FindByChatbotIDAndFilename(ctx context.Context, chatbotID uuid.UUID, filename string) (*File, error) {
+    var file File
+    query := `
+        SELECT id, chatbot_id, filename, uploaded_at
+        FROM files
+        WHERE chatbot_id = $1 AND filename = $2
+        LIMIT 1
+    `
+
+    err := r.db.GetContext(ctx, &file, query, chatbotID, filename)
+    if err != nil {
+        if IsNoRowsError(err) {
+            return nil, apperrors.ErrFileNotFound
+        }
+        return nil, apperrors.Wrap(err, "failed to find file by chatbot and filename")
+    }
+
+    return &file, nil
 }
 
 // FindByChatbotIDWithPagination finds files for a chatbot with pagination

@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/gofiber/fiber/v2"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
@@ -113,7 +114,9 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 // @Router /chat/{chatID}/files/{filename} [delete]
 func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
-	filename := c.Params("filename")
+	rawFilename := c.Params("filename")
+	// Decode in case the filename contains URL-escaped characters (spaces, etc.)
+	filename, _ := url.PathUnescape(rawFilename)
 
 	if chatID == "" || filename == "" {
 		return ErrorResponse(c, "Chat ID and filename are required", nil, http.StatusBadRequest)
