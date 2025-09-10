@@ -25,9 +25,9 @@ func (r *FileRepository) Create(ctx context.Context, file *File) error {
 		file.UploadedAt = time.Now()
 	}
 
-	query := `
-		INSERT INTO files (id, chatbot_id, filename, uploaded_at)
-		VALUES (:id, :chatbot_id, :filename, :uploaded_at)
+    query := `
+		INSERT INTO files (id, chatbot_id, filename, size_bytes, uploaded_at)
+		VALUES (:id, :chatbot_id, :filename, :size_bytes, :uploaded_at)
 	`
 
 	_, err := r.db.NamedExecContext(ctx, query, file)
@@ -53,9 +53,9 @@ func (r *FileRepository) CreateTx(ctx context.Context, tx *Transaction, file *Fi
 		file.UploadedAt = time.Now()
 	}
 
-	query := `
-		INSERT INTO files (id, chatbot_id, filename, uploaded_at)
-		VALUES (:id, :chatbot_id, :filename, :uploaded_at)
+    query := `
+		INSERT INTO files (id, chatbot_id, filename, size_bytes, uploaded_at)
+		VALUES (:id, :chatbot_id, :filename, :size_bytes, :uploaded_at)
 	`
 
 	_, err := tx.NamedExecContext(ctx, query, file)
@@ -75,8 +75,8 @@ func (r *FileRepository) CreateTx(ctx context.Context, tx *Transaction, file *Fi
 // FindByID finds a file by ID
 func (r *FileRepository) FindByID(ctx context.Context, id uuid.UUID) (*File, error) {
 	var file File
-	query := `
-		SELECT id, chatbot_id, filename, uploaded_at
+    query := `
+		SELECT id, chatbot_id, filename, size_bytes, uploaded_at
 		FROM files
 		WHERE id = $1
 	`
@@ -96,7 +96,7 @@ func (r *FileRepository) FindByID(ctx context.Context, id uuid.UUID) (*File, err
 func (r *FileRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
     var files []*File
     query := `
-        SELECT id, chatbot_id, filename, uploaded_at
+        SELECT id, chatbot_id, filename, size_bytes, uploaded_at
         FROM files
         WHERE chatbot_id = $1
         ORDER BY uploaded_at DESC
@@ -114,7 +114,7 @@ func (r *FileRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUI
 func (r *FileRepository) FindNonTextByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
     var files []*File
     query := `
-        SELECT id, chatbot_id, filename, uploaded_at
+        SELECT id, chatbot_id, filename, size_bytes, uploaded_at
         FROM files
         WHERE chatbot_id = $1 AND filename NOT LIKE 'text-%'
         ORDER BY uploaded_at DESC
@@ -132,7 +132,7 @@ func (r *FileRepository) FindNonTextByChatbotID(ctx context.Context, chatbotID u
 func (r *FileRepository) FindByChatbotIDAndFilename(ctx context.Context, chatbotID uuid.UUID, filename string) (*File, error) {
     var file File
     query := `
-        SELECT id, chatbot_id, filename, uploaded_at
+        SELECT id, chatbot_id, filename, size_bytes, uploaded_at
         FROM files
         WHERE chatbot_id = $1 AND filename = $2
         LIMIT 1
@@ -161,8 +161,8 @@ func (r *FileRepository) FindByChatbotIDWithPagination(ctx context.Context, chat
 
 	// Get paginated results
 	var files []*File
-	query := `
-		SELECT id, chatbot_id, filename, uploaded_at
+    query := `
+		SELECT id, chatbot_id, filename, size_bytes, uploaded_at
 		FROM files
 		WHERE chatbot_id = $1
 		ORDER BY uploaded_at DESC
@@ -181,7 +181,7 @@ func (r *FileRepository) FindByChatbotIDWithPagination(ctx context.Context, chat
 func (r *FileRepository) FindTextByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
     var files []*File
     query := `
-        SELECT id, chatbot_id, filename, uploaded_at
+        SELECT id, chatbot_id, filename, size_bytes, uploaded_at
         FROM files
         WHERE chatbot_id = $1 AND filename LIKE 'text-%'
         ORDER BY uploaded_at DESC
@@ -197,9 +197,9 @@ func (r *FileRepository) FindTextByChatbotID(ctx context.Context, chatbotID uuid
 
 // Update updates a file
 func (r *FileRepository) Update(ctx context.Context, file *File) error {
-	query := `
+    query := `
 		UPDATE files
-		SET filename = :filename
+		SET filename = :filename, size_bytes = :size_bytes
 		WHERE id = :id
 	`
 
@@ -222,9 +222,9 @@ func (r *FileRepository) Update(ctx context.Context, file *File) error {
 
 // UpdateTx updates a file within a transaction
 func (r *FileRepository) UpdateTx(ctx context.Context, tx *Transaction, file *File) error {
-	query := `
+    query := `
 		UPDATE files
-		SET filename = :filename
+		SET filename = :filename, size_bytes = :size_bytes
 		WHERE id = :id
 	`
 

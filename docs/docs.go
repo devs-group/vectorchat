@@ -1458,6 +1458,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "550e8400-e29b-41d4-a716-446655440000"
                 },
+                "size": {
+                    "type": "integer",
+                    "example": 1024
+                },
                 "uploaded_at": {
                     "type": "string",
                     "example": "2023-01-01T00:00:00Z"
@@ -1545,6 +1549,10 @@ const docTemplate = `{
                 "id": {
                     "type": "string",
                     "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "size": {
+                    "type": "integer",
+                    "example": 2048
                 },
                 "title": {
                     "type": "string",

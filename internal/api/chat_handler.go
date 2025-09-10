@@ -188,14 +188,15 @@ func (h *ChatHandler) GET_TextSources(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Failed to retrieve text sources", err)
 	}
 
-	sources := make([]models.TextSourceInfo, 0, len(files))
-	for _, f := range files {
-		sources = append(sources, models.TextSourceInfo{
-			ID:         f.ID,
-			Title:      f.Filename,
-			UploadedAt: f.UploadedAt,
-		})
-	}
+    sources := make([]models.TextSourceInfo, 0, len(files))
+    for _, f := range files {
+        sources = append(sources, models.TextSourceInfo{
+            ID:         f.ID,
+            Title:      f.Filename,
+            Size:       f.SizeBytes,
+            UploadedAt: f.UploadedAt,
+        })
+    }
 
 	return c.JSON(models.TextSourcesResponse{ChatID: chatID, Sources: sources})
 }

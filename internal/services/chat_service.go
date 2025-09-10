@@ -415,19 +415,20 @@ func (s *ChatService) ProcessFileDelete(ctx context.Context, chatbotID, filename
 
 // GetChatFilesFormatted retrieves all files for a chatbot with formatted response
 func (s *ChatService) GetChatFilesFormatted(ctx context.Context, chatbotID uuid.UUID) (*models.ChatFilesResponse, error) {
-	files, err := s.GetFilesByChatbotID(ctx, chatbotID)
-	if err != nil {
-		return nil, err
-	}
+    files, err := s.GetFilesByChatbotID(ctx, chatbotID)
+    if err != nil {
+        return nil, err
+    }
 
-	respFiles := make([]models.FileInfo, 0, len(files))
-	for _, f := range files {
-		respFiles = append(respFiles, models.FileInfo{
-			Filename:   f.Filename,
-			ID:         f.ID,
-			UploadedAt: f.UploadedAt,
-		})
-	}
+    respFiles := make([]models.FileInfo, 0, len(files))
+    for _, f := range files {
+        respFiles = append(respFiles, models.FileInfo{
+            Filename:   f.Filename,
+            ID:         f.ID,
+            Size:       f.SizeBytes,
+            UploadedAt: f.UploadedAt,
+        })
+    }
 
 	return &models.ChatFilesResponse{
 		ChatID: chatbotID,
@@ -462,12 +463,19 @@ func (s *ChatService) AddFileSource(ctx context.Context, chatbotID uuid.UUID, or
 	defer tx.Rollback()
 
 	// Insert file metadata with the original filename (cleaner for clients)
-	file := &db.File{
-		ID:         fileID,
-		ChatbotID:  chatbotID,
-		Filename:   filepath.Base(originalFilename),
-		UploadedAt: time.Now(),
-	}
+    // Determine actual stored file size on disk for accounting
+    var sizeBytes int64
+    if fi, err := os.Stat(storedPath); err == nil {
+        sizeBytes = fi.Size()
+    }
+
+    file := &db.File{
+        ID:         fileID,
+        ChatbotID:  chatbotID,
+        Filename:   filepath.Base(originalFilename),
+        SizeBytes:  sizeBytes,
+        UploadedAt: time.Now(),
+    }
 
 	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
 		return nil, apperrors.Wrap(err, "failed to insert file metadata")
@@ -551,12 +559,13 @@ func (s *ChatService) AddText(ctx context.Context, chatbotID uuid.UUID, text str
 
 	// Create synthetic file metadata to group this text upload
 	textFilename := fmt.Sprintf("text-%s.txt", time.Now().Format("20060102-150405"))
-	file := &db.File{
-		ID:         uuid.New(),
-		ChatbotID:  chatbotID,
-		Filename:   textFilename,
-		UploadedAt: time.Now(),
-	}
+    file := &db.File{
+        ID:         uuid.New(),
+        ChatbotID:  chatbotID,
+        Filename:   textFilename,
+        SizeBytes:  int64(len(text)),
+        UploadedAt: time.Now(),
+    }
 	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
 		return apperrors.Wrap(err, "failed to insert text metadata")
 	}
@@ -611,12 +620,13 @@ func (s *ChatService) AddWebsite(ctx context.Context, chatbotID uuid.UUID, rootU
 	}
 	defer tx.Rollback()
 
-	file := &db.File{
-		ID:         uuid.New(),
-		ChatbotID:  chatbotID,
-		Filename:   fname,
-		UploadedAt: time.Now(),
-	}
+    file := &db.File{
+        ID:         uuid.New(),
+        ChatbotID:  chatbotID,
+        Filename:   fname,
+        SizeBytes:  0,
+        UploadedAt: time.Now(),
+    }
 	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
 		return apperrors.Wrap(err, "failed to insert website source")
 	}
@@ -627,19 +637,21 @@ func (s *ChatService) AddWebsite(ctx context.Context, chatbotID uuid.UUID, rootU
 		return apperrors.Wrap(err, "failed to crawl website")
 	}
 
-	// Index each page's text
-	const chunkSize = 1000
-	for pi, p := range pages {
-		if strings.TrimSpace(p.Text) == "" {
-			continue
-		}
-		chunks := chunkText(p.Text, chunkSize)
-		for ci, chunk := range chunks {
-			emb, err := s.vectorizer.VectorizeText(ctx, chunk)
-			if err != nil {
-				return apperrors.Wrapf(err, "failed to vectorize page %d chunk %d", pi, ci)
-			}
-			doc := &db.DocumentWithEmbedding{
+    // Index each page's text and accumulate total ingested bytes
+    const chunkSize = 1000
+    var totalBytes int64
+    for pi, p := range pages {
+        if strings.TrimSpace(p.Text) == "" {
+            continue
+        }
+        chunks := chunkText(p.Text, chunkSize)
+        for ci, chunk := range chunks {
+            totalBytes += int64(len(chunk))
+            emb, err := s.vectorizer.VectorizeText(ctx, chunk)
+            if err != nil {
+                return apperrors.Wrapf(err, "failed to vectorize page %d chunk %d", pi, ci)
+            }
+            doc := &db.DocumentWithEmbedding{
 				ID:         fmt.Sprintf("%s-web-%d-%d-%s", chatbotID, pi, ci, uuid.New().String()),
 				Content:    []byte(chunk),
 				Embedding:  emb,
@@ -649,8 +661,14 @@ func (s *ChatService) AddWebsite(ctx context.Context, chatbotID uuid.UUID, rootU
 			}
 			if err := s.documentRepo.StoreWithEmbeddingTx(ctx, tx, doc); err != nil {
 				return apperrors.Wrapf(err, "failed to store page %d chunk %d", pi, ci)
-			}
-		}
+        }
+    }
+
+    // Update file size_bytes before committing
+    file.SizeBytes = totalBytes
+    if err := s.fileRepo.UpdateTx(ctx, tx, file); err != nil {
+        return apperrors.Wrap(err, "failed to update website source size")
+    }
 	}
 
 	if err := tx.Commit(); err != nil {

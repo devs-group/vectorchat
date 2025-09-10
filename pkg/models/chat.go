@@ -62,9 +62,10 @@ type WebsiteUploadRequest struct {
 }
 
 type FileInfo struct {
-	Filename   string    `json:"filename" example:"document.pdf"`
-	ID         uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	UploadedAt time.Time `json:"uploaded_at" example:"2023-01-01T00:00:00Z"`
+    Filename   string    `json:"filename" example:"document.pdf"`
+    ID         uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+    Size       int64     `json:"size" example:"1024"`
+    UploadedAt time.Time `json:"uploaded_at" example:"2023-01-01T00:00:00Z"`
 }
 
 type FileUploadResponse struct {
@@ -92,6 +93,7 @@ type ChatFilesListResponse struct {
 type TextSourceInfo struct {
     ID         uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
     Title      string    `json:"title" example:"text-20240101-120000.txt"`
+    Size       int64     `json:"size" example:"2048"`
     UploadedAt time.Time `json:"uploaded_at" example:"2023-01-01T00:00:00Z"`
 }
 

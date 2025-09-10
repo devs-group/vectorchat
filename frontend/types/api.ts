@@ -108,6 +108,7 @@ export interface ChatFilesResponse {
 export interface TextSource {
   id: string;
   title: string;
+  size: number;
   uploaded_at: string;
 }
 

@@ -165,7 +165,7 @@
           <h4 class="font-medium">Current Knowledge Sources</h4>
           <span
             class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground"
-            >{{ files.length + textSources.length }} item(s)</span
+            >{{ itemsCount }} item(s) • {{ formatFileSize(totalBytes) }}</span
           >
         </div>
 
@@ -198,23 +198,20 @@
               <div
                 class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary"
               >
-                <IconFile class="h-4 w-4" />
+                <component :is="file.filename?.startsWith('website-') ? IconGlobe : IconFile" class="h-4 w-4" />
               </div>
               <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-medium">
                   {{ file.filename }}
                 </div>
                 <div class="text-xs text-muted-foreground">
-                  <template
-                    v-if="
-                      typeof file.size === 'number' && !Number.isNaN(file.size)
-                    "
-                  >
-                    {{ formatFileSize(file.size) }}
-                  </template>
-                  <template v-else-if="(file as any).uploaded_at">
-                    {{ new Date((file as any).uploaded_at).toLocaleString() }}
-                  </template>
+                  {{ formatFileSize(file.size) }} •
+                  <span v-if="(file as any).uploaded_at">
+                    {{ formatDate((file as any).uploaded_at) }}
+                  </span>
+                  <span v-else>
+                    {{ formatDate((file as any).updated_at) }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -247,7 +244,8 @@
               <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-medium">{{ src.title }}</div>
                 <div class="text-xs text-muted-foreground">
-                  {{ new Date(src.uploaded_at).toLocaleString() }}
+                  {{ formatFileSize((src as any).size || 0) }} •
+                  {{ formatDate(src.uploaded_at) }}
                 </div>
               </div>
             </div>
@@ -267,7 +265,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, computed } from "vue";
 import { toast } from "vue-sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -416,6 +414,13 @@ const formatFileSize = (sizeInBytes: number) => {
   return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+// Format date consistently
+const formatDate = (iso: string | Date) => {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  if (!d || isNaN(d.getTime())) return "";
+  return d.toLocaleString();
+};
+
 // Add text source (calls backend)
 const addTextSource = async () => {
   if (!props.chatId || !textSource.value.trim()) return;
@@ -480,6 +485,14 @@ onMounted(async () => {
 
 // Expose methods and reactive state for parent component
 defineExpose({ fetchChatFiles, files, textSources });
+
+// Summary: items and total usage
+const itemsCount = computed(() => (files.value?.length || 0) + (textSources.value?.length || 0));
+const totalBytes = computed(() => {
+  const filesBytes = (files.value || []).reduce((acc, f) => acc + (typeof f.size === "number" ? f.size : 0), 0);
+  const textBytes = (textSources.value || []).reduce((acc, s: any) => acc + (typeof s.size === "number" ? s.size : 0), 0);
+  return filesBytes + textBytes;
+});
 </script>
 
 <style scoped>

@@ -90,8 +90,9 @@ func (d *Document) ToDocumentWithEmbedding() *DocumentWithEmbedding {
 }
 
 type File struct {
-	ID         uuid.UUID `json:"id" db:"id"`
-	ChatbotID  uuid.UUID `json:"chatbot_id" db:"chatbot_id"`
-	Filename   string    `json:"filename" db:"filename"`
-	UploadedAt time.Time `json:"uploaded_at" db:"uploaded_at"`
+    ID         uuid.UUID `json:"id" db:"id"`
+    ChatbotID  uuid.UUID `json:"chatbot_id" db:"chatbot_id"`
+    Filename   string    `json:"filename" db:"filename"`
+    SizeBytes  int64     `json:"size_bytes" db:"size_bytes"`
+    UploadedAt time.Time `json:"uploaded_at" db:"uploaded_at"`
 }
