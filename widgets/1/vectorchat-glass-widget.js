@@ -40,6 +40,10 @@
       --vcw-muted: #d1d5db; /* gray-300 */
       --vcw-muted-500: #e5e7eb; /* lighter icons by default */
       --vcw-placeholder: #ffffff; /* make input placeholder white */
+      --vcw-ease-out: cubic-bezier(.22, .61, .36, 1);
+      --vcw-ease-in-out: cubic-bezier(.4, 0, .2, 1);
+      --vcw-dur-fast: 180ms;
+      --vcw-dur-med: 280ms;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -57,6 +61,9 @@
       box-shadow: 0 16px 48px rgba(4,9,20,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
       position: relative;
       overflow: hidden;
+      transform: translateZ(0);
+      will-change: transform, opacity;
+      contain: layout paint style;
     }
     /* Subtle highlight ring */
     .vcw-surface::after {
@@ -82,7 +89,7 @@
     .vcw-collapsed {
       min-width: 420px; max-width: 500px;
       padding: 12px 16px; cursor: pointer;
-      transition: background 200ms ease, transform 200ms ease, opacity 200ms ease, box-shadow 200ms ease;
+      transition: background var(--vcw-dur-fast) var(--vcw-ease-in-out), transform var(--vcw-dur-fast) var(--vcw-ease-out), opacity var(--vcw-dur-fast) var(--vcw-ease-out), box-shadow var(--vcw-dur-fast) var(--vcw-ease-out);
       opacity: 0; transform: translateY(20px) scale(0.995);
     }
     .vcw-collapsed.vcw-in { opacity: 1; transform: translateY(0) scale(1); }
@@ -96,7 +103,7 @@
     /* Expanded panel */
     .vcw-expanded {
       position: relative; overflow: hidden; width: 420px;
-      transition: height 300ms cubic-bezier(.4,0,.2,1), transform 300ms ease, opacity 300ms ease, box-shadow 300ms ease;
+      transition: height var(--vcw-dur-med) var(--vcw-ease-in-out), transform var(--vcw-dur-med) var(--vcw-ease-out), opacity var(--vcw-dur-med) var(--vcw-ease-out), box-shadow var(--vcw-dur-med) var(--vcw-ease-out);
       height: 60px; opacity: 0; transform: translateY(20px) scale(0.995);
       will-change: height, transform, opacity;
     }
@@ -110,6 +117,9 @@
       position: relative; z-index: 2;
       height: 420px; overflow-y: auto; padding: 16px; padding-top: 48px;
       display: flex; flex-direction: column; gap: 12px;
+      scroll-behavior: smooth;
+      overscroll-behavior: contain;
+      backface-visibility: hidden;
     }
     /* Subtle, clean scrollbar */
     .vcw-messages { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
@@ -125,8 +135,8 @@
     .vcw-bubble-ai { background: rgba(255,255,255,0.10); color: #e8eaed; border: 1px solid rgba(255,255,255,0.09); }
 
     /* Message enter animation */
-    @keyframes vcw-msg-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .vcw-msg-enter { animation: vcw-msg-in 200ms ease-out forwards; }
+    @keyframes vcw-msg-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .vcw-msg-enter { animation: vcw-msg-in var(--vcw-dur-fast) var(--vcw-ease-out) both; will-change: transform, opacity; }
 
     /* Typing dots */
     @keyframes vcw-dot { 0%,100%{opacity:.4} 50%{opacity:1} }
@@ -162,11 +172,27 @@
       50% { height: var(--h, 16px); }
       100% { height: 4px; }
     }
-    .vcw-bar { width: 2px; background: #d1d5db; border-radius: 1px; animation: vcw-wave var(--dur, .8s) ease-in-out var(--delay, 0s) infinite; }
+    .vcw-bar { width: 2px; background: #d1d5db; border-radius: 1px; animation: vcw-wave var(--dur, .9s) var(--vcw-ease-in-out) var(--delay, 0s) infinite; will-change: height; }
 
     /* Utility */
     .vcw-space-x > * + * { margin-left: 8px; }
     .vcw-space-x-tight > * + * { margin-left: 6px; }
+
+    /* Responsive adjustments for mobile */
+    @media (max-width: 480px) {
+      .vcw-collapsed { min-width: 0; width: calc(100vw - 32px); }
+      .vcw-expanded { width: calc(100vw - 32px); }
+      .vcw-expanded.vcw-open { height: min(70vh, 520px); }
+      .vcw-messages { height: calc(100% - 88px); padding: 12px; padding-top: 40px; gap: 10px; }
+      .vcw-footer { padding: 12px; }
+    }
+    /* Motion reduction support */
+    @media (prefers-reduced-motion: reduce) {
+      .vcw-collapsed, .vcw-expanded { transition: none !important; }
+      .vcw-msg-enter { animation: none !important; }
+      .vcw-bar { animation: none !important; }
+      .vcw-messages { scroll-behavior: auto; }
+    }
   `;
 
   // Inline SVG icons (minimal Lucide-like)
@@ -346,8 +372,12 @@
       row.appendChild(wrap);
       m.appendChild(row);
     }
-    // Scroll to bottom
-    m.scrollTop = m.scrollHeight;
+    // Scroll to bottom with smooth behavior
+    try {
+      m.scrollTo({ top: m.scrollHeight, behavior: 'smooth' });
+    } catch (_) {
+      m.scrollTop = m.scrollHeight;
+    }
   }
 
   // Send flow with simulated AI response
@@ -437,4 +467,15 @@
   requestAnimationFrame(() => {
     renderCollapsedIn();
   });
+
+  // Responsive host bottom spacing (mobile vs desktop)
+  try {
+    const mq = window.matchMedia('(max-width: 480px)');
+    const applyHostOffset = () => {
+      host.style.bottom = mq.matches ? '16px' : '24px';
+    };
+    if (mq.addEventListener) mq.addEventListener('change', applyHostOffset);
+    else if (mq.addListener) mq.addListener(applyHostOffset);
+    applyHostOffset();
+  } catch (_) { /* noop */ }
 })();
