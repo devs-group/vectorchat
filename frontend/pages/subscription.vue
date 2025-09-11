@@ -52,26 +52,38 @@
           Choose a plan and subscribe using Stripe Checkout.
         </p>
       </div>
-      <div class="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
         <div
           v-for="plan in plans || []"
           :key="plan.id"
-          class="border rounded-lg p-4 flex flex-col justify-between relative"
-          :class="{
-            'border-green-500 border-2 ring-1 ring-green-200':
-              isSubActive && currentPlanKey === plan.key,
-          }"
+          class="rounded-lg h-full"
         >
+          <!-- Gradient border wrapper when current plan -->
           <div
-            v-if="isSubActive && currentPlanKey === plan.key"
-            class="absolute -top-3 left-3"
+            class="h-full rounded-lg"
+            :class="[
+              isSubActive && currentPlanKey === plan.key
+                ? 'bg-gradient-to-br from-emerald-500 to-teal-500 p-[2px]'
+                : ''
+            ]"
           >
-            <span
-              class="text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200 shadow-sm"
-              >Current</span
+            <!-- Inner card -->
+            <div
+              class="rounded-lg p-4 flex flex-col relative border bg-card shadow-sm border-border h-full"
+              :class="{
+                'border-transparent': isSubActive && currentPlanKey === plan.key,
+              }"
             >
-          </div>
-          <div>
+              <div
+                v-if="isSubActive && currentPlanKey === plan.key"
+                class="absolute -top-3 left-3"
+              >
+                <span
+                  class="text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200 shadow-sm"
+                  >Current</span
+                >
+              </div>
+              <div>
             <div class="flex items-center justify-between mb-2">
               <h3 class="text-base font-semibold">{{ plan.display_name }}</h3>
               <span
@@ -98,22 +110,24 @@
                 {{ key }}: {{ formatFeature(val) }}
               </li>
             </ul>
-          </div>
-          <div class="mt-4">
-            <Button
-              :disabled="isCreatingCheckout || isBlockingSub"
-              @click="subscribe(plan)"
-            >
-              {{
-                isCreatingCheckout
-                  ? "Redirecting…"
-                  : currentPlanKey === plan.key
-                    ? "Subscribed"
-                    : isBlockingSub
-                      ? "Manage in Billing"
-                      : "Subscribe"
-              }}
-            </Button>
+              </div>
+              <div class="mt-4 mt-auto">
+                <Button
+                  :disabled="isCreatingCheckout || isBlockingSub"
+                  @click="subscribe(plan)"
+                >
+                  {{
+                    isCreatingCheckout
+                      ? "Redirecting…"
+                      : currentPlanKey === plan.key
+                        ? "Subscribed"
+                        : isBlockingSub
+                          ? "Manage in Billing"
+                          : "Subscribe"
+                  }}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 

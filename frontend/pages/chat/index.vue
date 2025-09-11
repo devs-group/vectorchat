@@ -2,7 +2,11 @@
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
       <h1 class="text-3xl font-bold tracking-tight">Chats</h1>
-      <Button @click="createNewChat" class="transition-all hover:shadow-md">
+      <Button
+        v-if="hasChats && !isLoadingChatbots"
+        @click="createNewChat"
+        class="transition-all hover:shadow-md"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"
@@ -29,32 +33,30 @@
     </div>
 
     <div
-      v-else-if="data && data.chatbots && data.chatbots.length === 0"
-      class="flex flex-col items-center justify-center p-8 rounded-lg border border-dashed text-center"
+      v-else-if="!hasChats"
+      class="flex flex-col items-center justify-center p-10 rounded-xl border border-dashed text-center bg-card"
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="48"
-        height="48"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1"
-        class="mb-4 text-muted-foreground"
+      <div
+        class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm mb-4"
       >
-        <path
-          d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-        ></path>
-      </svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          class="h-6 w-6"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      </div>
       <h3 class="font-medium text-lg mb-1">No chats yet</h3>
-      <p class="text-muted-foreground mb-4">
-        Create your first AI assistant to get started
+      <p class="text-muted-foreground mb-5 max-w-sm">
+        Create your first AI assistant to get started.
       </p>
-      <Button
-        @click="createNewChat"
-        variant="outline"
-        class="transition-all hover:shadow-sm"
-      >
+      <Button @click="createNewChat" class="transition-all hover:shadow-sm">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"
@@ -70,7 +72,7 @@
           <path d="M5 12h14"></path>
           <path d="M12 5v14"></path>
         </svg>
-        Create Chat
+        Create New Chat
       </Button>
     </div>
 
@@ -186,6 +188,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import { toast } from "vue-sonner";
 import {
   Dialog,
@@ -221,6 +224,9 @@ onMounted(async () => {
     console.error("Error loading chatbots:", error);
   }
 });
+
+// Whether there are any chats
+const hasChats = computed(() => (data.value?.chatbots?.length || 0) > 0);
 
 // Format date for display
 const formatDate = (dateString: string) => {
