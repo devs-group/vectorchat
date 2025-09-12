@@ -69,6 +69,7 @@ func (s *ChatService) toChatbotResponse(chatbot *db.Chatbot) *models.ChatbotResp
 		ModelName:          chatbot.ModelName,
 		TemperatureParam:   chatbot.TemperatureParam,
 		MaxTokens:          chatbot.MaxTokens,
+		IsEnabled:          chatbot.IsEnabled,
 		CreatedAt:          chatbot.CreatedAt,
 		UpdatedAt:          chatbot.UpdatedAt,
 	}
@@ -129,6 +130,7 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 		ModelName:          modelName,
 		TemperatureParam:   temperature,
 		MaxTokens:          maxTokens,
+		IsEnabled:          true,
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
@@ -244,6 +246,37 @@ func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID st
 	err = s.chatbotRepo.Update(ctx, chatbot)
 	if err != nil {
 		return nil, err
+	}
+
+	return chatbot, nil
+}
+
+// ToggleChatbotEnabled toggles the enabled state of a chatbot
+func (s *ChatService) ToggleChatbotEnabled(ctx context.Context, chatbotID, userID string, isEnabled bool) (*db.Chatbot, error) {
+	// Validate inputs
+	if chatbotID == "" || userID == "" {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
+	}
+
+	// Parse chatbot ID
+	chatbotUUID, err := uuid.Parse(chatbotID)
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "invalid chatbot ID format")
+	}
+
+	// Get the existing chatbot to check ownership
+	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, chatbotUUID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update the enabled state
+	chatbot.IsEnabled = isEnabled
+	chatbot.UpdatedAt = time.Now()
+
+	// Update in database
+	if err := s.chatbotRepo.Update(ctx, chatbot); err != nil {
+		return nil, apperrors.Wrap(err, "failed to update chatbot enabled state")
 	}
 
 	return chatbot, nil
@@ -415,20 +448,20 @@ func (s *ChatService) ProcessFileDelete(ctx context.Context, chatbotID, filename
 
 // GetChatFilesFormatted retrieves all files for a chatbot with formatted response
 func (s *ChatService) GetChatFilesFormatted(ctx context.Context, chatbotID uuid.UUID) (*models.ChatFilesResponse, error) {
-    files, err := s.GetFilesByChatbotID(ctx, chatbotID)
-    if err != nil {
-        return nil, err
-    }
+	files, err := s.GetFilesByChatbotID(ctx, chatbotID)
+	if err != nil {
+		return nil, err
+	}
 
-    respFiles := make([]models.FileInfo, 0, len(files))
-    for _, f := range files {
-        respFiles = append(respFiles, models.FileInfo{
-            Filename:   f.Filename,
-            ID:         f.ID,
-            Size:       f.SizeBytes,
-            UploadedAt: f.UploadedAt,
-        })
-    }
+	respFiles := make([]models.FileInfo, 0, len(files))
+	for _, f := range files {
+		respFiles = append(respFiles, models.FileInfo{
+			Filename:   f.Filename,
+			ID:         f.ID,
+			Size:       f.SizeBytes,
+			UploadedAt: f.UploadedAt,
+		})
+	}
 
 	return &models.ChatFilesResponse{
 		ChatID: chatbotID,
@@ -463,19 +496,19 @@ func (s *ChatService) AddFileSource(ctx context.Context, chatbotID uuid.UUID, or
 	defer tx.Rollback()
 
 	// Insert file metadata with the original filename (cleaner for clients)
-    // Determine actual stored file size on disk for accounting
-    var sizeBytes int64
-    if fi, err := os.Stat(storedPath); err == nil {
-        sizeBytes = fi.Size()
-    }
+	// Determine actual stored file size on disk for accounting
+	var sizeBytes int64
+	if fi, err := os.Stat(storedPath); err == nil {
+		sizeBytes = fi.Size()
+	}
 
-    file := &db.File{
-        ID:         fileID,
-        ChatbotID:  chatbotID,
-        Filename:   filepath.Base(originalFilename),
-        SizeBytes:  sizeBytes,
-        UploadedAt: time.Now(),
-    }
+	file := &db.File{
+		ID:         fileID,
+		ChatbotID:  chatbotID,
+		Filename:   filepath.Base(originalFilename),
+		SizeBytes:  sizeBytes,
+		UploadedAt: time.Now(),
+	}
 
 	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
 		return nil, apperrors.Wrap(err, "failed to insert file metadata")
@@ -559,13 +592,13 @@ func (s *ChatService) AddText(ctx context.Context, chatbotID uuid.UUID, text str
 
 	// Create synthetic file metadata to group this text upload
 	textFilename := fmt.Sprintf("text-%s.txt", time.Now().Format("20060102-150405"))
-    file := &db.File{
-        ID:         uuid.New(),
-        ChatbotID:  chatbotID,
-        Filename:   textFilename,
-        SizeBytes:  int64(len(text)),
-        UploadedAt: time.Now(),
-    }
+	file := &db.File{
+		ID:         uuid.New(),
+		ChatbotID:  chatbotID,
+		Filename:   textFilename,
+		SizeBytes:  int64(len(text)),
+		UploadedAt: time.Now(),
+	}
 	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
 		return apperrors.Wrap(err, "failed to insert text metadata")
 	}
@@ -620,13 +653,13 @@ func (s *ChatService) AddWebsite(ctx context.Context, chatbotID uuid.UUID, rootU
 	}
 	defer tx.Rollback()
 
-    file := &db.File{
-        ID:         uuid.New(),
-        ChatbotID:  chatbotID,
-        Filename:   fname,
-        SizeBytes:  0,
-        UploadedAt: time.Now(),
-    }
+	file := &db.File{
+		ID:         uuid.New(),
+		ChatbotID:  chatbotID,
+		Filename:   fname,
+		SizeBytes:  0,
+		UploadedAt: time.Now(),
+	}
 	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
 		return apperrors.Wrap(err, "failed to insert website source")
 	}
@@ -637,21 +670,21 @@ func (s *ChatService) AddWebsite(ctx context.Context, chatbotID uuid.UUID, rootU
 		return apperrors.Wrap(err, "failed to crawl website")
 	}
 
-    // Index each page's text and accumulate total ingested bytes
-    const chunkSize = 1000
-    var totalBytes int64
-    for pi, p := range pages {
-        if strings.TrimSpace(p.Text) == "" {
-            continue
-        }
-        chunks := chunkText(p.Text, chunkSize)
-        for ci, chunk := range chunks {
-            totalBytes += int64(len(chunk))
-            emb, err := s.vectorizer.VectorizeText(ctx, chunk)
-            if err != nil {
-                return apperrors.Wrapf(err, "failed to vectorize page %d chunk %d", pi, ci)
-            }
-            doc := &db.DocumentWithEmbedding{
+	// Index each page's text and accumulate total ingested bytes
+	const chunkSize = 1000
+	var totalBytes int64
+	for pi, p := range pages {
+		if strings.TrimSpace(p.Text) == "" {
+			continue
+		}
+		chunks := chunkText(p.Text, chunkSize)
+		for ci, chunk := range chunks {
+			totalBytes += int64(len(chunk))
+			emb, err := s.vectorizer.VectorizeText(ctx, chunk)
+			if err != nil {
+				return apperrors.Wrapf(err, "failed to vectorize page %d chunk %d", pi, ci)
+			}
+			doc := &db.DocumentWithEmbedding{
 				ID:         fmt.Sprintf("%s-web-%d-%d-%s", chatbotID, pi, ci, uuid.New().String()),
 				Content:    []byte(chunk),
 				Embedding:  emb,
@@ -661,14 +694,14 @@ func (s *ChatService) AddWebsite(ctx context.Context, chatbotID uuid.UUID, rootU
 			}
 			if err := s.documentRepo.StoreWithEmbeddingTx(ctx, tx, doc); err != nil {
 				return apperrors.Wrapf(err, "failed to store page %d chunk %d", pi, ci)
-        }
-    }
+			}
+		}
 
-    // Update file size_bytes before committing
-    file.SizeBytes = totalBytes
-    if err := s.fileRepo.UpdateTx(ctx, tx, file); err != nil {
-        return apperrors.Wrap(err, "failed to update website source size")
-    }
+		// Update file size_bytes before committing
+		file.SizeBytes = totalBytes
+		if err := s.fileRepo.UpdateTx(ctx, tx, file); err != nil {
+			return apperrors.Wrap(err, "failed to update website source size")
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -852,6 +885,11 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, uuid.MustParse(chatID), userID)
 	if err != nil {
 		return "", err
+	}
+
+	// Check if chatbot is enabled
+	if !chatbot.IsEnabled {
+		return "", apperrors.Wrap(apperrors.ErrUnauthorizedChatbotAccess, "chatbot is currently disabled")
 	}
 
 	// Vectorize the query

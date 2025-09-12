@@ -47,6 +47,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Get("/chatbots", h.GET_ListChatbots)
 	chat.Get("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatbotByID)
 	chat.Put("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateChatbot)
+	chat.Patch("/chatbot/:chatID/toggle", h.OwershipMiddleware.IsChatbotOwner, h.PATCH_ToggleChatbot)
 	chat.Delete("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_Chatbot)
 	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
 	chat.Post("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadText)
@@ -188,15 +189,15 @@ func (h *ChatHandler) GET_TextSources(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Failed to retrieve text sources", err)
 	}
 
-    sources := make([]models.TextSourceInfo, 0, len(files))
-    for _, f := range files {
-        sources = append(sources, models.TextSourceInfo{
-            ID:         f.ID,
-            Title:      f.Filename,
-            Size:       f.SizeBytes,
-            UploadedAt: f.UploadedAt,
-        })
-    }
+	sources := make([]models.TextSourceInfo, 0, len(files))
+	for _, f := range files {
+		sources = append(sources, models.TextSourceInfo{
+			ID:         f.ID,
+			Title:      f.Filename,
+			Size:       f.SizeBytes,
+			UploadedAt: f.UploadedAt,
+		})
+	}
 
 	return c.JSON(models.TextSourcesResponse{ChatID: chatID, Sources: sources})
 }
@@ -508,20 +509,59 @@ func (h *ChatHandler) PUT_UpdateChatbot(c *fiber.Ctx) error {
 	})
 }
 
-// @Summary Delete chatbot
-// @Description Delete a chatbot and all associated data including files, documents, and conversations
-// @Tags chat
+// @Summary Toggle chatbot enabled state
+// @Description Enable or disable a chatbot
+// @Tags chatbot
 // @Accept json
 // @Produce json
-// @Param chatbotID path string true "Chatbot ID"
-// @Success 200 {object} models.MessageResponse
+// @Param chatID path string true "Chatbot ID"
+// @Param request body models.ChatbotToggleRequest true "Toggle request"
+// @Success 200 {object} models.ChatbotResponse
 // @Failure 400 {object} models.APIResponse
-// @Failure 401 {object} models.APIResponse
-// @Failure 403 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
 // @Security ApiKeyAuth
-// @Router /chat/chatbot/{chatbotID} [delete]
+// @Router /chat/chatbot/{chatID}/toggle [patch]
+func (h *ChatHandler) PATCH_ToggleChatbot(c *fiber.Ctx) error {
+	chatID := c.Params("chatID")
+	if chatID == "" {
+		return ErrorResponse(c, "Chatbot ID is required", nil, http.StatusBadRequest)
+	}
+
+	var req models.ChatbotToggleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
+
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+
+	chatbot, err := h.ChatService.ToggleChatbotEnabled(c.Context(), chatID, user.ID, req.IsEnabled)
+	if err != nil {
+		if apperrors.Is(err, apperrors.ErrChatbotNotFound) {
+			return ErrorResponse(c, "Chatbot not found", err, http.StatusNotFound)
+		} else if apperrors.Is(err, apperrors.ErrUnauthorizedChatbotAccess) {
+			return ErrorResponse(c, "You don't have permission to modify this chatbot", err, http.StatusForbidden)
+		}
+		return ErrorResponse(c, "Failed to toggle chatbot state", err)
+	}
+	return c.JSON(chatbot)
+}
+
+// @Summary Delete chatbot
+// @Description Delete a chatbot by ID
+// @Tags chatbot
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chatbot ID"
+// @Success 200 {object} models.APIResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/chatbot/{chatID} [delete]
 func (h *ChatHandler) DELETE_Chatbot(c *fiber.Ctx) error {
 	user, err := GetUser(c)
 	if err != nil {

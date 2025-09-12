@@ -1,11 +1,22 @@
 <template>
   <div class="flex flex-col w-full max-w-xl justify-start">
     <!-- Header -->
-    <h1 class="mb-2 text-xl font-semibold tracking-tight text-left">
-      {{ chatbot?.name || "Chat" }}
-    </h1>
-    <p v-if="chatbot" class="text-muted-foreground text-sm mb-4 text-left">
-      {{ chatbot.description }}
+    <div class="flex items-center gap-2 mb-2">
+      <h1 class="text-xl font-semibold tracking-tight text-left">
+        {{ props.chatbot?.name || "Chat" }}
+      </h1>
+      <span
+        v-if="props.chatbot && !props.chatbot.is_enabled"
+        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+      >
+        Disabled
+      </span>
+    </div>
+    <p
+      v-if="props.chatbot"
+      class="text-muted-foreground text-sm mb-4 text-left"
+    >
+      {{ props.chatbot.description }}
     </p>
 
     <!-- Messages Container -->
@@ -17,11 +28,29 @@
         v-if="messages.length === 0 && !isSendingMessage"
         class="flex flex-col items-center justify-center h-full py-8 text-center"
       >
-        <div class="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <div
+          class="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+            />
+          </svg>
         </div>
         <h3 class="mt-3 font-medium text-base">No messages yet</h3>
-        <p class="text-xs text-muted-foreground mt-1">Start a conversation with your AI assistant</p>
+        <p class="text-xs text-muted-foreground mt-1">
+          Start a conversation with your AI assistant
+        </p>
       </div>
 
       <div v-else class="flex flex-col gap-3">
@@ -39,9 +68,16 @@
           <div class="flex items-center gap-2 mb-1">
             <span
               class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
-              :class="message.isUser ? 'bg-muted text-foreground/80' : 'bg-primary/10 text-primary'"
-            >{{ message.isUser ? 'You' : (chatbot?.name || 'AI') }}</span>
-            <span class="text-[10px] text-muted-foreground">{{ message.timestamp }}</span>
+              :class="
+                message.isUser
+                  ? 'bg-muted text-foreground/80'
+                  : 'bg-primary/10 text-primary'
+              "
+              >{{ message.isUser ? "You" : chatbot?.name || "AI" }}</span
+            >
+            <span class="text-[10px] text-muted-foreground">{{
+              message.timestamp
+            }}</span>
           </div>
           <div class="whitespace-pre-wrap text-left">
             {{ message.content }}
@@ -49,7 +85,10 @@
         </div>
 
         <!-- Typing indicator -->
-        <div v-if="isSendingMessage" class="mr-auto flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-sm border border-primary/20">
+        <div
+          v-if="isSendingMessage"
+          class="mr-auto flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-sm border border-primary/20"
+        >
           <IconSpinnerArc class="h-4 w-4 animate-spin text-primary" />
           <span class="text-xs text-primary">AI is typing…</span>
         </div>
@@ -65,17 +104,37 @@
           rows="1"
           placeholder="Type your message..."
           @keydown.enter.prevent="sendMessage"
+          :disabled="props.chatbot?.is_enabled === false"
         ></textarea>
         <button
           class="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           @click="sendMessage"
-          :disabled="isSendingMessage || !newMessage.trim()"
+          :disabled="
+            isSendingMessage ||
+            !newMessage.trim() ||
+            !!(props.chatbot && !props.chatbot?.is_enabled)
+          "
           aria-label="Send message"
         >
-          <IconSpinnerArc v-if="isSendingMessage" class="h-4 w-4 animate-spin" />
-          <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
-            <path d="m22 2-7 20-4-9-9-4Z"/>
-            <path d="M22 2 11 13"/>
+          <IconSpinnerArc
+            v-if="isSendingMessage"
+            class="h-4 w-4 animate-spin"
+          />
+          <svg
+            v-else
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-4 w-4"
+          >
+            <path d="m22 2-7 20-4-9-9-4Z" />
+            <path d="M22 2 11 13" />
           </svg>
         </button>
       </div>
@@ -90,7 +149,7 @@ import IconSpinnerArc from "@/components/icons/IconSpinnerArc.vue";
 import type { ChatbotResponse } from "~/types/api";
 
 interface Props {
-  chatId: string;
+  chatbot: ChatbotResponse | null;
 }
 
 interface Message {
@@ -121,33 +180,15 @@ const scrollToBottom = async () => {
   }
 };
 
-// Fetch chatbot details
-const {
-  data: chatbotData,
-  execute: fetchChatbot,
-  error: chatbotError,
-  isLoading: isLoadingChatbot,
-} = apiService.getChatbot(props.chatId);
-
-const fetchChatbotDetails = async () => {
-  try {
-    await fetchChatbot();
-
-    if (chatbotData.value?.chatbot) {
-      chatbot.value = chatbotData.value.chatbot;
-    } else {
-      console.error("Chat not found");
-      throw new Error("Chat not found");
-    }
-  } catch (error) {
-    console.error("Error fetching chatbot details:", error);
-    throw error;
-  }
-};
-
 // Send a message
 const sendMessage = async () => {
   if (!newMessage.value.trim() || isSendingMessage.value) return;
+
+  // Check if chatbot is disabled
+  if (chatbot.value && !chatbot.value.is_enabled) {
+    toast.error("This chatbot is currently disabled");
+    return;
+  }
 
   const userMessage = newMessage.value.trim();
 
@@ -167,7 +208,7 @@ const sendMessage = async () => {
 
   try {
     const { data: responseData, execute: executeSendMessage } =
-      apiService.sendChatMessage(props.chatId, userMessage);
+      apiService.sendChatMessage(props.chatbot?.id ?? "", userMessage);
 
     await executeSendMessage();
 
@@ -204,16 +245,6 @@ const sendMessage = async () => {
   }
 };
 
-// Initialize chat data
-const initializeChat = async () => {
-  try {
-    await fetchChatbotDetails();
-  } catch (error) {
-    console.error("Error initializing chat:", error);
-    throw error;
-  }
-};
-
 // Reset chat data
 const resetChat = () => {
   messages.value = [];
@@ -221,26 +252,13 @@ const resetChat = () => {
   newMessage.value = "";
 };
 
-// Watch for chatId changes
-watch(
-  () => props.chatId,
-  async (newChatId, oldChatId) => {
-    if (newChatId && newChatId !== oldChatId) {
-      resetChat();
-      await initializeChat();
-    }
-  },
-);
-
 // Initialize on mount
 onMounted(async () => {
-  await initializeChat();
   scrollToBottom();
 });
 
 // Expose methods for parent component
 defineExpose({
-  initializeChat,
   resetChat,
   chatbot,
   messages,

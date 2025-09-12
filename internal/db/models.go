@@ -56,6 +56,7 @@ type Chatbot struct {
 	ModelName          string    `json:"model_name" db:"model_name"`
 	TemperatureParam   float64   `json:"temperature_param" db:"temperature_param"`
 	MaxTokens          int       `json:"max_tokens" db:"max_tokens"`
+	IsEnabled          bool      `json:"is_enabled" db:"is_enabled"`
 	CreatedAt          time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -90,9 +91,9 @@ func (d *Document) ToDocumentWithEmbedding() *DocumentWithEmbedding {
 }
 
 type File struct {
-    ID         uuid.UUID `json:"id" db:"id"`
-    ChatbotID  uuid.UUID `json:"chatbot_id" db:"chatbot_id"`
-    Filename   string    `json:"filename" db:"filename"`
-    SizeBytes  int64     `json:"size_bytes" db:"size_bytes"`
-    UploadedAt time.Time `json:"uploaded_at" db:"uploaded_at"`
+	ID         uuid.UUID `json:"id" db:"id"`
+	ChatbotID  uuid.UUID `json:"chatbot_id" db:"chatbot_id"`
+	Filename   string    `json:"filename" db:"filename"`
+	SizeBytes  int64     `json:"size_bytes" db:"size_bytes"`
+	UploadedAt time.Time `json:"uploaded_at" db:"uploaded_at"`
 }

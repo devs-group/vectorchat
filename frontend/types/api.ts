@@ -29,6 +29,7 @@ export interface ChatbotCreateRequest {
 export interface ChatbotResponse extends ChatbotCreateRequest {
   id: string;
   user_id: string;
+  is_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

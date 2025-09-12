@@ -49,7 +49,9 @@
           stroke-linecap="round"
           stroke-linejoin="round"
         >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          <path
+            d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+          />
         </svg>
       </div>
       <h3 class="font-medium text-lg mb-1">No chats yet</h3>
@@ -84,7 +86,15 @@
       >
         <div class="flex flex-col gap-3">
           <div class="flex items-center justify-between">
-            <h3 class="font-semibold text-lg truncate">{{ chat.name }}</h3>
+            <div class="flex items-center gap-2">
+              <h3 class="font-semibold text-lg truncate">{{ chat.name }}</h3>
+              <span
+                v-if="!chat.is_enabled"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800"
+              >
+                Disabled
+              </span>
+            </div>
             <div class="flex items-center gap-2">
               <span class="text-xs text-muted-foreground whitespace-nowrap">
                 {{ formatDate(chat.created_at) }}

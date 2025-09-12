@@ -76,13 +76,41 @@
           </div>
 
           <!-- Edit Form -->
-          <ChatbotForm
-            v-else-if="chatbot"
-            mode="edit"
-            :chatbot="chatbot"
-            :is-loading="isUpdating"
-            @submit="handleUpdate"
-          />
+          <div v-else-if="chatbot">
+            <!-- Enable/Disable Toggle -->
+            <div class="mb-6 p-4 rounded-lg border border-border bg-card">
+              <div class="flex items-center justify-between">
+                <div class="space-y-0.5">
+                  <h3 class="font-medium">Enabled</h3>
+                </div>
+                <button
+                  @click="handleToggleEnabled"
+                  :disabled="isToggling"
+                  :class="[
+                    'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                    chatbot.is_enabled ? 'bg-primary' : 'bg-muted',
+                    isToggling
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'cursor-pointer',
+                  ]"
+                >
+                  <span
+                    :class="[
+                      'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                      chatbot.is_enabled ? 'translate-x-6' : 'translate-x-1',
+                    ]"
+                  />
+                </button>
+              </div>
+            </div>
+
+            <ChatbotForm
+              mode="edit"
+              :chatbot="chatbot"
+              :is-loading="isUpdating"
+              @submit="handleUpdate"
+            />
+          </div>
 
           <!-- File Upload Section -->
           <div
@@ -170,7 +198,7 @@
           >
             <ChatInterface
               class="chat-interface"
-              :chat-id="chatId"
+              :chatbot="chatbot"
               @error="handleChatError"
               ref="chatInterface"
             />
@@ -256,6 +284,7 @@ const apiService = useApiService();
 const chatbot = ref<ChatbotResponse | null>(null);
 const isLoadingChatbot = ref(false);
 const isUpdating = ref(false);
+const isToggling = ref(false);
 const chatbotError = ref<Error | null>(null);
 const showUpdateSuccess = ref(false);
 const activeTab = ref<"edit" | "test">("edit");
@@ -313,6 +342,42 @@ const fetchChatbotData = async () => {
   }
 };
 
+// Handle toggle enabled/disabled
+const handleToggleEnabled = async () => {
+  if (!chatId.value || !chatbot.value) return;
+
+  isToggling.value = true;
+  const newEnabledState = !chatbot.value.is_enabled;
+
+  try {
+    const { execute, error } = apiService.toggleChatbot(
+      chatId.value,
+      newEnabledState,
+    );
+    await execute();
+
+    if (error.value) {
+      throw error.value;
+    }
+
+    // Update local chatbot data
+    chatbot.value.is_enabled = newEnabledState;
+
+    toast.success(
+      newEnabledState
+        ? "Chatbot enabled successfully"
+        : "Chatbot disabled successfully",
+    );
+  } catch (err: any) {
+    console.error("Error toggling chatbot:", err);
+    toast.error("Failed to toggle chatbot state", {
+      description: err?.message || "An error occurred",
+    });
+  } finally {
+    isToggling.value = false;
+  }
+};
+
 // Handle chatbot update
 const handleUpdate = async (formData: any) => {
   if (!chatId.value) return;
@@ -337,11 +402,6 @@ const handleUpdate = async (formData: any) => {
     setTimeout(() => {
       showUpdateSuccess.value = false;
     }, 3000);
-
-    // Refresh chat interface to reflect changes
-    if (chatInterface.value) {
-      await chatInterface.value.initializeChat();
-    }
 
     toast.success("Chatbot updated successfully!");
   } catch (err: any) {

@@ -183,6 +183,24 @@ export function useApiService() {
     );
   };
 
+  const toggleChatbot = (chatbotId: string, isEnabled: boolean) => {
+    return useApi(
+      async () => {
+        return await useApiFetch(`/chat/chatbot/${chatbotId}/toggle`, {
+          method: "PATCH",
+          body: {
+            is_enabled: isEnabled,
+          },
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: isEnabled ? "Chatbot enabled" : "Chatbot disabled",
+        errorMessage: "Failed to toggle chatbot state",
+      },
+    );
+  };
+
   const deleteChatbot = (chatbotId: string) => {
     return useApi(
       async () => {
@@ -397,6 +415,7 @@ export function useApiService() {
     listChatbots,
     getChatbot,
     updateChatbot,
+    toggleChatbot,
     deleteChatbot,
     sendChatMessage,
     uploadFile,

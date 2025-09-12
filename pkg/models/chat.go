@@ -33,6 +33,7 @@ type ChatbotResponse struct {
 	ModelName          string    `json:"model_name" example:"gpt-3.5-turbo"`
 	TemperatureParam   float64   `json:"temperature_param" example:"0.7"`
 	MaxTokens          int       `json:"max_tokens" example:"1000"`
+	IsEnabled          bool      `json:"is_enabled" example:"true"`
 	CreatedAt          time.Time `json:"created_at" example:"2023-01-01T00:00:00Z"`
 	UpdatedAt          time.Time `json:"updated_at" example:"2023-01-01T00:00:00Z"`
 }
@@ -41,31 +42,35 @@ type ChatbotsListResponse struct {
 	Chatbots []ChatbotResponse `json:"chatbots"`
 }
 
+type ChatbotToggleRequest struct {
+	IsEnabled bool `json:"is_enabled" binding:"required" example:"false"`
+}
+
 type ChatMessageRequest struct {
-    Query string `json:"query" binding:"required" example:"Hello, how can you help me?"`
+	Query string `json:"query" binding:"required" example:"Hello, how can you help me?"`
 }
 
 type ChatResponse struct {
-    Message string `json:"message" example:"Hello! I'm here to help you with any questions you might have."`
-    ChatID  string `json:"chat_id" example:"chat_123"`
-    Context string `json:"context,omitempty" example:"Previous conversation context"`
+	Message string `json:"message" example:"Hello! I'm here to help you with any questions you might have."`
+	ChatID  string `json:"chat_id" example:"chat_123"`
+	Context string `json:"context,omitempty" example:"Previous conversation context"`
 }
 
 // TextUploadRequest represents a plain text payload to index for a chatbot
 type TextUploadRequest struct {
-    Text string `json:"text" binding:"required" example:"Paste your knowledge base text here."`
+	Text string `json:"text" binding:"required" example:"Paste your knowledge base text here."`
 }
 
 // WebsiteUploadRequest represents a request to index a website starting at a URL
 type WebsiteUploadRequest struct {
-    URL string `json:"url" binding:"required" example:"https://docs.example.com"`
+	URL string `json:"url" binding:"required" example:"https://docs.example.com"`
 }
 
 type FileInfo struct {
-    Filename   string    `json:"filename" example:"document.pdf"`
-    ID         uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-    Size       int64     `json:"size" example:"1024"`
-    UploadedAt time.Time `json:"uploaded_at" example:"2023-01-01T00:00:00Z"`
+	Filename   string    `json:"filename" example:"document.pdf"`
+	ID         uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Size       int64     `json:"size" example:"1024"`
+	UploadedAt time.Time `json:"uploaded_at" example:"2023-01-01T00:00:00Z"`
 }
 
 type FileUploadResponse struct {
@@ -78,8 +83,8 @@ type FileUploadResponse struct {
 }
 
 type ChatFilesResponse struct {
-    ChatID uuid.UUID  `json:"chat_id" example:"550e8400-e29b-41d4-a716-446655440000"`
-    Files  []FileInfo `json:"files"`
+	ChatID uuid.UUID  `json:"chat_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Files  []FileInfo `json:"files"`
 }
 
 type ChatFilesListResponse struct {
@@ -91,13 +96,13 @@ type ChatFilesListResponse struct {
 }
 
 type TextSourceInfo struct {
-    ID         uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-    Title      string    `json:"title" example:"text-20240101-120000.txt"`
-    Size       int64     `json:"size" example:"2048"`
-    UploadedAt time.Time `json:"uploaded_at" example:"2023-01-01T00:00:00Z"`
+	ID         uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Title      string    `json:"title" example:"text-20240101-120000.txt"`
+	Size       int64     `json:"size" example:"2048"`
+	UploadedAt time.Time `json:"uploaded_at" example:"2023-01-01T00:00:00Z"`
 }
 
 type TextSourcesResponse struct {
-    ChatID  uuid.UUID       `json:"chat_id" example:"550e8400-e29b-41d4-a716-446655440000"`
-    Sources []TextSourceInfo `json:"sources"`
+	ChatID  uuid.UUID        `json:"chat_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Sources []TextSourceInfo `json:"sources"`
 }

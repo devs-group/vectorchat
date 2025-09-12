@@ -86,8 +86,6 @@ const props = defineProps<{
 
 // Show detailed error in development mode
 const config = useRuntimeConfig();
-const showError =
-  config.public.nodeEnv === "development" || import.meta.env.DEV;
 
 // Handle navigation
 const handleGoBack = () => {
