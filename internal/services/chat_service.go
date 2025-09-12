@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
-	"github.com/tmc/langchaingo/prompts"
 	"github.com/yourusername/vectorchat/internal/crawler"
 	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
@@ -29,6 +28,7 @@ type ChatService struct {
 	chatbotRepo  *db.ChatbotRepository
 	documentRepo *db.DocumentRepository
 	fileRepo     *db.FileRepository
+	messageRepo  *db.ChatMessageRepository
 	vectorizer   vectorize.Vectorizer
 	openaiKey    string
 	db           *db.Database
@@ -40,6 +40,7 @@ func NewChatService(
 	chatbotRepo *db.ChatbotRepository,
 	documentRepo *db.DocumentRepository,
 	fileRepo *db.FileRepository,
+	messageRepo *db.ChatMessageRepository,
 	vectorizer vectorize.Vectorizer,
 	openaiKey string,
 	db *db.Database,
@@ -50,6 +51,7 @@ func NewChatService(
 		chatbotRepo:   chatbotRepo,
 		documentRepo:  documentRepo,
 		fileRepo:      fileRepo,
+		messageRepo:   messageRepo,
 		vectorizer:    vectorizer,
 		openaiKey:     openaiKey,
 		db:            db,
@@ -879,55 +881,86 @@ func (s *ChatService) ParseChatID(chatIDStr string) (uuid.UUID, error) {
 	return s.ParseUUID(chatIDStr)
 }
 
-// ChatWithChatbot handles chat interactions with chatbot context
-func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query string) (string, error) {
-	// Retrieve the chatbot with authorization check
-	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, uuid.MustParse(chatID), userID)
+// ChatWithChatbot handles chat interactions with chatbot context, including conversation history.
+func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query string, sessionID *string) (string, string, error) {
+	chatbotUUID, err := uuid.Parse(chatID)
 	if err != nil {
-		return "", err
+		return "", "", apperrors.Wrap(err, "invalid chatbot ID format")
+	}
+
+	// Retrieve the chatbot with authorization check
+	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, chatbotUUID, userID)
+	if err != nil {
+		return "", "", err
 	}
 
 	// Check if chatbot is enabled
 	if !chatbot.IsEnabled {
-		return "", apperrors.Wrap(apperrors.ErrUnauthorizedChatbotAccess, "chatbot is currently disabled")
+		return "", "", apperrors.Wrap(apperrors.ErrUnauthorizedChatbotAccess, "chatbot is currently disabled")
 	}
 
-	// Vectorize the query
+	// Handle session ID
+	var currentSessionID uuid.UUID
+	if sessionID != nil && *sessionID != "" {
+		currentSessionID, err = uuid.Parse(*sessionID)
+		if err != nil {
+			return "", "", apperrors.Wrap(err, "invalid session ID format")
+		}
+	} else {
+		currentSessionID = uuid.New()
+	}
+
+	// Save user's message
+	userMessage := &db.ChatMessage{
+		ID:        uuid.New(),
+		ChatbotID: chatbotUUID,
+		SessionID: currentSessionID,
+		Role:      "user",
+		Content:   query,
+		CreatedAt: time.Now(),
+	}
+	if err := s.messageRepo.Create(ctx, userMessage); err != nil {
+		return "", "", apperrors.Wrap(err, "failed to save user message")
+	}
+
+	// Vectorize the query for RAG
 	queryEmbedding, err := s.vectorizer.VectorizeText(ctx, query)
 	if err != nil {
-		return "", apperrors.Wrapf(apperrors.ErrVectorizationFailed, "query: %v", err)
+		return "", "", apperrors.Wrapf(apperrors.ErrVectorizationFailed, "query: %v", err)
 	}
 
-	// Find relevant documents for this chatbot
+	// Find relevant documents (RAG context)
 	docs, err := s.documentRepo.FindSimilarByChatbot(ctx, queryEmbedding, chatID, 5)
 	if err != nil {
-		return "", apperrors.Wrapf(apperrors.ErrDatabaseOperation, "find similar documents: %v", err)
+		return "", "", apperrors.Wrapf(apperrors.ErrDatabaseOperation, "find similar documents: %v", err)
 	}
 
-	// Check if any documents were found for this chatbot
-	if len(docs) == 0 {
-		return "", apperrors.Wrapf(apperrors.ErrNoDocumentsFound, "chatbot ID: %s", chatID)
+	// Build RAG context string
+	var ragContextBuilder strings.Builder
+	if len(docs) > 0 {
+		ragContextBuilder.WriteString("Context information is below.\n")
+		ragContextBuilder.WriteString("---------------------\n")
+		for _, doc := range docs {
+			ragContextBuilder.WriteString(string(doc.Content) + "\n\n")
+		}
+		ragContextBuilder.WriteString("---------------------\n")
 	}
 
-	// Build context from documents
-	var contextBuilder strings.Builder
-	for i, doc := range docs {
-		contextBuilder.WriteString(fmt.Sprintf("Document %d:\n%s\n\n", i+1, doc.Content))
+	// Fetch conversation history
+	const historyLimit = 10
+	history, err := s.messageRepo.FindRecentBySessionID(ctx, currentSessionID, historyLimit)
+	if err != nil {
+		return "", "", apperrors.Wrap(err, "failed to fetch conversation history")
 	}
-	context := contextBuilder.String()
 
-	// Create custom prompt with chatbot's system instructions
-	promptTemplate := prompts.NewPromptTemplate(
-		chatbot.SystemInstructions+"\n\n"+
-			"Context information is below.\n"+
-			"---------------------\n"+
-			"{{.context}}\n"+
-			"---------------------\n"+
-			"Given the context information and not prior knowledge, answer the query.\n"+
-			"Query: {{.query}}\n"+
-			"Answer: ",
-		[]string{"context", "query"},
-	)
+	// Build history string
+	var historyBuilder strings.Builder
+	if len(history) > 0 {
+		historyBuilder.WriteString("This is the recent conversation history:\n")
+		for _, msg := range history {
+			historyBuilder.WriteString(fmt.Sprintf("%s: %s\n", msg.Role, msg.Content))
+		}
+	}
 
 	// Create OpenAI client with chatbot's model settings
 	llm, err := openai.New(
@@ -935,25 +968,38 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 		openai.WithModel(chatbot.ModelName),
 	)
 	if err != nil {
-		return "", apperrors.Wrap(err, "failed to create OpenAI client")
+		return "", "", apperrors.Wrap(err, "failed to create OpenAI client")
 	}
 
-	// Format the prompt
-	prompt, err := promptTemplate.Format(map[string]any{
-		"context": context,
-		"query":   query,
-	})
+	// Construct the final prompt
+	finalPrompt := fmt.Sprintf("%s\n\n%s\n%s\nGiven the context information and conversation history, answer the query.\nQuery: %s\nAnswer:",
+		chatbot.SystemInstructions,
+		historyBuilder.String(),
+		ragContextBuilder.String(),
+		query,
+	)
+
+	// Generate response
+	completion, err := llm.Call(ctx, finalPrompt, llms.WithMaxTokens(chatbot.MaxTokens), llms.WithTemperature(chatbot.TemperatureParam))
 	if err != nil {
-		return "", apperrors.Wrap(err, "failed to format prompt")
+		return "", "", apperrors.Wrap(err, "failed to generate completion")
 	}
 
-	// Generate response using the LLM with chatbot's max tokens
-	completion, err := llm.Call(ctx, prompt, llms.WithMaxTokens(chatbot.MaxTokens), llms.WithTemperature(chatbot.TemperatureParam))
-	if err != nil {
-		return "", apperrors.Wrap(err, "failed to generate completion")
+	// Save assistant's message
+	assistantMessage := &db.ChatMessage{
+		ID:        uuid.New(),
+		ChatbotID: chatbotUUID,
+		SessionID: currentSessionID,
+		Role:      "assistant",
+		Content:   completion,
+		CreatedAt: time.Now(),
+	}
+	if err := s.messageRepo.Create(ctx, assistantMessage); err != nil {
+		// Log this error, but don't fail the request since the user got a response
+		log.Printf("ERROR: failed to save assistant message: %v", err)
 	}
 
-	return completion, nil
+	return completion, currentSessionID.String(), nil
 }
 
 // chunkText splits text into chunks of the given size

@@ -97,3 +97,12 @@ type File struct {
 	SizeBytes  int64     `json:"size_bytes" db:"size_bytes"`
 	UploadedAt time.Time `json:"uploaded_at" db:"uploaded_at"`
 }
+
+type ChatMessage struct {
+	ID         uuid.UUID `json:"id" db:"id"`
+	ChatbotID  uuid.UUID `json:"chatbot_id" db:"chatbot_id"`
+	SessionID  uuid.UUID `json:"session_id" db:"session_id"`
+	Role       string    `json:"role" db:"role"`
+	Content    string    `json:"content" db:"content"`
+	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+}

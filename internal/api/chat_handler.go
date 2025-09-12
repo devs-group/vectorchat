@@ -370,6 +370,7 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
+		// Fallback for form value if body parsing fails
 		req.Query = c.FormValue("query")
 	}
 
@@ -383,7 +384,7 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 		return err
 	}
 
-	response, err := h.ChatService.ChatWithChatbot(c.Context(), chatID, user.ID, query)
+	response, sessionID, err := h.ChatService.ChatWithChatbot(c.Context(), chatID, user.ID, query, req.SessionID)
 	if err != nil {
 		if apperrors.Is(err, apperrors.ErrNoDocumentsFound) {
 			return ErrorResponse(c, "No documents found for this chat. Please upload some files first.", err, http.StatusNotFound)
@@ -396,7 +397,8 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"response": response,
+		"response":   response,
+		"session_id": sessionID,
 	})
 }
 

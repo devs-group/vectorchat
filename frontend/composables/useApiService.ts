@@ -215,11 +215,15 @@ export function useApiService() {
     );
   };
 
-  const sendChatMessage = (chatID: string, query: string) => {
+  const sendChatMessage = (chatID: string, query: string, sessionId?: string | null) => {
     return useApi(async () => {
+      const body: { query: string; session_id?: string } = { query };
+      if (sessionId) {
+        body.session_id = sessionId;
+      }
       return await useApiFetch(`/chat/${chatID}/message`, {
         method: "POST",
-        body: { query },
+        body,
       });
     });
   };

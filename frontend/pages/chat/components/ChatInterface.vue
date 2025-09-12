@@ -5,6 +5,7 @@
       <h1 class="text-xl font-semibold tracking-tight text-left">
         {{ props.chatbot?.name || "Chat" }}
       </h1>
+      <button @click="resetChat" class="ml-auto text-xs bg-secondary text-secondary-foreground hover:bg-secondary/80 px-2 py-1 rounded-md">New Chat</button>
       <span
         v-if="props.chatbot && !props.chatbot.is_enabled"
         class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
@@ -167,6 +168,7 @@ const apiService = useApiService();
 const chatbot = ref<ChatbotResponse | null>(null);
 const messages = ref<Message[]>([]);
 const newMessage = ref("");
+const sessionId = ref<string | null>(null);
 
 // Loading state
 const isSendingMessage = ref(false);
@@ -184,61 +186,53 @@ const scrollToBottom = async () => {
 const sendMessage = async () => {
   if (!newMessage.value.trim() || isSendingMessage.value) return;
 
-  // Check if chatbot is disabled
-  if (chatbot.value && !chatbot.value.is_enabled) {
+  if (props.chatbot && !props.chatbot.is_enabled) {
     toast.error("This chatbot is currently disabled");
     return;
   }
 
   const userMessage = newMessage.value.trim();
-
-  // Add user message to the messages array
   messages.value.push({
     content: userMessage,
     isUser: true,
     timestamp: new Date().toLocaleTimeString(),
   });
 
-  // Clear input
   newMessage.value = "";
-
-  // Send message to API
   isSendingMessage.value = true;
-  scrollToBottom();
+  await scrollToBottom();
 
   try {
     const { data: responseData, execute: executeSendMessage } =
-      apiService.sendChatMessage(props.chatbot?.id ?? "", userMessage);
+      apiService.sendChatMessage(
+        props.chatbot?.id ?? "",
+        userMessage,
+        sessionId.value,
+      );
 
     await executeSendMessage();
 
     if (responseData.value && typeof responseData.value === "object") {
-      // Add AI response to messages array
-      const responseMessage =
-        "message" in responseData.value
-          ? responseData.value.message
-          : "response" in responseData.value
-            ? responseData.value.response
-            : "I processed your message, but I have no specific response.";
+      const apiResponse = responseData.value as { response: string; session_id: string };
 
       messages.value.push({
-        content: responseMessage as string,
+        content: apiResponse.response,
         isUser: false,
         timestamp: new Date().toLocaleTimeString(),
       });
-      scrollToBottom();
+
+      if (!sessionId.value) {
+        sessionId.value = apiResponse.session_id;
+      }
     }
   } catch (error) {
     console.error("Error sending message:", error);
-
-    // Add an error message
     messages.value.push({
       content:
         "Sorry, there was an error processing your message. Please try again.",
       isUser: false,
       timestamp: new Date().toLocaleTimeString(),
     });
-    scrollToBottom();
   } finally {
     isSendingMessage.value = false;
     scrollToBottom();
@@ -248,8 +242,9 @@ const sendMessage = async () => {
 // Reset chat data
 const resetChat = () => {
   messages.value = [];
-  chatbot.value = null;
   newMessage.value = "";
+  sessionId.value = null;
+  toast.info("New chat session started");
 };
 
 // Initialize on mount

@@ -47,7 +47,8 @@ type ChatbotToggleRequest struct {
 }
 
 type ChatMessageRequest struct {
-	Query string `json:"query" binding:"required" example:"Hello, how can you help me?"`
+	Query     string  `json:"query" binding:"required" example:"Hello, how can you help me?"`
+	SessionID *string `json:"session_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
 type ChatResponse struct {

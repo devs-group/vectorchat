@@ -139,7 +139,7 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Initialize services
 	authService := services.NewAuthService(repos.User, repos.APIKey)
-	chatService := services.NewChatService(repos.Chat, repos.Document, repos.File, vectorizer, openaiKey, pool, uploadsDir)
+	chatService := services.NewChatService(repos.Chat, repos.Document, repos.File, repos.Message, vectorizer, openaiKey, pool, uploadsDir)
 	apiKeyService := services.NewAPIKeyService(repos.APIKey)
 	commonService := services.NewCommonService()
 

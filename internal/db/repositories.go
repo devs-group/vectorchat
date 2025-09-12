@@ -6,6 +6,7 @@ type Repositories struct {
 	Document *DocumentRepository
 	File     *FileRepository
 	APIKey   *APIKeyRepository
+	Message  *ChatMessageRepository
 }
 
 func NewRepositories(db *Database) *Repositories {
@@ -15,5 +16,6 @@ func NewRepositories(db *Database) *Repositories {
 		Document: NewDocumentRepository(db),
 		File:     NewFileRepository(db),
 		APIKey:   NewAPIKeyRepository(db),
+		Message:  NewChatMessageRepository(db),
 	}
 }
