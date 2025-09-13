@@ -26,6 +26,7 @@ import (
 	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/internal/vectorize"
 	"github.com/yourusername/vectorchat/pkg/config"
+	"github.com/yourusername/vectorchat/pkg/constants"
 	stripe_sub "github.com/yourusername/vectorchat/pkg/stripe_sub"
 )
 
@@ -157,6 +158,9 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize ownership middleware
 	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatService)
 
+	// Initialize subscription limits middleware
+	subscriptionLimits := middleware.NewSubscriptionLimitsMiddleware(svc, chatService)
+
 	// Build redirect URL based on SSL configuration
 	redirectURL := fmt.Sprintf("http://%s", appCfg.BaseURL)
 	if appCfg.IsSSL {
@@ -190,7 +194,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	}))
 
 	// Initialize API handlers
-	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, uploadsDir, ownershipMiddleware, commonService)
+	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, uploadsDir, ownershipMiddleware, commonService, subscriptionLimits)
 	oAuthHandler := api.NewOAuthHandler(oAuthConfig, authService, authMiddleware)
 	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService, commonService)
 	subsHandler := api.NewStripeSubHandler(authMiddleware, svc)
@@ -218,47 +222,47 @@ func runApplication(appCfg *config.AppConfig) error {
 // defaultPlans returns the requested initial plans seeded on startup.
 func defaultPlans() []stripe_sub.PlanParams {
 	freeFeatures := map[string]any{
-		"message_credits_per_month":   100,
-		"training_data_per_chatbot":   "400 KB",
-		"chatbots":                    1,
-		"limit_to_train_on":           "5 data sources (websites, files)",
-		"embed_on_unlimited_websites": true,
-		"api_access":                  true,
-		"inactivity_delete_days":      14,
+		constants.LimitMessageCredits: 100,
+		constants.LimitTrainingData:   "400 KB",
+		constants.LimitChatbots:       1,
+		constants.LimitDataSources:    "5 data sources (websites, files)",
+		constants.LimitEmbedWebsites:  true,
+		constants.LimitAPIAccess:      true,
+		constants.LimitInactivityDays: 14,
 	}
 	hobbyFeatures := map[string]any{
-		"includes":                  "Everything in Free",
-		"access_to_advanced_models": true,
-		"message_credits_per_month": 2000,
-		"training_data_per_chatbot": "33 MB",
-		"chatbots":                  3,
-		"limit_to_train_on":         "20 data sources (websites, files)",
-		"api_access":                true,
-		"basic_analytics":           true,
+		"includes":                    "Everything in Free",
+		constants.LimitAdvancedModels: true,
+		constants.LimitMessageCredits: 2000,
+		constants.LimitTrainingData:   "33 MB",
+		constants.LimitChatbots:       3,
+		constants.LimitDataSources:    "20 data sources (websites, files)",
+		constants.LimitAPIAccess:      true,
+		constants.LimitAnalytics:      true,
 	}
 	standardFeatures := map[string]any{
-		"includes":                  "Everything in Hobby",
-		"message_credits_per_month": 10000,
-		"training_data_per_chatbot": "33 MB",
-		"chatbots":                  5,
-		"limit_to_train_on":         "50 data sources",
-		"seats":                     3,
-		"custom_branding":           true,
-		"team_collaboration_tools":  true,
-		"priority_email_support":    true,
+		"includes":                    "Everything in Hobby",
+		constants.LimitMessageCredits: 10000,
+		constants.LimitTrainingData:   "33 MB",
+		constants.LimitChatbots:       5,
+		constants.LimitDataSources:    "50 data sources",
+		constants.LimitSeats:          3,
+		constants.LimitCustomBranding: true,
+		"team_collaboration_tools":    true,
+		"priority_email_support":      true,
 	}
 
 	return []stripe_sub.PlanParams{
 		{
-			Key: "free", DisplayName: "Free", Active: true, BillingInterval: "month", AmountCents: 0, Currency: "usd",
+			Key: constants.PlanFree, DisplayName: constants.PlanFreeDisplay, Active: true, BillingInterval: constants.BillingMonth, AmountCents: constants.PlanFreePrice, Currency: constants.CurrencyUSD,
 			PlanDefinition: map[string]any{"features": freeFeatures},
 		},
 		{
-			Key: "hobby", DisplayName: "Hobby", Active: true, BillingInterval: "month", AmountCents: 4000, Currency: "usd",
+			Key: constants.PlanHobby, DisplayName: constants.PlanHobbyDisplay, Active: true, BillingInterval: constants.BillingMonth, AmountCents: constants.PlanHobbyPrice, Currency: constants.CurrencyUSD,
 			PlanDefinition: map[string]any{"features": hobbyFeatures},
 		},
 		{
-			Key: "standard", DisplayName: "Standard", Active: true, BillingInterval: "month", AmountCents: 15000, Currency: "usd",
+			Key: constants.PlanStandard, DisplayName: constants.PlanStandardDisplay, Active: true, BillingInterval: constants.BillingMonth, AmountCents: constants.PlanStandardPrice, Currency: constants.CurrencyUSD,
 			PlanDefinition: map[string]any{"features": standardFeatures, "tags": []string{"Popular"}},
 		},
 	}

@@ -9,6 +9,7 @@ import (
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
+	"github.com/yourusername/vectorchat/pkg/constants"
 	"github.com/yourusername/vectorchat/pkg/models"
 )
 
@@ -18,6 +19,7 @@ type ChatHandler struct {
 	AuthMiddleware     *middleware.AuthMiddleware
 	OwershipMiddleware *middleware.OwnershipMiddleware
 	CommonService      *services.CommonService
+	SubscriptionLimits *middleware.SubscriptionLimitsMiddleware
 }
 
 func NewChatHandler(
@@ -26,6 +28,7 @@ func NewChatHandler(
 	uploadsDir string,
 	ownershipMiddlware *middleware.OwnershipMiddleware,
 	commonService *services.CommonService,
+	subscriptionLimits *middleware.SubscriptionLimitsMiddleware,
 ) *ChatHandler {
 	return &ChatHandler{
 		ChatService:        chatService,
@@ -33,6 +36,7 @@ func NewChatHandler(
 		AuthMiddleware:     authMiddleware,
 		OwershipMiddleware: ownershipMiddlware,
 		CommonService:      commonService,
+		SubscriptionLimits: subscriptionLimits,
 	}
 }
 
@@ -43,15 +47,15 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat := app.Group("/chat", h.AuthMiddleware.RequireAuth)
 
 	// File upload and management
-	chat.Post("/chatbot", h.POST_CreateChatbot)
+	chat.Post("/chatbot", h.SubscriptionLimits.CheckLimit(constants.LimitChatbots), h.POST_CreateChatbot)
 	chat.Get("/chatbots", h.GET_ListChatbots)
 	chat.Get("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatbotByID)
 	chat.Put("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateChatbot)
 	chat.Patch("/chatbot/:chatID/toggle", h.OwershipMiddleware.IsChatbotOwner, h.PATCH_ToggleChatbot)
 	chat.Delete("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_Chatbot)
-	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadFile)
-	chat.Post("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadText)
-	chat.Post("/:chatID/website", h.OwershipMiddleware.IsChatbotOwner, h.POST_UploadWebsite)
+	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckLimit(constants.LimitDataSources), h.SubscriptionLimits.CheckLimit(constants.LimitTrainingData), h.POST_UploadFile)
+	chat.Post("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckLimit(constants.LimitDataSources), h.SubscriptionLimits.CheckLimit(constants.LimitTrainingData), h.POST_UploadText)
+	chat.Post("/:chatID/website", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckLimit(constants.LimitDataSources), h.POST_UploadWebsite)
 	chat.Get("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.GET_TextSources)
 	chat.Delete("/:chatID/text/:id", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_TextSource)
 	chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
@@ -59,7 +63,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Get("/:chatID/files", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatFiles)
 
 	// Chat
-	chat.Post("/:chatID/message", h.OwershipMiddleware.IsChatbotOwner, h.POST_ChatMessage)
+	chat.Post("/:chatID/message", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckMessageCredits(), h.POST_ChatMessage)
 }
 
 // @Summary Health check endpoint
