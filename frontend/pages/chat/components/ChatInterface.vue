@@ -5,7 +5,12 @@
       <h1 class="text-xl font-semibold tracking-tight text-left">
         {{ props.chatbot?.name || "Chat" }}
       </h1>
-      <button @click="resetChat" class="ml-auto text-xs bg-secondary text-secondary-foreground hover:bg-secondary/80 px-2 py-1 rounded-md">New Chat</button>
+      <button
+        @click="resetChat"
+        class="ml-auto text-xs bg-secondary text-secondary-foreground hover:bg-secondary/80 px-2 py-1 rounded-md"
+      >
+        New Chat
+      </button>
       <span
         v-if="props.chatbot && !props.chatbot.is_enabled"
         class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
@@ -145,7 +150,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from "vue";
-import { toast } from "vue-sonner";
+
 import IconSpinnerArc from "@/components/icons/IconSpinnerArc.vue";
 import type { ChatbotResponse } from "~/types/api";
 
@@ -163,6 +168,7 @@ const props = defineProps<Props>();
 
 // API service
 const apiService = useApiService();
+const { showError, showInfo } = useErrorHandler();
 
 // Chat data
 const chatbot = ref<ChatbotResponse | null>(null);
@@ -187,7 +193,7 @@ const sendMessage = async () => {
   if (!newMessage.value.trim() || isSendingMessage.value) return;
 
   if (props.chatbot && !props.chatbot.is_enabled) {
-    toast.error("This chatbot is currently disabled");
+    showError(null, "This chatbot is currently disabled");
     return;
   }
 
@@ -213,7 +219,10 @@ const sendMessage = async () => {
     await executeSendMessage();
 
     if (responseData.value && typeof responseData.value === "object") {
-      const apiResponse = responseData.value as { response: string; session_id: string };
+      const apiResponse = responseData.value as {
+        response: string;
+        session_id: string;
+      };
 
       messages.value.push({
         content: apiResponse.response,
@@ -244,7 +253,6 @@ const resetChat = () => {
   messages.value = [];
   newMessage.value = "";
   sessionId.value = null;
-  toast.info("New chat session started");
 };
 
 // Initialize on mount

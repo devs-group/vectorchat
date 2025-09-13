@@ -207,14 +207,6 @@
       </div>
     </div>
 
-    <!-- Update Success Toast -->
-    <div
-      v-if="showUpdateSuccess"
-      class="fixed top-4 right-4 md:top-4 md:right-4 left-4 md:left-auto bg-green-500 text-white px-4 py-2 rounded-md shadow-lg z-50 transition-all duration-300"
-    >
-      Chatbot updated successfully!
-    </div>
-
     <!-- Mobile Floating Action Button for Quick Switch -->
     <div class="md:hidden fixed bottom-6 right-6 z-40">
       <button
@@ -261,7 +253,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, nextTick } from "vue";
-import { toast } from "vue-sonner";
+
 import ChatInterface from "./components/ChatInterface.vue";
 import ChatbotForm from "./components/ChatbotForm.vue";
 import FileUpload from "./components/FileUpload.vue";
@@ -282,11 +274,8 @@ const apiService = useApiService();
 
 // State
 const chatbot = ref<ChatbotResponse | null>(null);
-const isLoadingChatbot = ref(false);
-const isUpdating = ref(false);
 const isToggling = ref(false);
 const chatbotError = ref<Error | null>(null);
-const showUpdateSuccess = ref(false);
 const activeTab = ref<"edit" | "test">("edit");
 
 // Refs
@@ -307,110 +296,65 @@ const updateKnowledgeFromChild = () => {
   knowledgeChecked.value = true;
 };
 
+const {
+  data,
+  execute: executeFetchChatbot,
+  error: fetchChatbotError,
+  isLoading: isLoadingChatbot,
+} = apiService.getChatbot();
 // Fetch chatbot data
 const fetchChatbotData = async () => {
   if (!chatId.value) return;
 
-  isLoadingChatbot.value = true;
-  chatbotError.value = null;
-
-  try {
-    const { data, execute, error } = apiService.getChatbot(chatId.value);
-    await execute();
-
-    if (error.value) {
-      throw error.value;
-    }
-
-    if (data.value?.chatbot) {
-      chatbot.value = data.value.chatbot;
-    } else {
-      throw new Error("Chatbot not found");
-    }
-  } catch (err) {
-    console.error("Error fetching chatbot:", err);
-    chatbotError.value = err as Error;
-
-    if ((err as Error).message.includes("not found")) {
-      // Redirect to chat list if chatbot doesn't exist
-      setTimeout(() => {
-        router.push("/chat");
-      }, 2000);
-    }
-  } finally {
-    isLoadingChatbot.value = false;
+  await executeFetchChatbot(chatId.value);
+  if (fetchChatbotError.value) {
+    return;
+  }
+  if (data.value?.chatbot) {
+    chatbot.value = data.value.chatbot;
   }
 };
 
+const {
+  execute: executeToggle,
+  error: errorToggle,
+  isLoading: isLoadingToggle,
+} = apiService.toggleChatbot();
 // Handle toggle enabled/disabled
 const handleToggleEnabled = async () => {
   if (!chatId.value || !chatbot.value) return;
 
-  isToggling.value = true;
   const newEnabledState = !chatbot.value.is_enabled;
 
-  try {
-    const { execute, error } = apiService.toggleChatbot(
-      chatId.value,
-      newEnabledState,
-    );
-    await execute();
+  await executeToggle({
+    chatbotId: chatbot.value.id,
+    isEnabled: newEnabledState,
+  });
 
-    if (error.value) {
-      throw error.value;
-    }
-
-    // Update local chatbot data
-    chatbot.value.is_enabled = newEnabledState;
-
-    toast.success(
-      newEnabledState
-        ? "Chatbot enabled successfully"
-        : "Chatbot disabled successfully",
-    );
-  } catch (err: any) {
-    console.error("Error toggling chatbot:", err);
-    toast.error("Failed to toggle chatbot state", {
-      description: err?.message || "An error occurred",
-    });
-  } finally {
-    isToggling.value = false;
+  if (errorToggle.value) {
+    return;
   }
+
+  // Update local chatbot data
+  chatbot.value.is_enabled = newEnabledState;
 };
 
-// Handle chatbot update
+const { execute, error, isLoading: isUpdating } = apiService.updateChatbot();
 const handleUpdate = async (formData: any) => {
   if (!chatId.value) return;
 
-  isUpdating.value = true;
+  await execute({
+    id: chatId.value,
+    ...formData,
+  });
 
-  try {
-    const { execute, error } = apiService.updateChatbot(chatId.value, formData);
-    await execute();
+  if (error.value) {
+    return;
+  }
 
-    if (error.value) {
-      throw error.value;
-    }
-
-    // Update local chatbot data
-    if (chatbot.value) {
-      chatbot.value = { ...chatbot.value, ...formData };
-    }
-
-    // Show success message
-    showUpdateSuccess.value = true;
-    setTimeout(() => {
-      showUpdateSuccess.value = false;
-    }, 3000);
-
-    toast.success("Chatbot updated successfully!");
-  } catch (err: any) {
-    console.error("Error updating chatbot:", err);
-    toast.error("Failed to update chatbot", {
-      description: err?.message || "An error occurred",
-    });
-  } finally {
-    isUpdating.value = false;
+  // Update local chatbot data
+  if (chatbot.value) {
+    chatbot.value = { ...chatbot.value, ...formData };
   }
 };
 

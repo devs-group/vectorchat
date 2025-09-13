@@ -3,40 +3,16 @@ definePageMeta({
   layout: "authenticated",
 });
 import ChatbotForm from "./components/ChatbotForm.vue";
-import { toast } from "vue-sonner";
 import type { ChatbotResponse } from "~/types/api";
 
 const router = useRouter();
 const apiService = useApiService();
-
-const isLoading = ref(false);
+const { execute, data, error, isLoading } = apiService.createChatbot();
 
 const handleSubmit = async (formData: any) => {
-  isLoading.value = true;
-  try {
-    const { execute, data, error } = apiService.createChatbot(formData);
-    await execute();
-    if (error.value) throw error.value;
-
-    // Get the created chatbot ID from the response
-    const chatbotId = (data.value as ChatbotResponse)?.id;
-
-    if (!chatbotId) {
-      console.error("No chatbot ID returned from API response:", data.value);
-      toast.error("Created chatbot but failed to get ID for redirection");
-      router.push("/chat");
-      return;
-    }
-
-    // Redirect to the detail page of the newly created chatbot
-    console.log("Redirecting to chatbot detail page:", chatbotId);
-    router.push(`/chat/${chatbotId}`);
-  } catch (err: any) {
-    toast.error("Failed to create chatbot", {
-      description: err?.message || "An error occurred",
-    });
-  } finally {
-    isLoading.value = false;
+  await execute(formData);
+  if (!error.value) {
+    router.push({ path: `/chat/${(data.value as ChatbotResponse).id}` });
   }
 };
 </script>

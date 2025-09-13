@@ -100,16 +100,16 @@ export function useApiService() {
   };
 
   // Chat endpoints
-  const createChatbot = (chatbotData: {
-    name: string;
-    description: string;
-    model_name: string;
-    system_instructions: string;
-    max_tokens: number;
-    temperature_param: number;
-  }) => {
+  const createChatbot = () => {
     return useApi(
-      async () => {
+      async (chatbotData: {
+        name: string;
+        description: string;
+        model_name: string;
+        system_instructions: string;
+        max_tokens: number;
+        temperature_param: number;
+      }) => {
         return await useApiFetch("/chat/chatbot", {
           method: "POST",
           body: chatbotData,
@@ -133,15 +133,14 @@ export function useApiService() {
         );
       },
       {
-        showSuccessToast: true,
-        successMessage: "Chatbots retrieved successfully",
+        showSuccessToast: false,
       },
     );
   };
 
-  const getChatbot = (chatbotId: string) => {
+  const getChatbot = () => {
     return useApi(
-      async () => {
+      async (chatbotId: string) => {
         return await useApiFetch<{ chatbot: ChatbotResponse }>(
           `/chat/chatbot/${chatbotId}`,
           {
@@ -151,26 +150,23 @@ export function useApiService() {
       },
       {
         errorMessage: "Failed to fetch chatbot details",
-        cacheKey: `chatbot-${chatbotId}`,
       },
     );
   };
 
-  const updateChatbot = (
-    chatbotId: string,
-    chatbotData: {
-      name?: string;
-      description?: string;
-      system_instructions?: string;
-      model_name?: string;
-      temperature_param?: number;
-      max_tokens?: number;
-    },
-  ) => {
+  const updateChatbot = () => {
     return useApi(
-      async () => {
+      async (chatbotData: {
+        id: string;
+        name?: string;
+        description?: string;
+        system_instructions?: string;
+        model_name?: string;
+        temperature_param?: number;
+        max_tokens?: number;
+      }) => {
         return await useApiFetch<{ chatbot: ChatbotResponse }>(
-          `/chat/chatbot/${chatbotId}`,
+          `/chat/chatbot/${chatbotData.id}`,
           {
             method: "PUT",
             body: chatbotData,
@@ -178,24 +174,26 @@ export function useApiService() {
         );
       },
       {
+        showSuccessToast: true,
+        successMessage: "Chatbot updated",
         errorMessage: "Failed to update chatbot",
       },
     );
   };
 
-  const toggleChatbot = (chatbotId: string, isEnabled: boolean) => {
+  const toggleChatbot = () => {
     return useApi(
-      async () => {
-        return await useApiFetch(`/chat/chatbot/${chatbotId}/toggle`, {
+      async (data: { chatbotId: string; isEnabled: boolean }) => {
+        return await useApiFetch(`/chat/chatbot/${data.chatbotId}/toggle`, {
           method: "PATCH",
           body: {
-            is_enabled: isEnabled,
+            is_enabled: data.isEnabled,
           },
         });
       },
       {
         showSuccessToast: true,
-        successMessage: isEnabled ? "Chatbot enabled" : "Chatbot disabled",
+        successMessage: "Chatbot updated",
         errorMessage: "Failed to toggle chatbot state",
       },
     );
@@ -215,7 +213,11 @@ export function useApiService() {
     );
   };
 
-  const sendChatMessage = (chatID: string, query: string, sessionId?: string | null) => {
+  const sendChatMessage = (
+    chatID: string,
+    query: string,
+    sessionId?: string | null,
+  ) => {
     return useApi(async () => {
       const body: { query: string; session_id?: string } = { query };
       if (sessionId) {
@@ -232,12 +234,21 @@ export function useApiService() {
     const config = useRuntimeConfig();
     const formData = new FormData();
     formData.append("file", file);
-    return await $fetch(`/chat/${chatID}/upload`, {
-      baseURL: config.public.apiBase as string,
-      method: "POST",
-      body: formData,
-      credentials: "include",
-    });
+    try {
+      return await $fetch(`/chat/${chatID}/upload`, {
+        baseURL: config.public.apiBase as string,
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+    } catch (error: any) {
+      // If the error has a response with data, throw that instead
+      // This ensures the backend error message is preserved
+      if (error.data) {
+        throw error.data;
+      }
+      throw error;
+    }
   };
 
   const uploadText = (chatID: string, text: string) => {

@@ -198,7 +198,12 @@
               <div
                 class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary"
               >
-                <component :is="file.filename?.startsWith('website-') ? IconGlobe : IconFile" class="h-4 w-4" />
+                <component
+                  :is="
+                    file.filename?.startsWith('website-') ? IconGlobe : IconFile
+                  "
+                  class="h-4 w-4"
+                />
               </div>
               <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-medium">
@@ -266,7 +271,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from "vue";
-import { toast } from "vue-sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -287,6 +291,7 @@ const props = defineProps<Props>();
 
 // API service
 const apiService = useApiService();
+const { showError, showSuccess } = useErrorHandler();
 
 // State
 const files = ref<ChatFile[]>([]);
@@ -337,7 +342,7 @@ const fetchChatFiles = async () => {
     }
   } catch (error) {
     console.error("Error fetching chat files:", error);
-    toast.error("Failed to load files");
+    showError(error, "Failed to load files");
   } finally {
     isLoadingFiles.value = false;
   }
@@ -356,14 +361,12 @@ const onFileSelected = async (event: Event) => {
   isUploading.value = true;
   try {
     await apiService.uploadFile(props.chatId, file);
-    toast.success("File uploaded successfully");
+    showSuccess("File uploaded successfully");
     await fetchChatFiles();
     input.value = "";
   } catch (error) {
     console.error("Error uploading file:", error);
-    toast.error("Error uploading file", {
-      description: (error as Error)?.message,
-    });
+    showError(error);
   } finally {
     isUploading.value = false;
   }
@@ -378,11 +381,11 @@ const handleDrop = async (e: DragEvent) => {
   isUploading.value = true;
   try {
     await apiService.uploadFile(props.chatId, file);
-    toast.success("File uploaded successfully");
+    showSuccess("File uploaded successfully");
     await fetchChatFiles();
   } catch (error) {
     console.error("Error uploading via drop:", error);
-    toast.error("Error uploading file");
+    showError(error);
   } finally {
     isUploading.value = false;
   }
@@ -397,11 +400,10 @@ const deleteFile = async (filename: string) => {
       filename,
     );
     await executeDelete();
-    toast.success("File deleted successfully");
     await fetchChatFiles();
   } catch (error) {
     console.error("Error deleting file:", error);
-    toast.error("Error deleting file");
+    showError(error);
   } finally {
     isDeletingFile.value = null;
   }
@@ -430,12 +432,12 @@ const addTextSource = async () => {
       textSource.value.trim(),
     );
     await execute();
-    toast.success("Text added successfully");
+    showSuccess("Text source added successfully");
     textSource.value = "";
     await fetchChatFiles();
   } catch (e) {
     console.error("Error uploading text:", e);
-    toast.error("Error uploading text");
+    showError(e, "Error uploading text");
   }
 };
 // Delete a text source
@@ -443,11 +445,11 @@ const deleteText = async (id: string) => {
   try {
     const { execute } = apiService.deleteTextSource(props.chatId, id);
     await execute();
-    toast.success("Text source deleted successfully");
+    showSuccess("File deleted successfully");
     await fetchChatFiles();
   } catch (e) {
     console.error("Error deleting text source:", e);
-    toast.error("Error deleting text source");
+    showError(e, "Error deleting text source");
   }
 };
 const addWebsite = async () => {
@@ -459,12 +461,12 @@ const addWebsite = async () => {
       websiteUrl.value.trim(),
     );
     await execute();
-    toast.success("Website indexed successfully");
+    showSuccess("Website indexed successfully");
     websiteUrl.value = "";
     await fetchChatFiles();
   } catch (e) {
     console.error("Error adding website:", e);
-    toast.error("Error adding website");
+    showError(e, "Error adding website");
   } finally {
     isIndexingWebsite.value = false;
   }
@@ -487,10 +489,18 @@ onMounted(async () => {
 defineExpose({ fetchChatFiles, files, textSources });
 
 // Summary: items and total usage
-const itemsCount = computed(() => (files.value?.length || 0) + (textSources.value?.length || 0));
+const itemsCount = computed(
+  () => (files.value?.length || 0) + (textSources.value?.length || 0),
+);
 const totalBytes = computed(() => {
-  const filesBytes = (files.value || []).reduce((acc, f) => acc + (typeof f.size === "number" ? f.size : 0), 0);
-  const textBytes = (textSources.value || []).reduce((acc, s: any) => acc + (typeof s.size === "number" ? s.size : 0), 0);
+  const filesBytes = (files.value || []).reduce(
+    (acc, f) => acc + (typeof f.size === "number" ? f.size : 0),
+    0,
+  );
+  const textBytes = (textSources.value || []).reduce(
+    (acc, s: any) => acc + (typeof s.size === "number" ? s.size : 0),
+    0,
+  );
   return filesBytes + textBytes;
 });
 </script>
