@@ -337,6 +337,46 @@ func (s *Service) PortalAuthedHandlerFor(email string, externalID *string) http.
 	})
 }
 
+// UserLimitsHandler returns user's plan limits based on their subscription.
+func (s *Service) UserLimitsHandler(email string, externalID *string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", http.MethodGet)
+			writeErrMsg(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		ctx := r.Context()
+		plan, sub, err := s.GetUserPlan(ctx, externalID, email)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		var limits map[string]any
+		var planKey *string
+		subscriptionActive := false
+
+		if plan != nil && sub != nil && IsSubscriptionActive(sub, time.Now()) {
+			limits = map[string]any(plan.PlanDefinition)
+			planKey = &plan.Key
+			subscriptionActive = true
+		} else {
+			// Default limits for users without active subscription
+			limits = map[string]any{
+				"api_calls_per_month": int64(100),
+				"storage_gb":          int64(1),
+			}
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"limits":              limits,
+			"plan_key":            planKey,
+			"subscription_active": subscriptionActive,
+		})
+	}
+}
+
 func (s *Service) handleSubscriptionSync(ctx context.Context, stripeCustomerID, stripeSubscriptionID string) {
 	// Fetch current subscription from Stripe and persist.
 	// Using Expand is optional; here we keep it simple and rely on customer.subscription.* events as well.

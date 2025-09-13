@@ -1,11 +1,11 @@
 package api
 
 import (
-    "github.com/gofiber/adaptor/v2"
-    "github.com/gofiber/fiber/v2"
-    "github.com/yourusername/vectorchat/internal/db"
-    "github.com/yourusername/vectorchat/internal/middleware"
-    sub "github.com/yourusername/vectorchat/pkg/stripe_sub"
+	"github.com/gofiber/adaptor/v2"
+	"github.com/gofiber/fiber/v2"
+	"github.com/yourusername/vectorchat/internal/db"
+	"github.com/yourusername/vectorchat/internal/middleware"
+	sub "github.com/yourusername/vectorchat/pkg/stripe_sub"
 )
 
 // StripeSubHandler wires the subscription service into Fiber routes.
@@ -28,31 +28,43 @@ func (h *StripeSubHandler) RegisterRoutes(app *fiber.App) {
 	// Authenticated billing routes
 	grp := app.Group("/billing", h.AuthMiddleware.RequireAuth)
 
-    grp.Post("/checkout-session", func(c *fiber.Ctx) error {
-        u := c.Locals("user")
-        if u == nil { return ErrorResponse(c, "missing user session", nil, fiber.StatusUnauthorized) }
-        user := u.(*db.User)
-        ext := user.ID
-        return adaptor.HTTPHandlerFunc(h.Service.CheckoutAuthedHandlerFor(user.Email, &ext))(c)
-    })
+	grp.Post("/checkout-session", func(c *fiber.Ctx) error {
+		u := c.Locals("user")
+		if u == nil {
+			return ErrorResponse(c, "missing user session", nil, fiber.StatusUnauthorized)
+		}
+		user := u.(*db.User)
+		ext := user.ID
+		return adaptor.HTTPHandlerFunc(h.Service.CheckoutAuthedHandlerFor(user.Email, &ext))(c)
+	})
 
 	grp.Get("/subscription", func(c *fiber.Ctx) error {
 		u := c.Locals("user")
 		if u == nil {
 			return ErrorResponse(c, "missing user session", nil, fiber.StatusUnauthorized)
 		}
-        user := u.(*db.User)
-        ext := user.ID
-        return adaptor.HTTPHandlerFunc(h.Service.SubscriptionHandlerFor(user.Email, &ext, true, true))(c)
-    })
+		user := u.(*db.User)
+		ext := user.ID
+		return adaptor.HTTPHandlerFunc(h.Service.SubscriptionHandlerFor(user.Email, &ext, true, true))(c)
+	})
 
 	grp.Post("/portal-session", func(c *fiber.Ctx) error {
 		u := c.Locals("user")
 		if u == nil {
 			return ErrorResponse(c, "missing user session", nil, fiber.StatusUnauthorized)
 		}
-        user := u.(*db.User)
-        ext := user.ID
-        return adaptor.HTTPHandlerFunc(h.Service.PortalAuthedHandlerFor(user.Email, &ext))(c)
-    })
+		user := u.(*db.User)
+		ext := user.ID
+		return adaptor.HTTPHandlerFunc(h.Service.PortalAuthedHandlerFor(user.Email, &ext))(c)
+	})
+
+	grp.Get("/limits", func(c *fiber.Ctx) error {
+		u := c.Locals("user")
+		if u == nil {
+			return ErrorResponse(c, "missing user session", nil, fiber.StatusUnauthorized)
+		}
+		user := u.(*db.User)
+		ext := user.ID
+		return adaptor.HTTPHandlerFunc(h.Service.UserLimitsHandler(user.Email, &ext))(c)
+	})
 }
