@@ -15,6 +15,323 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/conversations/{chatbotID}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves all conversations (sessions) with their messages for admin review",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get conversations for a chatbot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chatbot ID",
+                        "name": "chatbotID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Number of conversations to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ConversationsListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/revisions": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new revision to correct or improve an AI answer",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Create a new answer revision",
+                "parameters": [
+                    {
+                        "description": "Revision details",
+                        "name": "revision",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateRevisionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.RevisionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/revisions/{chatbotID}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves all answer revisions for a specific chatbot",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get revisions for a chatbot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chatbot ID",
+                        "name": "chatbotID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Include inactive revisions",
+                        "name": "includeInactive",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.RevisionsListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/revisions/{revisionID}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Updates an existing revision's content or status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update an answer revision",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Revision ID",
+                        "name": "revisionID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated revision details",
+                        "name": "revision",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateRevisionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Marks a revision as inactive (soft delete)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Deactivate an answer revision",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Revision ID",
+                        "name": "revisionID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/apikey": {
             "get": {
                 "security": [
@@ -1521,6 +1838,88 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ConversationResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.MessageDetails"
+                    }
+                },
+                "session_id": {
+                    "type": "string",
+                    "example": "880e8400-e29b-41d4-a716-446655440003"
+                }
+            }
+        },
+        "models.ConversationsListResponse": {
+            "type": "object",
+            "properties": {
+                "conversations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ConversationResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "total_count": {
+                    "type": "integer",
+                    "example": 100
+                }
+            }
+        },
+        "models.CreateRevisionRequest": {
+            "type": "object",
+            "required": [
+                "chatbot_id",
+                "original_answer",
+                "question",
+                "revised_answer",
+                "revised_by"
+            ],
+            "properties": {
+                "chatbot_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "original_answer": {
+                    "type": "string",
+                    "example": "We are open 24/7"
+                },
+                "original_message_id": {
+                    "type": "string",
+                    "example": "660e8400-e29b-41d4-a716-446655440001"
+                },
+                "question": {
+                    "type": "string",
+                    "example": "What are your business hours?"
+                },
+                "revised_answer": {
+                    "type": "string",
+                    "example": "We are open Monday-Friday 9AM-5PM EST"
+                },
+                "revised_by": {
+                    "type": "string",
+                    "example": "admin_user_123"
+                },
+                "revision_reason": {
+                    "type": "string",
+                    "example": "Incorrect business hours"
+                }
+            }
+        },
         "models.FileInfo": {
             "type": "object",
             "properties": {
@@ -1571,6 +1970,31 @@ const docTemplate = `{
                 }
             }
         },
+        "models.MessageDetails": {
+            "type": "object",
+            "properties": {
+                "chatbot_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "content": {
+                    "type": "string",
+                    "example": "Hello, how can you help me?"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "990e8400-e29b-41d4-a716-446655440004"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "user"
+                }
+            }
+        },
         "models.MessageResponse": {
             "type": "object",
             "properties": {
@@ -1606,6 +2030,70 @@ const docTemplate = `{
                 "total_pages": {
                     "type": "integer",
                     "example": 10
+                }
+            }
+        },
+        "models.RevisionResponse": {
+            "type": "object",
+            "properties": {
+                "chatbot_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "770e8400-e29b-41d4-a716-446655440002"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "original_answer": {
+                    "type": "string",
+                    "example": "We are open 24/7"
+                },
+                "original_message_id": {
+                    "type": "string",
+                    "example": "660e8400-e29b-41d4-a716-446655440001"
+                },
+                "question": {
+                    "type": "string",
+                    "example": "What are your business hours?"
+                },
+                "revised_answer": {
+                    "type": "string",
+                    "example": "We are open Monday-Friday 9AM-5PM EST"
+                },
+                "revised_by": {
+                    "type": "string",
+                    "example": "admin_user_123"
+                },
+                "revision_reason": {
+                    "type": "string",
+                    "example": "Incorrect business hours"
+                },
+                "similarity": {
+                    "type": "number",
+                    "example": 0.95
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                }
+            }
+        },
+        "models.RevisionsListResponse": {
+            "type": "object",
+            "properties": {
+                "revisions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RevisionResponse"
+                    }
                 }
             }
         },
@@ -1662,6 +2150,27 @@ const docTemplate = `{
                 "text": {
                     "type": "string",
                     "example": "Paste your knowledge base text here."
+                }
+            }
+        },
+        "models.UpdateRevisionRequest": {
+            "type": "object",
+            "properties": {
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "question": {
+                    "type": "string",
+                    "example": "What are your updated business hours?"
+                },
+                "revised_answer": {
+                    "type": "string",
+                    "example": "We are open Monday-Friday 8AM-6PM EST"
+                },
+                "revision_reason": {
+                    "type": "string",
+                    "example": "Updated hours for summer schedule"
                 }
             }
         },

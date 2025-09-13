@@ -140,7 +140,7 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Initialize services
 	authService := services.NewAuthService(repos.User, repos.APIKey)
-	chatService := services.NewChatService(repos.Chat, repos.Document, repos.File, repos.Message, vectorizer, openaiKey, pool, uploadsDir)
+	chatService := services.NewChatService(repos.Chat, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, openaiKey, pool, uploadsDir)
 	apiKeyService := services.NewAPIKeyService(repos.APIKey)
 	commonService := services.NewCommonService()
 
@@ -198,12 +198,14 @@ func runApplication(appCfg *config.AppConfig) error {
 	oAuthHandler := api.NewOAuthHandler(oAuthConfig, authService, authMiddleware)
 	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService, commonService)
 	subsHandler := api.NewStripeSubHandler(authMiddleware, svc)
+	adminHandler := api.NewAdminHandler(authMiddleware, chatService)
 
 	// Register routes
 	chatbotHandler.RegisterRoutes(app)
 	oAuthHandler.RegisterRoutes(app)
 	apiKeyHandler.RegisterRoutes(app)
 	subsHandler.RegisterRoutes(app)
+	adminHandler.RegisterRoutes(app)
 
 	// Add swagger route
 	app.Get("/swagger/*", swagger.HandlerDefault)

@@ -51,6 +51,70 @@ type ChatMessageRequest struct {
 	SessionID *string `json:"session_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
+// CreateRevisionRequest represents a request to create an answer revision
+type CreateRevisionRequest struct {
+	ChatbotID         uuid.UUID  `json:"chatbot_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
+	OriginalMessageID *uuid.UUID `json:"original_message_id,omitempty" example:"660e8400-e29b-41d4-a716-446655440001"`
+	Question          string     `json:"question" binding:"required" example:"What are your business hours?"`
+	OriginalAnswer    string     `json:"original_answer" binding:"required" example:"We are open 24/7"`
+	RevisedAnswer     string     `json:"revised_answer" binding:"required" example:"We are open Monday-Friday 9AM-5PM EST"`
+	RevisionReason    *string    `json:"revision_reason,omitempty" example:"Incorrect business hours"`
+	RevisedBy         string     `json:"revised_by" binding:"required" example:"admin_user_123"`
+}
+
+// UpdateRevisionRequest represents a request to update an existing revision
+type UpdateRevisionRequest struct {
+	Question       *string `json:"question,omitempty" example:"What are your updated business hours?"`
+	RevisedAnswer  *string `json:"revised_answer,omitempty" example:"We are open Monday-Friday 8AM-6PM EST"`
+	RevisionReason *string `json:"revision_reason,omitempty" example:"Updated hours for summer schedule"`
+	IsActive       *bool   `json:"is_active,omitempty" example:"true"`
+}
+
+// RevisionResponse represents an answer revision in API responses
+type RevisionResponse struct {
+	ID                uuid.UUID  `json:"id" example:"770e8400-e29b-41d4-a716-446655440002"`
+	ChatbotID         uuid.UUID  `json:"chatbot_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	OriginalMessageID *uuid.UUID `json:"original_message_id,omitempty" example:"660e8400-e29b-41d4-a716-446655440001"`
+	Question          string     `json:"question" example:"What are your business hours?"`
+	OriginalAnswer    string     `json:"original_answer" example:"We are open 24/7"`
+	RevisedAnswer     string     `json:"revised_answer" example:"We are open Monday-Friday 9AM-5PM EST"`
+	RevisionReason    *string    `json:"revision_reason,omitempty" example:"Incorrect business hours"`
+	RevisedBy         string     `json:"revised_by" example:"admin_user_123"`
+	CreatedAt         time.Time  `json:"created_at" example:"2023-01-01T00:00:00Z"`
+	UpdatedAt         time.Time  `json:"updated_at" example:"2023-01-01T00:00:00Z"`
+	IsActive          bool       `json:"is_active" example:"true"`
+	Similarity        float64    `json:"similarity,omitempty" example:"0.95"`
+}
+
+// ConversationResponse represents a conversation with messages
+type ConversationResponse struct {
+	SessionID uuid.UUID        `json:"session_id" example:"880e8400-e29b-41d4-a716-446655440003"`
+	Messages  []MessageDetails `json:"messages"`
+	CreatedAt time.Time        `json:"created_at" example:"2023-01-01T00:00:00Z"`
+}
+
+// MessageDetails represents individual message details in a conversation
+type MessageDetails struct {
+	ID        uuid.UUID `json:"id" example:"990e8400-e29b-41d4-a716-446655440004"`
+	ChatbotID uuid.UUID `json:"chatbot_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Role      string    `json:"role" example:"user"`
+	Content   string    `json:"content" example:"Hello, how can you help me?"`
+	CreatedAt time.Time `json:"created_at" example:"2023-01-01T00:00:00Z"`
+}
+
+// ConversationsListResponse represents a list of conversations
+type ConversationsListResponse struct {
+	Conversations []ConversationResponse `json:"conversations"`
+	TotalCount    int                    `json:"total_count" example:"100"`
+	Limit         int                    `json:"limit" example:"20"`
+	Offset        int                    `json:"offset" example:"0"`
+}
+
+// RevisionsListResponse represents a list of revisions
+type RevisionsListResponse struct {
+	Revisions []RevisionResponse `json:"revisions"`
+}
+
 type ChatResponse struct {
 	Message string `json:"message" example:"Hello! I'm here to help you with any questions you might have."`
 	ChatID  string `json:"chat_id" example:"chat_123"`

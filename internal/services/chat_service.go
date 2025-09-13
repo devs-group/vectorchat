@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pgvector/pgvector-go"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/yourusername/vectorchat/internal/crawler"
@@ -29,6 +30,7 @@ type ChatService struct {
 	documentRepo *db.DocumentRepository
 	fileRepo     *db.FileRepository
 	messageRepo  *db.ChatMessageRepository
+	revisionRepo *db.RevisionRepository
 	vectorizer   vectorize.Vectorizer
 	openaiKey    string
 	db           *db.Database
@@ -41,6 +43,7 @@ func NewChatService(
 	documentRepo *db.DocumentRepository,
 	fileRepo *db.FileRepository,
 	messageRepo *db.ChatMessageRepository,
+	revisionRepo *db.RevisionRepository,
 	vectorizer vectorize.Vectorizer,
 	openaiKey string,
 	db *db.Database,
@@ -52,6 +55,7 @@ func NewChatService(
 		documentRepo:  documentRepo,
 		fileRepo:      fileRepo,
 		messageRepo:   messageRepo,
+		revisionRepo:  revisionRepo,
 		vectorizer:    vectorizer,
 		openaiKey:     openaiKey,
 		db:            db,
@@ -929,6 +933,30 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 		return "", "", apperrors.Wrapf(apperrors.ErrVectorizationFailed, "query: %v", err)
 	}
 
+	// Check for revised answers first (high priority)
+	revisedAnswer, err := s.checkForRevisedAnswer(ctx, queryEmbedding, chatbotUUID, query)
+	if err != nil {
+		// Log error but continue - revisions are optional enhancement
+		log.Printf("Warning: Failed to check for revised answers: %v", err)
+	}
+
+	// If we have a high-confidence revised answer, use it directly
+	if revisedAnswer != nil && revisedAnswer.Similarity > 0.95 {
+		// Save the revised answer as assistant's response
+		assistantMessage := &db.ChatMessage{
+			ID:        uuid.New(),
+			ChatbotID: chatbotUUID,
+			SessionID: currentSessionID,
+			Role:      "assistant",
+			Content:   revisedAnswer.RevisedAnswer,
+			CreatedAt: time.Now(),
+		}
+		if err := s.messageRepo.Create(ctx, assistantMessage); err != nil {
+			return "", "", apperrors.Wrap(err, "failed to save assistant message")
+		}
+		return revisedAnswer.RevisedAnswer, currentSessionID.String(), nil
+	}
+
 	// Find relevant documents (RAG context)
 	docs, err := s.documentRepo.FindSimilarByChatbot(ctx, queryEmbedding, chatID, 5)
 	if err != nil {
@@ -937,6 +965,16 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 
 	// Build RAG context string
 	var ragContextBuilder strings.Builder
+
+	// Add revised answer to context if available (but not high confidence)
+	if revisedAnswer != nil && revisedAnswer.Similarity > 0.85 {
+		ragContextBuilder.WriteString("Previous similar question and answer:\n")
+		ragContextBuilder.WriteString("---------------------\n")
+		ragContextBuilder.WriteString(fmt.Sprintf("Q: %s\n", revisedAnswer.Question))
+		ragContextBuilder.WriteString(fmt.Sprintf("A: %s\n", revisedAnswer.RevisedAnswer))
+		ragContextBuilder.WriteString("---------------------\n\n")
+	}
+
 	if len(docs) > 0 {
 		ragContextBuilder.WriteString("Context information is below.\n")
 		ragContextBuilder.WriteString("---------------------\n")
@@ -1000,6 +1038,95 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 	}
 
 	return completion, currentSessionID.String(), nil
+}
+
+// checkForRevisedAnswer looks for similar questions that have been revised by admins
+func (s *ChatService) checkForRevisedAnswer(ctx context.Context, queryEmbedding []float32, chatbotID uuid.UUID, query string) (*db.AnswerRevisionWithEmbedding, error) {
+	// Look for highly similar revised answers (threshold: 0.85)
+	revisions, err := s.revisionRepo.FindSimilarRevisions(ctx, queryEmbedding, chatbotID, 0.85, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(revisions) > 0 {
+		return revisions[0], nil
+	}
+
+	return nil, nil
+}
+
+// CreateAnswerRevision creates a new answer revision for admin corrections
+func (s *ChatService) CreateAnswerRevision(ctx context.Context, req *models.CreateRevisionRequest) (*db.AnswerRevision, error) {
+	// Validate inputs
+	if req.ChatbotID == uuid.Nil {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID is required")
+	}
+	if req.Question == "" || req.RevisedAnswer == "" {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "question and revised answer are required")
+	}
+
+	// Generate embedding for the question
+	questionEmbedding, err := s.vectorizer.VectorizeText(ctx, req.Question)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to vectorize question")
+	}
+
+	// Create revision
+	revision := &db.AnswerRevision{
+		ID:                uuid.New(),
+		ChatbotID:         req.ChatbotID,
+		OriginalMessageID: req.OriginalMessageID,
+		Question:          req.Question,
+		OriginalAnswer:    req.OriginalAnswer,
+		RevisedAnswer:     req.RevisedAnswer,
+		QuestionEmbedding: pgvector.NewVector(questionEmbedding),
+		RevisionReason:    req.RevisionReason,
+		RevisedBy:         req.RevisedBy,
+		IsActive:          true,
+	}
+
+	// Save to database
+	if err := s.revisionRepo.CreateRevision(ctx, revision); err != nil {
+		return nil, err
+	}
+
+	return revision, nil
+}
+
+// GetConversations retrieves all conversations for a chatbot with pagination
+func (s *ChatService) GetConversations(ctx context.Context, chatbotID uuid.UUID, limit, offset int) ([]map[string]interface{}, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	return s.revisionRepo.GetConversationsWithMessages(ctx, chatbotID, limit, offset)
+}
+
+// GetRevisions retrieves all revisions for a chatbot
+func (s *ChatService) GetRevisions(ctx context.Context, chatbotID uuid.UUID, includeInactive bool) ([]*db.AnswerRevision, error) {
+	return s.revisionRepo.GetRevisionsByChat(ctx, chatbotID, includeInactive)
+}
+
+// UpdateRevision updates an existing answer revision
+func (s *ChatService) UpdateRevision(ctx context.Context, revisionID uuid.UUID, updates map[string]interface{}) error {
+	// If question is being updated, regenerate embedding
+	if question, ok := updates["question"].(string); ok && question != "" {
+		questionEmbedding, err := s.vectorizer.VectorizeText(ctx, question)
+		if err != nil {
+			return apperrors.Wrap(err, "failed to vectorize updated question")
+		}
+		updates["question_embedding"] = pgvector.NewVector(questionEmbedding)
+	}
+
+	return s.revisionRepo.UpdateRevision(ctx, revisionID, updates)
+}
+
+// DeactivateRevision deactivates a revision (soft delete)
+func (s *ChatService) DeactivateRevision(ctx context.Context, revisionID uuid.UUID) error {
+	return s.revisionRepo.DeactivateRevision(ctx, revisionID)
 }
 
 // chunkText splits text into chunks of the given size

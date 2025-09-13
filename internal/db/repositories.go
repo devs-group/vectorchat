@@ -2,20 +2,23 @@ package db
 
 type Repositories struct {
 	User     *UserRepository
+	APIKey   *APIKeyRepository
 	Chat     *ChatbotRepository
 	Document *DocumentRepository
 	File     *FileRepository
-	APIKey   *APIKeyRepository
 	Message  *ChatMessageRepository
+	Revision *RevisionRepository
 }
 
+// NewRepositories creates all repository instances
 func NewRepositories(db *Database) *Repositories {
 	return &Repositories{
 		User:     NewUserRepository(db),
+		APIKey:   NewAPIKeyRepository(db),
 		Chat:     NewChatbotRepository(db),
 		Document: NewDocumentRepository(db),
 		File:     NewFileRepository(db),
-		APIKey:   NewAPIKeyRepository(db),
 		Message:  NewChatMessageRepository(db),
+		Revision: NewRevisionRepository(db),
 	}
 }

@@ -4,7 +4,18 @@
       <h1 class="text-3xl font-bold tracking-tight">Subscription</h1>
     </div>
 
-    <div class="rounded-lg border p-6" v-if="!isLoadingSub">
+    <!-- Skeleton loader for subscription section -->
+    <div class="rounded-lg border p-6" v-if="isLoadingSub">
+      <div class="flex items-center justify-between">
+        <Skeleton class="h-6 w-40" />
+        <Skeleton class="h-9 w-32" />
+      </div>
+      <div class="mt-4 space-y-2">
+        <Skeleton class="h-4 w-64" />
+      </div>
+    </div>
+
+    <div class="rounded-lg border p-6" v-else>
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold mb-2">Your subscription</h2>
         <Button
@@ -64,14 +75,15 @@
             :class="[
               isSubActive && currentPlanKey === plan.key
                 ? 'bg-gradient-to-br from-emerald-500 to-teal-500 p-[2px]'
-                : ''
+                : '',
             ]"
           >
             <!-- Inner card -->
             <div
               class="rounded-lg p-4 flex flex-col relative border bg-card shadow-sm border-border h-full"
               :class="{
-                'border-transparent': isSubActive && currentPlanKey === plan.key,
+                'border-transparent':
+                  isSubActive && currentPlanKey === plan.key,
               }"
             >
               <div
@@ -84,34 +96,36 @@
                 >
               </div>
               <div>
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="text-base font-semibold">{{ plan.display_name }}</h3>
-              <span
-                v-if="plan.plan_definition?.tags?.length"
-                class="text-xs text-muted-foreground"
-              >
-                {{ plan.plan_definition.tags.join(", ") }}
-              </span>
-            </div>
-            <div class="text-2xl font-bold">
-              {{ formatPrice(plan.amount_cents, plan.currency) }}
-              <span class="text-sm font-normal text-muted-foreground"
-                >/ {{ plan.billing_interval }}</span
-              >
-            </div>
-            <ul
-              v-if="plan.plan_definition?.features"
-              class="mt-3 text-sm text-muted-foreground space-y-1"
-            >
-              <li
-                v-for="(val, key) in plan.plan_definition.features"
-                :key="key"
-              >
-                {{ key }}: {{ formatFeature(val) }}
-              </li>
-            </ul>
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-base font-semibold">
+                    {{ plan.display_name }}
+                  </h3>
+                  <span
+                    v-if="plan.plan_definition?.tags?.length"
+                    class="text-xs text-muted-foreground"
+                  >
+                    {{ plan.plan_definition.tags.join(", ") }}
+                  </span>
+                </div>
+                <div class="text-2xl font-bold">
+                  {{ formatPrice(plan.amount_cents, plan.currency) }}
+                  <span class="text-sm font-normal text-muted-foreground"
+                    >/ {{ plan.billing_interval }}</span
+                  >
+                </div>
+                <ul
+                  v-if="plan.plan_definition?.features"
+                  class="mt-3 text-sm text-muted-foreground space-y-1"
+                >
+                  <li
+                    v-for="(val, key) in plan.plan_definition.features"
+                    :key="key"
+                  >
+                    {{ key }}: {{ formatFeature(val) }}
+                  </li>
+                </ul>
               </div>
-              <div class="mt-4 mt-auto">
+              <div class="mt-auto">
                 <Button
                   :disabled="isCreatingCheckout || isBlockingSub"
                   @click="subscribe(plan)"
@@ -170,6 +184,7 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Plan, Subscription } from "~/types/api";
 
 definePageMeta({

@@ -40,6 +40,7 @@ var (
 	ErrFileNotFound         = errors.New("file not found")
 	ErrFileAlreadyExists    = errors.New("file already exists")
 	ErrInvalidUserData      = errors.New("invalid user data")
+	ErrNotFound             = errors.New("not found")
 )
 
 // WithDetails adds context details to an error

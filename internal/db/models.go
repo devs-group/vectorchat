@@ -99,10 +99,58 @@ type File struct {
 }
 
 type ChatMessage struct {
-	ID         uuid.UUID `json:"id" db:"id"`
-	ChatbotID  uuid.UUID `json:"chatbot_id" db:"chatbot_id"`
-	SessionID  uuid.UUID `json:"session_id" db:"session_id"`
-	Role       string    `json:"role" db:"role"`
-	Content    string    `json:"content" db:"content"`
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+	ID        uuid.UUID `json:"id" db:"id"`
+	ChatbotID uuid.UUID `json:"chatbot_id" db:"chatbot_id"`
+	SessionID uuid.UUID `json:"session_id" db:"session_id"`
+	Role      string    `json:"role" db:"role"`
+	Content   string    `json:"content" db:"content"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+}
+
+type AnswerRevision struct {
+	ID                uuid.UUID       `json:"id" db:"id"`
+	ChatbotID         uuid.UUID       `json:"chatbot_id" db:"chatbot_id"`
+	OriginalMessageID *uuid.UUID      `json:"original_message_id" db:"original_message_id"`
+	Question          string          `json:"question" db:"question"`
+	OriginalAnswer    string          `json:"original_answer" db:"original_answer"`
+	RevisedAnswer     string          `json:"revised_answer" db:"revised_answer"`
+	QuestionEmbedding pgvector.Vector `json:"question_embedding" db:"question_embedding"`
+	RevisionReason    *string         `json:"revision_reason" db:"revision_reason"`
+	RevisedBy         string          `json:"revised_by" db:"revised_by"`
+	CreatedAt         time.Time       `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at" db:"updated_at"`
+	IsActive          bool            `json:"is_active" db:"is_active"`
+}
+
+type AnswerRevisionWithEmbedding struct {
+	ID                uuid.UUID  `json:"id"`
+	ChatbotID         uuid.UUID  `json:"chatbot_id"`
+	OriginalMessageID *uuid.UUID `json:"original_message_id"`
+	Question          string     `json:"question"`
+	OriginalAnswer    string     `json:"original_answer"`
+	RevisedAnswer     string     `json:"revised_answer"`
+	QuestionEmbedding []float32  `json:"question_embedding"`
+	RevisionReason    *string    `json:"revision_reason"`
+	RevisedBy         string     `json:"revised_by"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	IsActive          bool       `json:"is_active"`
+	Similarity        float64    `json:"similarity,omitempty"` // Used when returning search results
+}
+
+func (r *AnswerRevision) ToAnswerRevisionWithEmbedding() *AnswerRevisionWithEmbedding {
+	return &AnswerRevisionWithEmbedding{
+		ID:                r.ID,
+		ChatbotID:         r.ChatbotID,
+		OriginalMessageID: r.OriginalMessageID,
+		Question:          r.Question,
+		OriginalAnswer:    r.OriginalAnswer,
+		RevisedAnswer:     r.RevisedAnswer,
+		QuestionEmbedding: r.QuestionEmbedding.Slice(),
+		RevisionReason:    r.RevisionReason,
+		RevisedBy:         r.RevisedBy,
+		CreatedAt:         r.CreatedAt,
+		UpdatedAt:         r.UpdatedAt,
+		IsActive:          r.IsActive,
+	}
 }
