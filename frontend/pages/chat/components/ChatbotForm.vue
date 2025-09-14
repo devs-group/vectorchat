@@ -94,10 +94,6 @@ const submitButtonText = computed(() => {
   return props.mode === "edit" ? "Update Chatbot" : "Create Chatbot";
 });
 
-const formTitle = computed(() => {
-  return props.mode === "edit" ? "Edit Chatbot" : "Create a New Chatbot";
-});
-
 // UI helpers
 const creativityLabel = computed(() => {
   const t = Number(temperatureParam.value);
@@ -119,123 +115,176 @@ const models = [
 
 <template>
   <div class="flex flex-col w-full max-w-3xl">
-    <h1 class="mb-6 text-2xl font-semibold tracking-tight">{{ formTitle }}</h1>
-
     <form @submit.prevent="handleSubmit" class="space-y-6">
       <!-- Basic Configuration Card -->
       <div class="rounded-2xl border border-border bg-card shadow-sm">
         <div class="px-6 py-5 border-b border-border/70">
           <div class="flex items-start gap-3">
-          <div class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm">
-            <IconUserCircle class="h-5 w-5" />
-          </div>
-          <div class="">
-            <h2 class="text-lg font-medium">Basic Configuration</h2>
-            <p class="text-sm text-muted-foreground">Set up your assistant's identity and core behavior</p>
-          </div>
-        </div>
-        </div>
-
-        <div class="p-6 md:p-8">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label for="name">Assistant Name <span class="text-destructive">*</span></Label>
-            <Input id="name" v-model="name" placeholder="Customer Support Assistant" required class="mt-2" />
-          </div>
-
-          <div>
-            <Label for="modelName">AI Model</Label>
-            <div class="mt-2">
-              <select
-                id="modelName"
-                v-model="modelName"
-                class="block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2"
-              >
-                <option v-for="m in models" :key="m.id" :value="m.id">{{ m.name }}</option>
-              </select>
-              <p class="mt-2 text-xs text-muted-foreground">
-                {{ models.find(m=>m.id===modelName)?.hint }}
+            <div
+              class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm"
+            >
+              <IconUserCircle class="h-5 w-5" />
+            </div>
+            <div class="">
+              <h2 class="text-lg font-medium">Basic Configuration</h2>
+              <p class="text-sm text-muted-foreground">
+                Set up your assistant's identity and core behavior
               </p>
             </div>
           </div>
         </div>
 
-        <div class="mt-6">
-          <Label for="description">Description</Label>
-          <Textarea id="description" v-model="description" placeholder="A friendly AI assistant that helps customers with their questions and provides detailed support" class="mt-2 min-h-[84px]" />
-        </div>
+        <div class="p-6 md:p-8">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label for="name"
+                >Assistant Name <span class="text-destructive">*</span></Label
+              >
+              <Input
+                id="name"
+                v-model="name"
+                placeholder="Customer Support Assistant"
+                required
+                class="mt-2"
+              />
+            </div>
 
-        <div class="mt-6">
-          <Label for="systemInstructions">System Instructions</Label>
-          <Textarea id="systemInstructions" v-model="systemInstructions" placeholder="You are a helpful customer support assistant. Be friendly, professional, and provide accurate information. Always ask clarifying questions when needed." class="mt-2 min-h-[92px]" />
-        </div>
+            <div>
+              <Label for="modelName">AI Model</Label>
+              <div class="mt-2">
+                <select
+                  id="modelName"
+                  v-model="modelName"
+                  class="block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2"
+                >
+                  <option v-for="m in models" :key="m.id" :value="m.id">
+                    {{ m.name }}
+                  </option>
+                </select>
+                <p class="mt-2 text-xs text-muted-foreground">
+                  {{ models.find((m) => m.id === modelName)?.hint }}
+                </p>
+              </div>
+            </div>
+          </div>
 
-        <!-- Submit on small screens inside the first card for convenience -->
-        <div class="mt-6 md:hidden">
-          <Button type="submit" :loading="isLoading" :disabled="isLoading" class="w-full">{{ submitButtonText }}</Button>
-        </div>
+          <div class="mt-6">
+            <Label for="description">Description</Label>
+            <Textarea
+              id="description"
+              v-model="description"
+              placeholder="A friendly AI assistant that helps customers with their questions and provides detailed support"
+              class="mt-2 min-h-[84px]"
+            />
+          </div>
+
+          <div class="mt-6">
+            <Label for="systemInstructions">System Instructions</Label>
+            <Textarea
+              id="systemInstructions"
+              v-model="systemInstructions"
+              placeholder="You are a helpful customer support assistant. Be friendly, professional, and provide accurate information. Always ask clarifying questions when needed."
+              class="mt-2 min-h-[92px]"
+            />
+          </div>
+
+          <!-- Submit on small screens inside the first card for convenience -->
+          <div class="mt-6 md:hidden">
+            <Button
+              type="submit"
+              :loading="isLoading"
+              :disabled="isLoading"
+              class="w-full"
+              >{{ submitButtonText }}</Button
+            >
+          </div>
         </div>
       </div>
 
       <!-- Advanced Settings Card -->
       <div class="rounded-2xl border border-border bg-card shadow-sm">
-      <div class="px-6 py-5 border-b border-border/70">
-        <div class="flex items-start gap-3">
-          <div class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-violet-500 text-white shadow-sm">
-            <IconSun class="h-5 w-5" />
-          </div>
-          <div>
-            <h2 class="text-lg font-medium">Advanced Settings</h2>
-            <p class="text-sm text-muted-foreground">Fine‑tune response behavior and performance</p>
+        <div class="px-6 py-5 border-b border-border/70">
+          <div class="flex items-start gap-3">
+            <div
+              class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-violet-500 text-white shadow-sm"
+            >
+              <IconSun class="h-5 w-5" />
+            </div>
+            <div>
+              <h2 class="text-lg font-medium">Advanced Settings</h2>
+              <p class="text-sm text-muted-foreground">
+                Fine‑tune response behavior and performance
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="p-6 md:p-8">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <!-- Creativity Level -->
-          <div>
-            <div class="flex items-center justify-between">
-              <Label>Creativity Level</Label>
-              <div class="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground">{{ temperatureParam.toFixed(1) }}</div>
-            </div>
-            <div class="mt-3">
-              <input
-                type="range"
-                min="0"
-                max="2"
-                step="0.1"
-                v-model.number="temperatureParam"
-                class="w-full appearance-none bg-transparent"
-                aria-label="Creativity level"
-              />
-              <!-- Custom track -->
-              <div class="relative mt-2 h-2 rounded-full bg-muted">
+        <div class="p-6 md:p-8">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Creativity Level -->
+            <div>
+              <div class="flex items-center justify-between">
+                <Label>Creativity Level</Label>
                 <div
-                  class="absolute h-2 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600"
-                  :style="{ width: `${(Number(temperatureParam)/2)*100}%` }"
+                  class="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground"
+                >
+                  {{ temperatureParam.toFixed(1) }}
+                </div>
+              </div>
+              <div class="mt-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  v-model.number="temperatureParam"
+                  class="w-full appearance-none bg-transparent"
+                  aria-label="Creativity level"
                 />
+                <!-- Custom track -->
+                <div class="relative mt-2 h-2 rounded-full bg-muted">
+                  <div
+                    class="absolute h-2 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600"
+                    :style="{
+                      width: `${(Number(temperatureParam) / 2) * 100}%`,
+                    }"
+                  />
+                </div>
+                <div
+                  class="mt-2 flex items-center justify-between text-xs text-muted-foreground"
+                >
+                  <span>Focused</span>
+                  <span>Balanced</span>
+                  <span>Creative</span>
+                </div>
               </div>
-              <div class="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Focused</span>
-                <span>Balanced</span>
-                <span>Creative</span>
-              </div>
+            </div>
+
+            <!-- Response length -->
+            <div>
+              <Label for="maxTokens">Response Length</Label>
+              <Input
+                id="maxTokens"
+                v-model="maxTokens"
+                type="number"
+                min="100"
+                max="4000"
+                step="50"
+                placeholder="2000"
+                class="mt-2 max-w-xs"
+              />
+              <p class="mt-2 text-xs text-muted-foreground">
+                Maximum tokens per response (100–4000)
+              </p>
             </div>
           </div>
 
-          <!-- Response length -->
-          <div>
-            <Label for="maxTokens">Response Length</Label>
-            <Input id="maxTokens" v-model="maxTokens" type="number" min="100" max="4000" step="50" placeholder="2000" class="mt-2 max-w-xs" />
-            <p class="mt-2 text-xs text-muted-foreground">Maximum tokens per response (100–4000)</p>
+          <div class="mt-8">
+            <Button type="submit" :loading="isLoading" :disabled="isLoading">{{
+              submitButtonText
+            }}</Button>
           </div>
         </div>
-
-        <div class="mt-8">
-          <Button type="submit" :loading="isLoading" :disabled="isLoading">{{ submitButtonText }}</Button>
-        </div>
-      </div>
       </div>
     </form>
   </div>
@@ -243,8 +292,10 @@ const models = [
 
 <style scoped>
 /* Improve native range appearance cross‑browser */
-input[type='range'] { height: 28px; }
-input[type='range']::-webkit-slider-thumb {
+input[type="range"] {
+  height: 28px;
+}
+input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   height: 16px;
@@ -253,23 +304,23 @@ input[type='range']::-webkit-slider-thumb {
   background: white;
   border: 2px solid rgb(99 102 241); /* indigo-500 */
   margin-top: -4px; /* center on track */
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
-input[type='range']::-moz-range-thumb {
+input[type="range"]::-moz-range-thumb {
   height: 16px;
   width: 16px;
   border: 2px solid rgb(99 102 241);
   border-radius: 9999px;
   background: white;
 }
-input[type='range']::-webkit-slider-runnable-track {
+input[type="range"]::-webkit-slider-runnable-track {
   height: 8px;
-  background: rgba(0,0,0,0.08);
+  background: rgba(0, 0, 0, 0.08);
   border-radius: 9999px;
 }
-input[type='range']::-moz-range-track {
+input[type="range"]::-moz-range-track {
   height: 8px;
-  background: rgba(0,0,0,0.08);
+  background: rgba(0, 0, 0, 0.08);
   border-radius: 9999px;
 }
 </style>

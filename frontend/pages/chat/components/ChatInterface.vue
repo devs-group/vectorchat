@@ -2,9 +2,6 @@
   <div class="flex flex-col w-full max-w-xl justify-start">
     <!-- Header -->
     <div class="flex items-center gap-2 mb-2">
-      <h1 class="text-xl font-semibold tracking-tight text-left">
-        {{ props.chatbot?.name || "Chat" }}
-      </h1>
       <button
         @click="resetChat"
         class="ml-auto text-xs bg-secondary text-secondary-foreground hover:bg-secondary/80 px-2 py-1 rounded-md"

@@ -21,44 +21,26 @@
 
       <!-- Tabs -->
       <div class="px-6 pt-6">
-        <div class="flex rounded-full bg-muted/60 p-1 text-sm">
-          <button
-            class="flex-1 inline-flex items-center justify-center gap-2 rounded-full py-2 transition-colors"
-            :class="
-              activeTab === 'files'
-                ? 'bg-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            "
-            @click="activeTab = 'files'"
-          >
-            <IconFile class="h-4 w-4" />
+        <PillTabs v-model="activeTab">
+          <PillTab value="files">
+            <template #icon>
+              <IconFile class="h-4 w-4" />
+            </template>
             Files
-          </button>
-          <button
-            class="flex-1 inline-flex items-center justify-center gap-2 rounded-full py-2 transition-colors"
-            :class="
-              activeTab === 'text'
-                ? 'bg-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            "
-            @click="activeTab = 'text'"
-          >
-            <IconText class="h-4 w-4" />
+          </PillTab>
+          <PillTab value="text">
+            <template #icon>
+              <IconText class="h-4 w-4" />
+            </template>
             Text
-          </button>
-          <button
-            class="flex-1 inline-flex items-center justify-center gap-2 rounded-full py-2 transition-colors"
-            :class="
-              activeTab === 'website'
-                ? 'bg-background shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            "
-            @click="activeTab = 'website'"
-          >
-            <IconGlobe class="h-4 w-4" />
+          </PillTab>
+          <PillTab value="website">
+            <template #icon>
+              <IconGlobe class="h-4 w-4" />
+            </template>
             Website
-          </button>
-        </div>
+          </PillTab>
+        </PillTabs>
       </div>
 
       <!-- Tab content -->
@@ -274,6 +256,7 @@ import { ref, onMounted, watch, computed } from "vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PillTabs, PillTab } from "@/components/ui/pill-tabs";
 import type { ChatFile } from "~/types/api";
 import IconGrid from "@/components/icons/IconGrid.vue";
 import IconFile from "@/components/icons/IconFile.vue";
@@ -282,6 +265,7 @@ import IconGlobe from "@/components/icons/IconGlobe.vue";
 import IconUpload from "@/components/icons/IconUpload.vue";
 import IconSpinnerArc from "@/components/icons/IconSpinnerArc.vue";
 import IconX from "@/components/icons/IconX.vue";
+import { useGlobalState } from "@/composables/useGlobalState";
 
 interface Props {
   chatId: string;
@@ -340,6 +324,10 @@ const fetchChatFiles = async () => {
     ) {
       textSources.value = (textData.value.sources as any[]) || [];
     }
+    // update global state for toggling the test chat box.
+    const { hasKnowledgeBaseData } = useGlobalState();
+    hasKnowledgeBaseData.value =
+      files.value.length > 0 || textSources.value.length > 0;
   } catch (error) {
     console.error("Error fetching chat files:", error);
     showError(error, "Failed to load files");

@@ -148,3 +148,25 @@ export interface Subscription {
   created_at: string;
   updated_at: string;
 }
+
+// Conversations
+export interface MessageDetails {
+  id: string;
+  chatbot_id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  created_at: string;
+}
+
+export interface ConversationResponse {
+  session_id: string;
+  messages: MessageDetails[];
+  created_at: string;
+}
+
+export interface ConversationsListResponse {
+  conversations: ConversationResponse[];
+  total_count: number;
+  limit: number;
+  offset: number;
+}

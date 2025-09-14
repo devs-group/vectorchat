@@ -7,268 +7,175 @@
       >
         <!-- Left column with tabs -->
         <div class="border rounded-lg bg-card overflow-hidden">
-          <Tabs v-model="activeTab" class="h-full flex flex-col">
-            <TabsList class="grid w-full grid-cols-2 rounded-none">
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="history">Chat History</TabsTrigger>
-            </TabsList>
+          <div class="h-full flex flex-col">
+            <!-- Tab navigation -->
+            <div class="p-4">
+              <PillTabs v-model="activeDesktopTab">
+                <PillTab value="details" @click="navigateToDetails">
+                  Details
+                </PillTab>
+                <PillTab value="history" @click="navigateToHistory">
+                  Chat History
+                </PillTab>
+              </PillTabs>
+            </div>
 
-            <TabsContent
-              value="details"
-              class="flex-1 overflow-y-auto p-6 mt-0"
-            >
-              <ChatbotDetails
-                :chatbot="chatbot"
-                :chat-id="chatId"
-                :is-loading-chatbot="isLoadingChatbot"
-                :chatbot-error="chatbotError"
-                :is-toggling="isToggling"
-                :is-updating="isUpdating"
-                @toggle-enabled="handleToggleEnabled"
-                @update="handleUpdate"
-                @retry="fetchChatbotData"
-                @knowledge-update="handleKnowledgeUpdate"
-                ref="chatbotDetailsRef"
-              />
-            </TabsContent>
-
-            <TabsContent
-              value="history"
-              class="flex-1 overflow-y-auto p-6 mt-0"
-            >
-              <ChatHistory :chat-id="chatId" @switch-to-test="() => {}" />
-            </TabsContent>
-          </Tabs>
+            <!-- Tab content -->
+            <div class="flex-1 overflow-y-auto p-6">
+              <NuxtPage />
+            </div>
+          </div>
         </div>
 
         <!-- Right column with test panel -->
         <div class="border rounded-lg bg-card p-6 overflow-hidden">
-          <TestPanel
-            :chatbot="chatbot"
-            :chat-id="chatId"
-            :is-loading-chatbot="isLoadingChatbot"
-            :has-knowledge-base="hasKnowledgeBase"
-            :knowledge-checked="knowledgeChecked"
-            @scroll-to-knowledge="scrollToKnowledge"
-            @chat-error="handleChatError"
-          />
+          <TestPanel />
         </div>
       </div>
 
       <!-- Mobile: Single column with tabs -->
       <div class="md:hidden">
-        <Tabs v-model="activeTab" class="w-full">
-          <TabsList class="grid w-full grid-cols-3">
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-            <TabsTrigger value="test">Test</TabsTrigger>
-          </TabsList>
+        <div class="w-full">
+          <!-- Tab navigation -->
+          <div class="border rounded-t-lg bg-card p-4">
+            <PillTabs v-model="activeMobileTab">
+              <PillTab value="details" @click="handleMobileTabClick('details')">
+                Details
+              </PillTab>
+              <PillTab value="history" @click="handleMobileTabClick('history')">
+                History
+              </PillTab>
+              <PillTab value="test" @click="handleMobileTabClick('test')">
+                Test
+              </PillTab>
+            </PillTabs>
+          </div>
 
-          <TabsContent value="details" class="mt-4">
-            <ChatbotDetails
-              :chatbot="chatbot"
-              :chat-id="chatId"
-              :is-loading-chatbot="isLoadingChatbot"
-              :chatbot-error="chatbotError"
-              :is-toggling="isToggling"
-              :is-updating="isUpdating"
-              @toggle-enabled="handleToggleEnabled"
-              @update="handleUpdate"
-              @retry="fetchChatbotData"
-              @knowledge-update="handleKnowledgeUpdate"
-              ref="chatbotDetailsRef"
-            />
-          </TabsContent>
+          <!-- Tab content -->
+          <div
+            v-if="!showMobileTest"
+            class="border-x border-b rounded-b-lg bg-card p-4"
+          >
+            <NuxtPage />
+          </div>
 
-          <TabsContent value="history" class="mt-4">
-            <ChatHistory
-              :chat-id="chatId"
-              @switch-to-test="() => (activeTab = 'test')"
-            />
-          </TabsContent>
-
-          <TabsContent value="test" class="mt-4">
-            <TestPanel
-              :chatbot="chatbot"
-              :chat-id="chatId"
-              :is-loading-chatbot="isLoadingChatbot"
-              :has-knowledge-base="hasKnowledgeBase"
-              :knowledge-checked="knowledgeChecked"
-              @scroll-to-knowledge="scrollToKnowledge"
-              @chat-error="handleChatError"
-            />
-          </TabsContent>
-        </Tabs>
+          <!-- Mobile Test Panel -->
+          <div v-else class="border-x border-b rounded-b-lg bg-card p-4">
+            <div class="mb-4">
+              <button
+                @click="showMobileTest = false"
+                class="text-sm text-muted-foreground hover:text-foreground"
+              >
+                ← Back to tabs
+              </button>
+            </div>
+            <TestPanel />
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from "vue";
-import { useBreakpoints } from "@vueuse/core";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import ChatbotDetails from "./components/ChatbotDetails.vue";
-import ChatHistory from "./components/ChatHistory.vue";
+import { ref, computed, watch } from "vue";
 import TestPanel from "./components/TestPanel.vue";
-import type { ChatbotResponse } from "~/types/api";
+import { PillTabs, PillTab } from "@/components/ui/pill-tabs";
 
 definePageMeta({
   layout: "authenticated",
 });
 
-// Route & API
+// Route
 const route = useRoute();
-const router = useRouter();
-const apiService = useApiService();
 const chatId = computed(() => route.params.id as string);
 
-// Responsive
-const breakpoints = useBreakpoints({ md: 768 });
-const isMobile = computed(() => !breakpoints.greaterOrEqual("md").value);
-
 // State
-const chatbot = ref<ChatbotResponse | null>(null);
-const chatbotError = ref<Error | null>(null);
-const isToggling = ref(false);
-const hasKnowledgeBase = ref(false);
-const knowledgeChecked = ref(false);
-const activeTab = ref(isMobile.value ? "details" : "details");
+const showMobileTest = ref(false);
 
-// Refs
-const chatbotDetailsRef = ref<InstanceType<typeof ChatbotDetails> | null>(null);
+// Computed
+const isDetailsActive = computed(() => {
+  return (
+    route.path === `/chat/${chatId.value}/details` ||
+    route.path === `/chat/${chatId.value}`
+  );
+});
 
-// API calls
-const {
-  data,
-  execute: executeFetchChatbot,
-  error: fetchChatbotError,
-  isLoading: isLoadingChatbot,
-} = apiService.getChatbot();
-const { execute: executeToggle, error: errorToggle } =
-  apiService.toggleChatbot();
-const {
-  execute: executeUpdate,
-  error: updateError,
-  isLoading: isUpdating,
-} = apiService.updateChatbot();
+const isHistoryActive = computed(() => {
+  return route.path === `/chat/${chatId.value}/history`;
+});
 
-// Fetch chatbot data
-const fetchChatbotData = async () => {
-  if (!chatId.value) return;
+// Active tab state for pill tabs
+const activeDesktopTab = ref(
+  isDetailsActive.value
+    ? "details"
+    : isHistoryActive.value
+      ? "history"
+      : "details",
+);
+const activeMobileTab = ref(
+  showMobileTest.value
+    ? "test"
+    : isDetailsActive.value
+      ? "details"
+      : isHistoryActive.value
+        ? "history"
+        : "details",
+);
 
-  await executeFetchChatbot(chatId.value);
-  if (fetchChatbotError.value) {
-    chatbotError.value = fetchChatbotError.value;
-    return;
-  }
-  if (data.value?.chatbot) {
-    chatbot.value = data.value.chatbot;
-  }
+// Navigation functions
+const router = useRouter();
+
+const navigateToDetails = () => {
+  router.push(`/chat/${chatId.value}/details`);
 };
 
-// Handle toggle enabled/disabled
-const handleToggleEnabled = async () => {
-  if (!chatId.value || !chatbot.value) return;
-
-  isToggling.value = true;
-  const newEnabledState = !chatbot.value.is_enabled;
-
-  await executeToggle({
-    chatbotId: chatbot.value.id,
-    isEnabled: newEnabledState,
-  });
-
-  isToggling.value = false;
-
-  if (!errorToggle.value) {
-    chatbot.value.is_enabled = newEnabledState;
-  }
+const navigateToHistory = () => {
+  router.push(`/chat/${chatId.value}/history`);
 };
 
-// Handle update
-const handleUpdate = async (formData: any) => {
-  if (!chatId.value) return;
-
-  await executeUpdate({
-    id: chatId.value,
-    ...formData,
-  });
-
-  if (!updateError.value && chatbot.value) {
-    chatbot.value = { ...chatbot.value, ...formData };
-  }
-};
-
-// Handle knowledge update
-const handleKnowledgeUpdate = (hasKnowledge: boolean) => {
-  hasKnowledgeBase.value = hasKnowledge;
-  knowledgeChecked.value = true;
-};
-
-// Handle chat error
-const handleChatError = (error: Error) => {
-  console.error("Chat error:", error);
-  if (error.message === "Chat not found") {
-    router.push("/chat");
-  }
-};
-
-// Scroll to knowledge section
-const scrollToKnowledge = async () => {
-  if (isMobile.value) {
-    activeTab.value = "details";
+const handleMobileTabClick = (tab: string) => {
+  if (tab === "test") {
+    showMobileTest.value = true;
   } else {
-    activeTab.value = "details";
+    showMobileTest.value = false;
+    if (tab === "details") {
+      navigateToDetails();
+    } else if (tab === "history") {
+      navigateToHistory();
+    }
   }
-
-  await nextTick();
-
-  const knowledgeSection = chatbotDetailsRef.value?.knowledgeSection;
-  knowledgeSection?.scrollIntoView({
-    behavior: "smooth",
-    block: "start",
-  });
 };
 
-// Watch for route changes
+// Watch route changes to update active tabs
 watch(
-  () => route.params.id,
-  (newId) => {
-    if (newId) {
-      fetchChatbotData();
+  () => route.path,
+  () => {
+    if (isDetailsActive.value) {
+      activeDesktopTab.value = "details";
+      if (!showMobileTest.value) {
+        activeMobileTab.value = "details";
+      }
+    } else if (isHistoryActive.value) {
+      activeDesktopTab.value = "history";
+      if (!showMobileTest.value) {
+        activeMobileTab.value = "history";
+      }
     }
   },
 );
 
-// Watch for knowledge base changes from child
-watch(
-  () => chatbotDetailsRef.value?.fileUpload,
-  (fileUpload) => {
-    if (!fileUpload) return;
-
-    watch(
-      () => [fileUpload.files?.length, (fileUpload as any).textSources?.length],
-      () => {
-        const filesLen = Array.isArray(fileUpload.files)
-          ? fileUpload.files.length
-          : 0;
-        const textLen = Array.isArray((fileUpload as any)?.textSources)
-          ? (fileUpload as any).textSources.length
-          : 0;
-        hasKnowledgeBase.value = filesLen + textLen > 0;
-        knowledgeChecked.value = true;
-      },
-      { immediate: true },
-    );
-  },
-  { immediate: true },
-);
-
-// Initialize
-onMounted(() => {
-  fetchChatbotData();
+// Watch showMobileTest to update active mobile tab
+watch(showMobileTest, (newValue) => {
+  if (newValue) {
+    activeMobileTab.value = "test";
+  } else {
+    activeMobileTab.value = isDetailsActive.value
+      ? "details"
+      : isHistoryActive.value
+        ? "history"
+        : "details";
+  }
 });
 </script>
 

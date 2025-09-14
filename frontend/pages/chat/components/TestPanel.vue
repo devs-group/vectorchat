@@ -19,8 +19,8 @@
 
     <!-- Knowledge required state -->
     <div
-      v-else-if="chatbot && knowledgeChecked && !hasKnowledgeBase"
-      class="flex-1 flex items-center justify-center"
+      v-else-if="!hasKnowledgeBaseData"
+      class="mt-7 flex items-center justify-center"
     >
       <div class="text-center py-6 md:py-8">
         <div
@@ -44,14 +44,18 @@
           Add Knowledge to Start<span class="hidden md:inline"> Chatting</span>
         </h3>
         <p class="mt-1 md:mt-2 text-sm text-muted-foreground">
-          Add <span class="hidden md:inline">files, text, or websites to your knowledge base</span>
-          <span class="md:hidden">data sources</span> before starting a conversation.
+          Add
+          <span class="hidden md:inline"
+            >files, text, or websites to your knowledge base</span
+          >
+          <span class="md:hidden">data sources</span> before starting a
+          conversation.
         </p>
         <div class="mt-4 md:mt-5">
           <Button
             :size="isMobile ? 'sm' : 'default'"
             variant="secondary"
-            @click="$emit('scroll-to-knowledge')"
+            @click="scrollToKnowledge"
           >
             Add Data Sources
           </Button>
@@ -61,41 +65,76 @@
 
     <!-- Chat Interface -->
     <ChatInterface
-      v-else-if="chatId && hasKnowledgeBase"
+      v-else
       :class="isMobile ? 'chat-interface-mobile' : 'chat-interface'"
       :chatbot="chatbot"
-      @error="$emit('chat-error', $event)"
-      ref="chatInterface"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { useBreakpoints } from "@vueuse/core";
 import { Button } from "@/components/ui/button";
 import ChatInterface from "./ChatInterface.vue";
 import type { ChatbotResponse } from "~/types/api";
+import { useGlobalState } from "@/composables/useGlobalState";
 
-interface Props {
-  chatbot: ChatbotResponse | null;
-  chatId: string;
-  isLoadingChatbot: boolean;
-  hasKnowledgeBase: boolean;
-  knowledgeChecked: boolean;
-}
+// Route & API
+const route = useRoute();
+const router = useRouter();
+const apiService = useApiService();
+const chatId = computed(() => route.params.id as string);
+const { hasKnowledgeBaseData } = useGlobalState();
 
-const props = defineProps<Props>();
+// State
+const chatbot = ref<ChatbotResponse | null>(null);
 
-const emit = defineEmits<{
-  "scroll-to-knowledge": [];
-  "chat-error": [error: Error];
-}>();
+// API calls
+const {
+  data,
+  execute: executeFetchChatbot,
+  error: fetchChatbotError,
+  isLoading: isLoadingChatbot,
+} = apiService.getChatbot();
+
+// Fetch chatbot data
+const fetchChatbotData = async () => {
+  if (!chatId.value) return;
+
+  await executeFetchChatbot(chatId.value);
+  if (fetchChatbotError.value) {
+    return;
+  }
+  if (data.value?.chatbot) {
+    chatbot.value = data.value.chatbot;
+  }
+};
+
+// Scroll to knowledge section in details page
+const scrollToKnowledge = () => {
+  router.push(`/chat/${chatId.value}/details`);
+};
 
 const breakpoints = useBreakpoints({ md: 768 });
 const isMobile = computed(() => !breakpoints.greaterOrEqual("md").value);
 
 const chatInterface = ref<InstanceType<typeof ChatInterface> | null>(null);
+
+// Watch for route changes
+watch(
+  () => route.params.id,
+  (newId) => {
+    if (newId) {
+      fetchChatbotData();
+    }
+  },
+);
+
+// Initialize
+onMounted(() => {
+  fetchChatbotData();
+});
 
 defineExpose({
   chatInterface,
