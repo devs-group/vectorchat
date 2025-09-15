@@ -107,17 +107,54 @@
 
         <!-- Website tab -->
         <div v-show="activeTab === 'website'">
-          <div class="max-w-xl">
-            <Input
-              v-model="websiteUrl"
-              :disabled="isIndexingWebsite"
-              placeholder="https://docs.company.com"
-            />
-            <div class="mt-3 flex items-center gap-3">
+          <div class="max-w-xl space-y-3">
+            <Label for="kb-website-url">Website URL</Label>
+            <div class="relative">
+              <span
+                v-if="websiteProtocolHint"
+                class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2 text-sm text-muted-foreground"
+              >
+                {{ websiteProtocolHint }}
+              </span>
+              <Input
+                id="kb-website-url"
+                v-model="websiteInput"
+                :disabled="isIndexingWebsite"
+                placeholder="docs.company.com"
+                :class="websiteProtocolHint ? 'pl-15 pr-12' : 'pr-12'"
+                :aria-invalid="Boolean(websiteError)"
+                @keydown.enter.prevent="addWebsite"
+              />
+              <Button
+                v-if="isWebsiteValid"
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                @click="previewWebsite"
+              >
+                <IconGlobe class="h-4 w-4" />
+              </Button>
+            </div>
+            <p
+              v-if="websiteError"
+              class="flex items-center gap-2 text-xs text-destructive"
+            >
+              <IconAlertCircle class="h-3.5 w-3.5" />
+              {{ websiteError }}
+            </p>
+            <p
+              v-else
+              class="flex items-center gap-2 text-xs text-muted-foreground"
+            >
+              <IconGlobe class="h-3.5 w-3.5" />
+              {{ websiteHint }}
+            </p>
+            <div class="flex items-center gap-3">
               <Button
                 variant="secondary"
                 @click="addWebsite"
-                :disabled="!websiteUrl.trim() || isIndexingWebsite"
+                :disabled="!isWebsiteValid || isIndexingWebsite"
               >
                 <template v-if="isIndexingWebsite">
                   <IconSpinnerArc class="mr-2 h-4 w-4 animate-spin" />
@@ -135,7 +172,11 @@
               v-if="isIndexingWebsite"
               class="mt-3 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
             >
-              We are crawling pages under your URL and adding them as context.
+              We are crawling pages under
+              <span class="font-medium text-foreground">
+                {{ indexingTargetDisplay }}
+              </span>
+              and adding them as context.
             </div>
           </div>
         </div>
@@ -256,6 +297,7 @@
 import { ref, onMounted, watch, computed } from "vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PillTabs, PillTab } from "@/components/ui/pill-tabs";
 import type { ChatFile } from "~/types/api";
@@ -263,6 +305,7 @@ import IconGrid from "@/components/icons/IconGrid.vue";
 import IconFile from "@/components/icons/IconFile.vue";
 import IconText from "@/components/icons/IconText.vue";
 import IconGlobe from "@/components/icons/IconGlobe.vue";
+import IconAlertCircle from "@/components/icons/IconAlertCircle.vue";
 import IconUpload from "@/components/icons/IconUpload.vue";
 import IconSpinnerArc from "@/components/icons/IconSpinnerArc.vue";
 import IconX from "@/components/icons/IconX.vue";
@@ -291,7 +334,110 @@ const isDragging = ref(false);
 // Tabs & inputs
 const activeTab = ref<"files" | "text" | "website">("files");
 const textSource = ref("");
-const websiteUrl = ref("");
+const websiteInput = ref("");
+const indexingTarget = ref("");
+
+const websiteProtocolHint = computed(() => {
+  const raw = websiteInput.value.trim();
+  if (!raw) {
+    return "https://";
+  }
+
+  const compact = raw.replace(/\s+/g, "");
+  const hasProtocol = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(compact);
+  return hasProtocol ? "" : "https://";
+});
+
+const parsedWebsite = computed(() => {
+  const raw = websiteInput.value.trim();
+  if (!raw) {
+    return { url: "", error: "", host: "", path: "", search: "" };
+  }
+
+  const compact = raw.replace(/\s+/g, "");
+  const hasProtocol = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(compact);
+  const candidate = hasProtocol ? compact : `https://${compact}`;
+
+  try {
+    const url = new URL(candidate);
+    if (!url.hostname || !url.hostname.includes(".")) {
+      return {
+        url: "",
+        error: "Enter a full domain like docs.company.com.",
+        host: "",
+        path: "",
+        search: "",
+      };
+    }
+    if (!["http:", "https:"].includes(url.protocol)) {
+      return {
+        url: "",
+        error: "Only HTTP or HTTPS URLs are supported.",
+        host: "",
+        path: "",
+        search: "",
+      };
+    }
+
+    const host = url.hostname.replace(/^www\./, "");
+    const path = url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
+
+    return { url: url.toString(), error: "", host, path, search: url.search };
+  } catch (error) {
+    return {
+      url: "",
+      error: "Enter a valid website address.",
+      host: "",
+      path: "",
+      search: "",
+    };
+  }
+});
+
+const normalizedWebsiteUrl = computed(() => parsedWebsite.value.url);
+const websiteError = computed(() => parsedWebsite.value.error);
+const isWebsiteValid = computed(() => Boolean(parsedWebsite.value.url));
+const websiteHint = computed(() => {
+  if (websiteError.value) {
+    return "";
+  }
+
+  const defaultHint = "Enter a valid website address.";
+  if (!websiteInput.value.trim()) {
+    return defaultHint;
+  }
+
+  const host = parsedWebsite.value.host;
+  const path = parsedWebsite.value.path;
+  const search = parsedWebsite.value.search;
+  if (!host) {
+    return defaultHint;
+  }
+
+  return `We'll crawl ${host}${path || ""}${search || ""} and its linked pages.`;
+});
+
+const indexingTargetDisplay = computed(() => {
+  if (indexingTarget.value) {
+    try {
+      const url = new URL(indexingTarget.value);
+      return url.hostname + url.pathname + url.search;
+    } catch (error) {
+      return indexingTarget.value;
+    }
+  }
+
+  if (normalizedWebsiteUrl.value) {
+    try {
+      const url = new URL(normalizedWebsiteUrl.value);
+      return url.hostname + url.pathname + url.search;
+    } catch (error) {
+      return normalizedWebsiteUrl.value;
+    }
+  }
+
+  return "your site";
+});
 
 // Fetch chat files
 const fetchChatFiles = async () => {
@@ -440,14 +586,26 @@ const {
   isLoading: isIndexingWebsite,
 } = apiService.uploadWebsite();
 
-// Add website source
-const addWebsite = async () => {
-  if (!props.chatId || !websiteUrl.value.trim()) return;
-  await uploadWebsite({ chatId: props.chatId, url: websiteUrl.value.trim() });
-  if (uploadWebsiteError.value) {
+const previewWebsite = () => {
+  if (!isWebsiteValid.value || typeof window === "undefined") {
     return;
   }
-  websiteUrl.value = "";
+  const target = normalizedWebsiteUrl.value;
+  window.open(target, "_blank", "noopener,noreferrer");
+};
+
+// Add website source
+const addWebsite = async () => {
+  if (!props.chatId || !isWebsiteValid.value) return;
+  const targetUrl = normalizedWebsiteUrl.value;
+  indexingTarget.value = targetUrl;
+  await uploadWebsite({ chatID: props.chatId, url: targetUrl });
+  if (uploadWebsiteError.value) {
+    indexingTarget.value = "";
+    return;
+  }
+  websiteInput.value = "";
+  indexingTarget.value = "";
   await fetchChatFiles();
 };
 
