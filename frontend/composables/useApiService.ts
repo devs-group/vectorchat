@@ -122,6 +122,36 @@ export function useApiService() {
     );
   };
 
+  // Conversations endpoints
+  const listConversations = () => {
+    return useApi(
+      async (data: { chatbotId: string; limit: number; offset: number }) => {
+        const params = new URLSearchParams({
+          limit: String(data.limit),
+          offset: String(data.offset),
+        });
+        return await useApiFetch<import("~/types/api").ConversationsResponse>(
+          `/conversation/conversations/${data.chatbotId}?${params.toString()}`,
+          { method: "GET" },
+        );
+      },
+      { errorMessage: "Failed to fetch conversations" },
+    );
+  };
+
+  const getConversationMessages = () => {
+    return useApi(
+      async (data: { chatbotId: string; sessionId: string }) => {
+        return await useApiFetch<{
+          messages: import("~/types/api").MessageDetails[];
+        }>(`/conversation/conversations/${data.chatbotId}/${data.sessionId}`, {
+          method: "GET",
+        });
+      },
+      { errorMessage: "Failed to fetch conversation messages" },
+    );
+  };
+
   const listChatbots = () => {
     return useApi(
       async () => {
@@ -441,6 +471,10 @@ export function useApiService() {
     listChatFiles,
     listTextSources,
     deleteTextSource,
+
+    // Conversations
+    listConversations,
+    getConversationMessages,
 
     // Health
     healthCheck,

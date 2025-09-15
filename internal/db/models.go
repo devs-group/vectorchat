@@ -154,3 +154,9 @@ func (r *AnswerRevision) ToAnswerRevisionWithEmbedding() *AnswerRevisionWithEmbe
 		IsActive:          r.IsActive,
 	}
 }
+
+type Conversation struct {
+	SessionID      uuid.UUID `json:"session_id" db:"session_id"`
+	LastMessageAt  time.Time `json:"last_message_at" db:"last_message_at"`
+	FirstMessageAt time.Time `json:"first_message_at" db:"first_message_at"`
+}

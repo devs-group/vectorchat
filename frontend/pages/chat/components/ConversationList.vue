@@ -1,11 +1,11 @@
 <template>
   <div class="space-y-2">
     <!-- Conversations List -->
-    <div v-if="conversations.length > 0">
+    <div v-if="props.conversations && props.conversations.length > 0">
       <div
         v-for="conversation in conversations"
         :key="conversation.session_id"
-        @click="$emit('select', conversation.session_id)"
+        @click="emit('select', conversation.session_id)"
         class="p-4 rounded-lg border hover:bg-accent cursor-pointer transition-colors"
       >
         <div class="flex items-start justify-between">
@@ -13,12 +13,9 @@
             <p class="text-sm font-medium truncate">
               {{ getConversationPreview(conversation) }}
             </p>
-            <p class="text-xs text-muted-foreground mt-1">
-              {{ conversation.messages.length }} messages
-            </p>
           </div>
           <time class="text-xs text-muted-foreground ml-2 whitespace-nowrap">
-            {{ formatRelativeTime(conversation.created_at) }}
+            {{ formatRelativeTime(conversation.first_message_at) }}
           </time>
         </div>
       </div>
@@ -52,34 +49,25 @@
       <h3 class="text-xl font-semibold text-foreground mb-2">
         No conversations yet
       </h3>
-
-      <p class="text-muted-foreground text-center max-w-md mb-8">
-        Start testing your chatbot to see the conversation history here.
-      </p>
-
-      <Button @click="$emit('switch-to-test')">Start a Conversation</Button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Button } from "@/components/ui/button";
-import type { Conversation } from "~/types/chat";
+import type { ConversationListItemResponse } from "~/types/api";
 
 interface Props {
-  conversations: Conversation[];
+  conversations: ConversationListItemResponse[] | null;
 }
 
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
   select: [sessionId: string];
-  "switch-to-test": [];
 }>();
 
-const getConversationPreview = (conversation: Conversation) => {
-  const firstUserMessage = conversation.messages.find((m) => m.role === "user");
-  return firstUserMessage?.content || "New conversation";
+const getConversationPreview = (conversation: ConversationListItemResponse) => {
+  return conversation.first_message_content || "New conversation";
 };
 
 const formatRelativeTime = (dateString: string) => {

@@ -19,19 +19,16 @@
       </Button>
       <div class="flex-1">
         <h3 class="font-medium">Conversation</h3>
-        <p class="text-sm text-muted-foreground">
-          {{ formatDate(props.conversation?.created_at) }}
-        </p>
       </div>
     </div>
 
     <!-- Messages -->
     <div
-      v-if="props.conversation"
+      v-if="props.messages && props.messages.length > 0"
       class="flex-1 overflow-y-auto py-4 space-y-4"
     >
       <div
-        v-for="(message, index) in props.conversation.messages"
+        v-for="(message, index) in props.messages"
         :key="index"
         :class="[
           'flex',
@@ -55,7 +52,7 @@
                 : 'text-muted-foreground',
             ]"
           >
-            {{ message.timestamp }}
+            {{ message.created_at }}
           </div>
         </div>
       </div>
@@ -75,10 +72,10 @@
 
 <script setup lang="ts">
 import { Button } from "@/components/ui/button";
-import type { Conversation } from "~/types/chat";
+import type { MessageDetails } from "~/types/api";
 
 interface Props {
-  conversation: Conversation | null;
+  messages: MessageDetails[] | null;
 }
 
 const props = defineProps<Props>();

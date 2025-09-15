@@ -86,11 +86,19 @@ type RevisionResponse struct {
 	Similarity        float64    `json:"similarity,omitempty" example:"0.95"`
 }
 
-// ConversationResponse represents a conversation with messages
 type ConversationResponse struct {
-	SessionID uuid.UUID        `json:"session_id" example:"880e8400-e29b-41d4-a716-446655440003"`
-	Messages  []MessageDetails `json:"messages"`
-	CreatedAt time.Time        `json:"created_at" example:"2023-01-01T00:00:00Z"`
+	SessionID            uuid.UUID `json:"session_id" example:"880e8400-e29b-41d4-a716-446655440003"`
+	FirstMesssageContent string    `json:"first_message_content"`
+	FirstMessageAt       time.Time `json:"first_message_at" example:"2023-01-01T00:00:00Z"`
+	LastMessageAt        time.Time `json:"last_message_at" example:"2023-01-01T00:00:00Z"`
+}
+
+// ConversationsResponse represents a conversation with messages
+type ConversationsResponse struct {
+	Converstations []ConversationResponse `json:"conversations"`
+	Limit          int                    `json:"limit" example:"10"`
+	Offset         int                    `json:"offset" example:"0"`
+	Total          int64                  `json:"total" example:"100"`
 }
 
 // MessageDetails represents individual message details in a conversation

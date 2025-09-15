@@ -1094,7 +1094,7 @@ func (s *ChatService) CreateAnswerRevision(ctx context.Context, req *models.Crea
 }
 
 // GetConversations retrieves all conversations for a chatbot with pagination
-func (s *ChatService) GetConversations(ctx context.Context, chatbotID uuid.UUID, limit, offset int) ([]map[string]interface{}, error) {
+func (s *ChatService) GetConversations(ctx context.Context, chatbotID uuid.UUID, limit, offset int) (*models.ConversationsResponse, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -1102,7 +1102,38 @@ func (s *ChatService) GetConversations(ctx context.Context, chatbotID uuid.UUID,
 		offset = 0
 	}
 
-	return s.revisionRepo.GetConversationsWithMessages(ctx, chatbotID, limit, offset)
+	// Get basic conversation info
+	conversations, err := s.revisionRepo.GetConversations(ctx, chatbotID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	// For each conversation, get the first message
+	var response models.ConversationsResponse
+	response.Converstations = make([]models.ConversationResponse, 0, len(conversations))
+	for _, conv := range conversations {
+		// Get first message
+		messages, err := s.messageRepo.FindLastBySessionID(ctx, conv.SessionID, 1)
+		if err != nil {
+			return nil, err
+		}
+		if len(messages) > 0 {
+			firstMessage := messages[0]
+			response.Converstations = append(response.Converstations, models.ConversationResponse{
+				SessionID:            conv.SessionID,
+				FirstMesssageContent: firstMessage.Content,
+				FirstMessageAt:       conv.FirstMessageAt,
+				LastMessageAt:        conv.LastMessageAt,
+			})
+		}
+	}
+	response.Limit = limit
+	response.Offset = offset
+	response.Total, err = s.revisionRepo.GetTotalConversationsCount(ctx, chatbotID)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 // GetRevisions retrieves all revisions for a chatbot
@@ -1126,7 +1157,7 @@ func (s *ChatService) UpdateRevision(ctx context.Context, revisionID uuid.UUID, 
 
 // DeactivateRevision deactivates a revision (soft delete)
 func (s *ChatService) DeactivateRevision(ctx context.Context, revisionID uuid.UUID) error {
-	return s.revisionRepo.DeactivateRevision(ctx, revisionID)
+    return s.revisionRepo.DeactivateRevision(ctx, revisionID)
 }
 
 // chunkText splits text into chunks of the given size
@@ -1144,5 +1175,37 @@ func chunkText(text string, size int) []string {
 
 // intPtr returns a pointer to the given int
 func intPtr(i int) *int {
-	return &i
+    return &i
+}
+
+// GetConversationMessages returns all messages in a session for a chatbot, verifying ownership and session mapping
+func (s *ChatService) GetConversationMessages(ctx context.Context, chatbotID uuid.UUID, sessionID uuid.UUID) ([]models.MessageDetails, error) {
+    // Fetch one message to validate session belongs to chatbot
+    msgs, err := s.messageRepo.FindRecentBySessionID(ctx, sessionID, 1)
+    if err != nil {
+        return nil, err
+    }
+    if len(msgs) > 0 {
+        if msgs[0].ChatbotID != chatbotID {
+            return nil, apperrors.ErrUnauthorizedChatbotAccess
+        }
+    }
+
+    // Fetch all messages chronologically
+    all, err := s.messageRepo.FindAllBySessionID(ctx, sessionID)
+    if err != nil {
+        return nil, err
+    }
+
+    out := make([]models.MessageDetails, 0, len(all))
+    for _, m := range all {
+        out = append(out, models.MessageDetails{
+            ID:        m.ID,
+            ChatbotID: m.ChatbotID,
+            Role:      m.Role,
+            Content:   m.Content,
+            CreatedAt: m.CreatedAt,
+        })
+    }
+    return out, nil
 }

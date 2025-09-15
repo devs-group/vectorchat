@@ -158,15 +158,16 @@ export interface MessageDetails {
   created_at: string;
 }
 
-export interface ConversationResponse {
+export interface ConversationListItemResponse {
   session_id: string;
-  messages: MessageDetails[];
-  created_at: string;
+  first_message_content: string;
+  first_message_at: string;
+  last_message_at: string;
 }
 
-export interface ConversationsListResponse {
-  conversations: ConversationResponse[];
-  total_count: number;
+export interface ConversationsResponse {
+  conversations: ConversationListItemResponse[];
+  total: number;
   limit: number;
   offset: number;
 }

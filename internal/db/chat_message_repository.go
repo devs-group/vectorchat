@@ -8,7 +8,7 @@ import (
 
 // ChatMessageRepository handles database operations for chat messages.
 type ChatMessageRepository struct {
-	db *Database
+    db *Database
 }
 
 // NewChatMessageRepository creates a new ChatMessageRepository.
@@ -22,6 +22,28 @@ func (r *ChatMessageRepository) Create(ctx context.Context, message *ChatMessage
 		 VALUES ($1, $2, $3, $4, $5, $6)`
 	_, err := r.db.ExecContext(ctx, query, message.ID, message.ChatbotID, message.SessionID, message.Role, message.Content, message.CreatedAt)
 	return err
+}
+
+// FindLastBySessionID retrieves the most recent messages for a given session ID.
+func (r *ChatMessageRepository) FindLastBySessionID(ctx context.Context, sessionID uuid.UUID, limit int) ([]*ChatMessage, error) {
+	var messages []*ChatMessage
+	query := `SELECT id, chatbot_id, session_id, role, content, created_at
+		 FROM chat_messages
+		 WHERE session_id = $1
+		 ORDER BY created_at ASC
+		 LIMIT $2`
+
+	err := r.db.SelectContext(ctx, &messages, query, sessionID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// Reverse the slice to have messages in chronological order
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	return messages, nil
 }
 
 // FindRecentBySessionID retrieves the most recent messages for a given session ID.
@@ -44,4 +66,20 @@ func (r *ChatMessageRepository) FindRecentBySessionID(ctx context.Context, sessi
 	}
 
 	return messages, nil
+}
+
+// FindAllBySessionID retrieves all messages for a given session ID ordered chronologically.
+func (r *ChatMessageRepository) FindAllBySessionID(ctx context.Context, sessionID uuid.UUID) ([]*ChatMessage, error) {
+    var messages []*ChatMessage
+    query := `SELECT id, chatbot_id, session_id, role, content, created_at
+         FROM chat_messages
+         WHERE session_id = $1
+         ORDER BY created_at ASC`
+
+    err := r.db.SelectContext(ctx, &messages, query, sessionID)
+    if err != nil {
+        return nil, err
+    }
+
+    return messages, nil
 }

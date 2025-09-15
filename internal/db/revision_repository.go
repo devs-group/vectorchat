@@ -234,31 +234,19 @@ func (r *RevisionRepository) DeactivateRevision(ctx context.Context, id uuid.UUI
 	return nil
 }
 
-// GetConversationsWithMessages gets all conversations (sessions) with their messages for a chatbot
-func (r *RevisionRepository) GetConversationsWithMessages(ctx context.Context, chatbotID uuid.UUID, limit int, offset int) ([]map[string]interface{}, error) {
+// GetConversations gets all conversations (sessions) for a chatbot
+func (r *RevisionRepository) GetConversations(ctx context.Context, chatbotID uuid.UUID, limit int, offset int) ([]*Conversation, error) {
 	// Get unique sessions with their latest message
 	query := `
-		WITH sessions AS (
-			SELECT DISTINCT
-				session_id,
-				MAX(created_at) as last_message_at
-			FROM chat_messages
-			WHERE chatbot_id = $1
-			GROUP BY session_id
-			ORDER BY last_message_at DESC
-			LIMIT $2 OFFSET $3
-		)
-		SELECT
-			cm.id,
-			cm.chatbot_id,
-			cm.session_id,
-			cm.role,
-			cm.content,
-			cm.created_at
-		FROM chat_messages cm
-		INNER JOIN sessions s ON cm.session_id = s.session_id
-		WHERE cm.chatbot_id = $1
-		ORDER BY s.last_message_at DESC, cm.created_at ASC
+		SELECT DISTINCT
+			session_id,
+			MAX(created_at) as last_message_at,
+			MIN(created_at) as first_message_at
+		FROM chat_messages
+		WHERE chatbot_id = $1
+		GROUP BY session_id
+		ORDER BY last_message_at DESC
+		LIMIT $2 OFFSET $3
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, chatbotID, limit, offset)
@@ -267,54 +255,38 @@ func (r *RevisionRepository) GetConversationsWithMessages(ctx context.Context, c
 	}
 	defer rows.Close()
 
-	// Group messages by session
-	sessionMap := make(map[uuid.UUID][]map[string]interface{})
-	sessionOrder := []uuid.UUID{}
-
+	var conversations []*Conversation
 	for rows.Next() {
-		var msg ChatMessage
-		err := rows.Scan(
-			&msg.ID,
-			&msg.ChatbotID,
-			&msg.SessionID,
-			&msg.Role,
-			&msg.Content,
-			&msg.CreatedAt,
-		)
+		var conv Conversation
+
+		err := rows.Scan(&conv.SessionID, &conv.LastMessageAt, &conv.FirstMessageAt)
 		if err != nil {
-			return nil, apperrors.Wrap(err, "failed to scan message")
+			return nil, apperrors.Wrap(err, "failed to scan conversation")
 		}
 
-		// Track session order
-		if _, exists := sessionMap[msg.SessionID]; !exists {
-			sessionOrder = append(sessionOrder, msg.SessionID)
-			sessionMap[msg.SessionID] = []map[string]interface{}{}
-		}
-
-		// Add message to session
-		sessionMap[msg.SessionID] = append(sessionMap[msg.SessionID], map[string]interface{}{
-			"id":         msg.ID,
-			"chatbot_id": msg.ChatbotID,
-			"role":       msg.Role,
-			"content":    msg.Content,
-			"created_at": msg.CreatedAt,
-		})
+		conversations = append(conversations, &conv)
 	}
 
-	// Build result maintaining order
-	result := []map[string]interface{}{}
-	for _, sessionID := range sessionOrder {
-		messages := sessionMap[sessionID]
-		if len(messages) > 0 {
-			result = append(result, map[string]interface{}{
-				"session_id": sessionID,
-				"messages":   messages,
-				"created_at": messages[0]["created_at"],
-			})
-		}
+	return conversations, nil
+}
+
+// GetTotalConversationsCount returns the total number of conversations for a chatbot (used for pagination)
+func (r *RevisionRepository) GetTotalConversationsCount(ctx context.Context, chatbotID uuid.UUID) (int64, error) {
+	// Get unique sessions with their latest message
+	query := `
+		SELECT COUNT(session_id)
+		FROM chat_messages
+		WHERE chatbot_id = $1
+		GROUP BY session_id;
+	`
+
+	var count int64
+	err := r.db.GetContext(ctx, &count, query, chatbotID)
+	if err != nil {
+		return 0, apperrors.Wrap(err, "failed to get conversations total count")
 	}
 
-	return result, nil
+	return count, nil
 }
 
 // Helper function to join strings

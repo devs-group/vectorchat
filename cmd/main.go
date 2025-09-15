@@ -198,14 +198,14 @@ func runApplication(appCfg *config.AppConfig) error {
 	oAuthHandler := api.NewOAuthHandler(oAuthConfig, authService, authMiddleware)
 	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService, commonService)
 	subsHandler := api.NewStripeSubHandler(authMiddleware, svc)
-	adminHandler := api.NewAdminHandler(authMiddleware, chatService)
+	conversationHandler := api.NewConversationHandler(authMiddleware, chatService)
 
 	// Register routes
 	chatbotHandler.RegisterRoutes(app)
 	oAuthHandler.RegisterRoutes(app)
 	apiKeyHandler.RegisterRoutes(app)
 	subsHandler.RegisterRoutes(app)
-	adminHandler.RegisterRoutes(app)
+	conversationHandler.RegisterRoutes(app)
 
 	// Add swagger route
 	app.Get("/swagger/*", swagger.HandlerDefault)
