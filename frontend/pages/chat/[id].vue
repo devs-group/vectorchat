@@ -3,10 +3,12 @@
     <div class="container mx-auto p-4 md:p-6">
       <!-- Desktop: Two column layout -->
       <div
-        class="hidden md:grid md:grid-cols-2 md:gap-6 min-h-[calc(100vh-3rem)]"
+        class="hidden md:flex md:gap-6 min-h-[calc(100vh-3rem)]"
       >
         <!-- Left column with tabs -->
-        <div class="border rounded-lg bg-card overflow-hidden">
+        <div
+          class="border rounded-lg bg-card overflow-hidden w-full md:max-w-3xl md:flex-shrink-0"
+        >
           <div class="h-full flex flex-col">
             <!-- Tab navigation -->
             <div class="p-4">
@@ -28,7 +30,7 @@
         </div>
 
         <!-- Right column with test panel -->
-        <div class="border rounded-lg bg-card p-6 overflow-hidden">
+        <div class="border rounded-lg bg-card p-6 overflow-hidden flex-1">
           <TestPanel />
         </div>
       </div>

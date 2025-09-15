@@ -1,11 +1,24 @@
 <template>
   <div>
     <div class="h-full">
-      <ConversationList
-        v-if="!selectedConversationId"
-        :conversations="conversations?.conversations ?? null"
-        @select="selectConversation"
-      />
+      <div v-if="!selectedConversationId" class="space-y-4">
+        <div class="flex justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            :loading="isLoadingConversationsList"
+            aria-label="Refresh conversations"
+            @click="refreshConversations"
+          >
+            <IconRefreshCw class="h-4 w-4" />
+            <span class="sr-only">Refresh</span>
+          </Button>
+        </div>
+        <ConversationList
+          :conversations="conversations?.conversations ?? null"
+          @select="selectConversation"
+        />
+      </div>
       <ConversationDetail
         v-else
         :messages="messages?.messages ?? null"
@@ -19,6 +32,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import ConversationList from "./components/ConversationList.vue";
 import ConversationDetail from "./components/ConversationDetail.vue";
+import IconRefreshCw from "@/components/icons/IconRefreshCw.vue";
 import { useRoute } from "vue-router";
 import { useApiService } from "~/composables/useApiService";
 
@@ -57,6 +71,14 @@ const selectConversation = (sessionId: string) => {
 
 const handleBack = () => {
   selectedConversationId.value = null;
+};
+
+const refreshConversations = async () => {
+  await fetchConversationsList({
+    chatbotId: chatId.value,
+    limit: 20,
+    offset: 0,
+  });
 };
 
 // Watch for selection and load messages on-demand

@@ -76,6 +76,7 @@ func (s *ChatService) toChatbotResponse(chatbot *db.Chatbot, aiMessages int64) *
 		ModelName:          chatbot.ModelName,
 		TemperatureParam:   chatbot.TemperatureParam,
 		MaxTokens:          chatbot.MaxTokens,
+		SaveMessages:       chatbot.SaveMessages,
 		IsEnabled:          chatbot.IsEnabled,
 		CreatedAt:          chatbot.CreatedAt,
 		UpdatedAt:          chatbot.UpdatedAt,
@@ -106,7 +107,12 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 		maxTokens = 2000
 	}
 
-	chatbot, err := s.CreateChatbot(ctx, userID, req.Name, req.Description, req.SystemInstructions, modelName, temperature, maxTokens)
+	saveMessages := true
+	if req.SaveMessages != nil {
+		saveMessages = *req.SaveMessages
+	}
+
+	chatbot, err := s.CreateChatbot(ctx, userID, req.Name, req.Description, req.SystemInstructions, modelName, temperature, maxTokens, saveMessages)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +121,7 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 }
 
 // CreateChatbot creates a new chatbot with default settings
-func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions, modelName string, temperature float64, maxTokens int) (*db.Chatbot, error) {
+func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions, modelName string, temperature float64, maxTokens int, saveMessages bool) (*db.Chatbot, error) {
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
@@ -138,6 +144,7 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 		ModelName:          modelName,
 		TemperatureParam:   temperature,
 		MaxTokens:          maxTokens,
+		SaveMessages:       saveMessages,
 		IsEnabled:          true,
 		CreatedAt:          now,
 		UpdatedAt:          now,
@@ -159,6 +166,20 @@ func (s *ChatService) GetChatbotByID(ctx context.Context, chatbotID string) (*db
 	}
 
 	return chatbot, nil
+}
+
+// GetChatbotForUser retrieves a chatbot owned by the provided user
+func (s *ChatService) GetChatbotForUser(ctx context.Context, chatbotID, userID string) (*db.Chatbot, error) {
+	if chatbotID == "" || userID == "" {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
+	}
+
+	id, err := uuid.Parse(chatbotID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "invalid chatbot ID format")
+	}
+
+	return s.chatbotRepo.FindByIDAndUserID(ctx, id, userID)
 }
 
 // ListChatbots lists all chatbots owned by a user
@@ -200,7 +221,7 @@ func (s *ChatService) ListChatbotsFormatted(ctx context.Context, userID string) 
 
 // UpdateChatbotFromRequest updates a chatbot from request data
 func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatID, userID string, req *models.ChatbotUpdateRequest) (*models.ChatbotResponse, error) {
-	chatbot, err := s.UpdateChatbotAll(ctx, chatID, userID, req.Name, req.Description, req.SystemInstructions, req.ModelName, req.TemperatureParam, req.MaxTokens)
+	chatbot, err := s.UpdateChatbotAll(ctx, chatID, userID, req.Name, req.Description, req.SystemInstructions, req.ModelName, req.TemperatureParam, req.MaxTokens, req.SaveMessages)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +235,7 @@ func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatID, user
 }
 
 // UpdateChatbotAll updates all chatbot fields in a single operation
-func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID string, name, description, systemInstructions, modelName *string, temperature *float64, maxTokens *int) (*db.Chatbot, error) {
+func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID string, name, description, systemInstructions, modelName *string, temperature *float64, maxTokens *int, saveMessages *bool) (*db.Chatbot, error) {
 	// Validate inputs
 	if chatbotID == "" || userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
@@ -261,6 +282,10 @@ func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID st
 			return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "max tokens must be positive")
 		}
 		chatbot.MaxTokens = *maxTokens
+	}
+
+	if saveMessages != nil {
+		chatbot.SaveMessages = *saveMessages
 	}
 
 	chatbot.UpdatedAt = time.Now()
@@ -883,16 +908,9 @@ func (s *ChatService) ParseChatID(chatIDStr string) (uuid.UUID, error) {
 }
 
 // ChatWithChatbot handles chat interactions with chatbot context, including conversation history.
-func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query string, sessionID *string) (string, string, error) {
-	chatbotUUID, err := uuid.Parse(chatID)
-	if err != nil {
-		return "", "", apperrors.Wrap(err, "invalid chatbot ID format")
-	}
-
-	// Retrieve the chatbot with authorization check
-	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, chatbotUUID, userID)
-	if err != nil {
-		return "", "", err
+func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbot *db.Chatbot, query string, sessionID *string) (string, string, error) {
+	if chatbot == nil {
+		return "", "", apperrors.Wrap(apperrors.ErrChatbotNotFound, "chatbot is required")
 	}
 
 	// Check if chatbot is enabled
@@ -900,8 +918,11 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 		return "", "", apperrors.Wrap(apperrors.ErrUnauthorizedChatbotAccess, "chatbot is currently disabled")
 	}
 
+	chatbotUUID := chatbot.ID
+
 	// Handle session ID
 	var currentSessionID uuid.UUID
+	var err error
 	if sessionID != nil && *sessionID != "" {
 		currentSessionID, err = uuid.Parse(*sessionID)
 		if err != nil {
@@ -911,17 +932,19 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 		currentSessionID = uuid.New()
 	}
 
-	// Save user's message
-	userMessage := &db.ChatMessage{
-		ID:        uuid.New(),
-		ChatbotID: chatbotUUID,
-		SessionID: currentSessionID,
-		Role:      "user",
-		Content:   query,
-		CreatedAt: time.Now(),
-	}
-	if err := s.messageRepo.Create(ctx, userMessage); err != nil {
-		return "", "", apperrors.Wrap(err, "failed to save user message")
+	// Save user's message when persistence is enabled
+	if chatbot.SaveMessages {
+		userMessage := &db.ChatMessage{
+			ID:        uuid.New(),
+			ChatbotID: chatbotUUID,
+			SessionID: currentSessionID,
+			Role:      "user",
+			Content:   query,
+			CreatedAt: time.Now(),
+		}
+		if err := s.messageRepo.Create(ctx, userMessage); err != nil {
+			return "", "", apperrors.Wrap(err, "failed to save user message")
+		}
 	}
 
 	// Vectorize the query for RAG
@@ -961,7 +984,7 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 	}
 
 	// Find relevant documents (RAG context)
-	docs, err := s.documentRepo.FindSimilarByChatbot(ctx, queryEmbedding, chatID, 5)
+	docs, err := s.documentRepo.FindSimilarByChatbot(ctx, queryEmbedding, chatbotUUID.String(), 5)
 	if err != nil {
 		return "", "", apperrors.Wrapf(apperrors.ErrDatabaseOperation, "find similar documents: %v", err)
 	}
@@ -989,9 +1012,12 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 
 	// Fetch conversation history
 	const historyLimit = 20
-	history, err := s.messageRepo.FindRecentBySessionID(ctx, currentSessionID, historyLimit)
-	if err != nil {
-		return "", "", apperrors.Wrap(err, "failed to fetch conversation history")
+	var history []*db.ChatMessage
+	if chatbot.SaveMessages {
+		history, err = s.messageRepo.FindRecentBySessionID(ctx, currentSessionID, historyLimit)
+		if err != nil {
+			return "", "", apperrors.Wrap(err, "failed to fetch conversation history")
+		}
 	}
 
 	// Build history string
@@ -1027,17 +1053,19 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 	}
 
 	// Save assistant's message
-	assistantMessage := &db.ChatMessage{
-		ID:        uuid.New(),
-		ChatbotID: chatbotUUID,
-		SessionID: currentSessionID,
-		Role:      "assistant",
-		Content:   completion,
-		CreatedAt: time.Now(),
-	}
-	if err := s.messageRepo.Create(ctx, assistantMessage); err != nil {
-		// Log this error, but don't fail the request since the user got a response
-		log.Printf("ERROR: failed to save assistant message: %v", err)
+	if chatbot.SaveMessages {
+		assistantMessage := &db.ChatMessage{
+			ID:        uuid.New(),
+			ChatbotID: chatbotUUID,
+			SessionID: currentSessionID,
+			Role:      "assistant",
+			Content:   completion,
+			CreatedAt: time.Now(),
+		}
+		if err := s.messageRepo.Create(ctx, assistantMessage); err != nil {
+			// Log this error, but don't fail the request since the user got a response
+			log.Printf("ERROR: failed to save assistant message: %v", err)
+		}
 	}
 
 	return completion, currentSessionID.String(), nil

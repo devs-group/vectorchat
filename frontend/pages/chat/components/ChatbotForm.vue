@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import type { ChatbotResponse } from "~/types/api";
 import IconUserCircle from "@/components/icons/IconUserCircle.vue";
 import IconSun from "@/components/icons/IconSun.vue";
@@ -25,6 +26,7 @@ interface ChatbotFormData {
   system_instructions: string;
   max_tokens: number;
   temperature_param: number;
+  save_messages: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -42,6 +44,7 @@ const systemInstructions = ref("You are a helpful AI assistant");
 const modelName = ref("gpt-4");
 const temperatureParam = ref(0.7);
 const maxTokens = ref(2000);
+const saveMessages = ref(true);
 
 // Initialize form with chatbot data if editing
 const initializeForm = () => {
@@ -53,6 +56,10 @@ const initializeForm = () => {
     modelName.value = props.chatbot.model_name || "gpt-4";
     temperatureParam.value = props.chatbot.temperature_param || 0.7;
     maxTokens.value = props.chatbot.max_tokens || 2000;
+    saveMessages.value =
+      props.chatbot.save_messages === undefined
+        ? true
+        : props.chatbot.save_messages;
   } else {
     // Reset to defaults for create mode
     name.value = "";
@@ -61,6 +68,7 @@ const initializeForm = () => {
     modelName.value = "gpt-4";
     temperatureParam.value = 0.7;
     maxTokens.value = 2000;
+    saveMessages.value = true;
   }
 };
 
@@ -81,6 +89,7 @@ const handleSubmit = () => {
     system_instructions: systemInstructions.value,
     max_tokens: Number(maxTokens.value),
     temperature_param: Number(temperatureParam.value),
+    save_messages: Boolean(saveMessages.value),
   };
 
   emit("submit", formData);
@@ -306,6 +315,22 @@ const models = [
                   <span>Very Long</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div class="mt-8">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <Label>Save Messages</Label>
+                <p class="mt-1 text-sm text-muted-foreground">
+                  Store each conversation in chat history for future reference.
+                  Turn this off to skip saving conversations.
+                </p>
+              </div>
+              <Switch
+                :model-value="saveMessages"
+                @update:model-value="(value) => (saveMessages = value)"
+              />
             </div>
           </div>
 

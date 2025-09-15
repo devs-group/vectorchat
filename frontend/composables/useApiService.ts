@@ -115,6 +115,7 @@ export function useApiService() {
         system_instructions: string;
         max_tokens: number;
         temperature_param: number;
+        save_messages: boolean;
       }) => {
         return await useApiFetch("/chat/chatbot", {
           method: "POST",
@@ -250,6 +251,7 @@ export function useApiService() {
         model_name?: string;
         temperature_param?: number;
         max_tokens?: number;
+        save_messages?: boolean;
       }) => {
         return await useApiFetch<{ chatbot: ChatbotResponse }>(
           `/chat/chatbot/${chatbotData.id}`,

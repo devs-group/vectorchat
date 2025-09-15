@@ -56,6 +56,7 @@ type Chatbot struct {
 	ModelName          string    `json:"model_name" db:"model_name"`
 	TemperatureParam   float64   `json:"temperature_param" db:"temperature_param"`
 	MaxTokens          int       `json:"max_tokens" db:"max_tokens"`
+	SaveMessages       bool      `json:"save_messages" db:"save_messages"`
 	IsEnabled          bool      `json:"is_enabled" db:"is_enabled"`
 	CreatedAt          time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`

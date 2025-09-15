@@ -1727,6 +1727,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Customer Support Bot"
                 },
+                "save_messages": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "system_instructions": {
                     "type": "string",
                     "example": "You are a helpful customer support assistant"
@@ -1773,6 +1777,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "Customer Support Bot"
+                },
+                "save_messages": {
+                    "type": "boolean",
+                    "example": true
                 },
                 "system_instructions": {
                     "type": "string",
@@ -1822,6 +1830,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "Updated Bot Name"
+                },
+                "save_messages": {
+                    "type": "boolean",
+                    "example": true
                 },
                 "system_instructions": {
                     "type": "string",

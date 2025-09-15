@@ -24,6 +24,7 @@ export interface ChatbotCreateRequest {
   system_instructions: string;
   max_tokens: number;
   temperature_param: number;
+  save_messages: boolean;
 }
 
 export interface ChatbotResponse extends ChatbotCreateRequest {

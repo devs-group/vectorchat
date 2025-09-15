@@ -349,7 +349,15 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 		return err
 	}
 
-	response, sessionID, err := h.ChatService.ChatWithChatbot(c.Context(), chatID, user.ID, query, req.SessionID)
+	chatbot, err := h.ChatService.GetChatbotForUser(c.Context(), chatID, user.ID)
+	if err != nil {
+		if apperrors.Is(err, apperrors.ErrChatbotNotFound) {
+			return ErrorResponse(c, "Chatbot not found", err, http.StatusNotFound)
+		}
+		return ErrorResponse(c, "Failed to load chatbot", err)
+	}
+
+	response, sessionID, err := h.ChatService.ChatWithChatbot(c.Context(), chatbot, query, req.SessionID)
 	if err != nil {
 		if apperrors.Is(err, apperrors.ErrNoDocumentsFound) {
 			return ErrorResponse(c, "No documents found for this chat. Please upload some files first.", err, http.StatusNotFound)
