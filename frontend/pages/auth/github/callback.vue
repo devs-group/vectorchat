@@ -4,13 +4,12 @@ import { useRouter, useRoute } from "vue-router";
 const router = useRouter();
 const route = useRoute();
 const apiService = useApiService();
-
-const queryParams = new URLSearchParams(route.query).toString();
 const {
   execute: githubAuthCallback,
   isLoading,
+  error: githubAuthCallbackError,
   data: githubAuthCallbackResponse,
-} = apiService.githubAuthCallback(queryParams);
+} = apiService.githubAuthCallback();
 
 const handleCallback = async () => {
   try {
@@ -20,13 +19,12 @@ const handleCallback = async () => {
     }
 
     // Call your API to exchange the code for an access token
-    await githubAuthCallback();
-    if (githubAuthCallbackResponse.value) {
-      console.log(githubAuthCallbackResponse.value);
+    const queryParams = new URLSearchParams(route.query).toString();
+    await githubAuthCallback(githubAuthCallback);
+    if (!githubAuthCallbackError.value && githubAuthCallbackResponse.value) {
+      // Redirect to dashboard after successful authentication
+      router.push("/chat");
     }
-
-    // Redirect to dashboard after successful authentication
-    router.push("/chat");
   } catch (error) {
     console.error("GitHub authentication error:", error);
     router.push("/auth/login?error=github_auth_failed");

@@ -267,24 +267,29 @@ func (s *Service) SubscriptionHandler(opts SubscriptionHandlerOptions) http.Hand
 		if opts.RefreshFirst {
 			_, _ = s.RefreshLatestSubscription(r.Context(), ident.ExternalID, ident.Email)
 		}
-		subRec, err := s.GetUserCurrentSubscription(r.Context(), ident.ExternalID, ident.Email)
+		plan, subRec, err := s.GetUserPlan(r.Context(), ident.ExternalID, ident.Email)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err)
 			return
 		}
-		if subRec == nil {
-			writeJSON(w, http.StatusOK, map[string]any{"subscription": nil})
-			return
-		}
-		if opts.EnsurePlanKey && (subRec.Metadata == nil || subRec.Metadata["plan_key"] == nil) {
+		if subRec != nil && opts.EnsurePlanKey && (subRec.Metadata == nil || subRec.Metadata["plan_key"] == nil) {
 			if key, err := s.EnsureSubscriptionPlanKey(r.Context(), subRec.StripeSubscription); err == nil && key != "" {
 				if subRec.Metadata == nil {
 					subRec.Metadata = map[string]any{}
 				}
 				subRec.Metadata["plan_key"] = key
+				if plan == nil {
+					if p, err := s.GetPlan(r.Context(), key); err == nil {
+						plan = p
+					}
+				}
 			}
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"subscription": subRec})
+		resp := map[string]any{
+			"subscription": subRec,
+			"plan":         plan,
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 
@@ -355,14 +360,15 @@ func (s *Service) UserLimitsHandler(email string, externalID *string) http.Handl
 
 		var limits map[string]any
 		var planKey *string
-		subscriptionActive := false
+		subscriptionActive := sub != nil && IsSubscriptionActive(sub, time.Now())
 
-		if plan != nil && sub != nil && IsSubscriptionActive(sub, time.Now()) {
-			limits = map[string]any(plan.PlanDefinition)
+		if plan != nil {
 			planKey = &plan.Key
-			subscriptionActive = true
-		} else {
-			// Default limits for users without active subscription
+			if features, ok := plan.PlanDefinition["features"].(map[string]any); ok {
+				limits = features
+			}
+		}
+		if limits == nil {
 			limits = map[string]any{
 				"api_calls_per_month": int64(100),
 				"storage_gb":          int64(1),

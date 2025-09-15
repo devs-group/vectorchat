@@ -22,6 +22,7 @@ svc, _ := stripe_sub.New(ctx, stripe_sub.Config{
     DB:            db,
     StripeAPIKey:  os.Getenv("STRIPE_API_KEY"),
     WebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
+    DefaultPlanKey: "free", // optional: fallback plan when no active subscription
 })
 
 // Plans (idempotent at startup)
@@ -51,7 +52,7 @@ mux.HandleFunc("/billing/portal-session", func(w http.ResponseWriter, r *http.Re
 
 HTTP contracts
 - Checkout (POST `/billing/checkout-session`): body contains `plan_key`, `success_url`, `cancel_url`. Identity comes from your auth (email and optional external ID). Response `{ "id", "url" }` for Stripe redirect.
-- Subscription (GET `/billing/subscription`): returns the user’s latest record; when `EnsurePlanKey` is enabled the plan key is inferred if missing.
+- Subscription (GET `/billing/subscription`): returns the user’s latest record and plan; when `EnsurePlanKey` is enabled the plan key is inferred if missing.
 - Plans (GET `/billing/plans`): active plans for your UI.
 - Webhook (POST `/stripe/webhook`): verifies signature and syncs subscriptions.
 
@@ -63,7 +64,7 @@ Enable these events for your endpoint:
 - `customer.subscription.deleted`
 
 Enforcing access in your app
-- Fetch plan + subscription: `plan, sub, err := svc.GetUserPlan(ctx, &user.ID, user.Email)`
+- Fetch plan + subscription: `plan, sub, err := svc.GetUserPlan(ctx, &user.ID, user.Email)` (returns default plan when configured and no active subscription)
 - Active check: `stripe_sub.IsSubscriptionActive(sub, time.Now())`
 - Feature flags/quotas from `plan.PlanDefinition` via `Feature*` helpers.
 
@@ -73,6 +74,7 @@ Data model & migrations
 
 Configuration
 - `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET` (or pass in `Config`).
+- Optional `DefaultPlanKey` (string) to return a fallback plan when no Stripe subscription exists.
 - Prices are defined inline from your plan records; no Price IDs required.
 
 Compatibility

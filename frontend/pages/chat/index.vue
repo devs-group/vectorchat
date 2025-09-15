@@ -7,21 +7,7 @@
         @click="createNewChat"
         class="transition-all hover:shadow-md"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="mr-2 h-4 w-4"
-        >
-          <path d="M5 12h14"></path>
-          <path d="M12 5v14"></path>
-        </svg>
+        <IconPlus class="mr-2 h-4 w-4" />
         New Chat
       </Button>
     </div>
@@ -39,142 +25,75 @@
       <div
         class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm mb-4"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          class="h-6 w-6"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-          />
-        </svg>
+        <IconMessageSquare class="h-6 w-6" />
       </div>
       <h3 class="font-medium text-lg mb-1">No chats yet</h3>
       <p class="text-muted-foreground mb-5 max-w-sm">
         Create your first AI assistant to get started.
       </p>
       <Button @click="createNewChat" class="transition-all hover:shadow-sm">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="mr-2 h-4 w-4"
-        >
-          <path d="M5 12h14"></path>
-          <path d="M12 5v14"></path>
-        </svg>
+        <IconPlus class="mr-2 h-4 w-4" />
         Create New Chat
       </Button>
     </div>
 
     <div v-else class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-      <div
+      <Card
         v-for="chat in data?.chatbots"
         :key="chat.id"
-        class="group relative rounded-lg border p-6 hover:border-primary hover:shadow-sm transition-all duration-200 flex flex-col"
+        class="group relative overflow-hidden transition-all duration-200 hover:border-primary hover:shadow-md"
       >
-        <div class="flex flex-col gap-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <h3 class="font-semibold text-lg truncate">{{ chat.name }}</h3>
+        <CardHeader class="gap-3 pb-0">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-2">
+              <CardTitle class="text-lg font-semibold truncate">
+                {{ chat.name }}
+              </CardTitle>
               <span
                 v-if="!chat.is_enabled"
-                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800"
+                class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800"
               >
                 Disabled
               </span>
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-xs text-muted-foreground whitespace-nowrap">
+              <span class="whitespace-nowrap text-xs text-muted-foreground">
                 {{ formatDate(chat.created_at) }}
               </span>
               <Button
                 variant="ghost"
                 size="icon"
-                class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity relative z-10"
+                class="relative z-10 h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
                 @click.stop="showDeleteConfirmation(chat.id)"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="h-4 w-4"
-                >
-                  <path d="M3 6h18"></path>
-                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                </svg>
+                <IconTrash class="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <p class="text-sm text-muted-foreground line-clamp-2">
+          <CardDescription class="line-clamp-2 text-sm text-muted-foreground">
             {{ chat.description }}
-          </p>
-
-          <div class="mt-auto pt-3 border-t flex flex-col gap-1.5">
-            <div class="flex items-center gap-2 text-sm text-muted-foreground">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="h-4 w-4"
-              >
-                <path
-                  d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"
-                ></path>
-                <polyline points="13 2 13 9 20 9"></polyline>
-              </svg>
-              <span>{{ chat.model_name }}</span>
-            </div>
-            <div class="flex items-center gap-2 text-sm text-muted-foreground">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="h-4 w-4"
-              >
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-              <span>Last updated: {{ formatDate(chat.updated_at) }}</span>
-            </div>
+          </CardDescription>
+        </CardHeader>
+        <CardFooter class="flex-col items-start gap-2 border-t pt-4 text-sm text-muted-foreground">
+          <div class="flex items-center gap-2">
+            <IconMessageSquare class="h-4 w-4" />
+            <span>{{ formatMessageCount(chat.ai_messages_amount) }}</span>
           </div>
-        </div>
+          <div class="flex items-center gap-2">
+            <IconFile class="h-4 w-4" />
+            <span>{{ chat.model_name }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <IconClock class="h-4 w-4" />
+            <span>Last updated: {{ formatDate(chat.updated_at) }}</span>
+          </div>
+        </CardFooter>
         <NuxtLink
           :to="`/chat/${chat.id}`"
           class="absolute inset-0"
           aria-label="View chat"
         ></NuxtLink>
-      </div>
+      </Card>
     </div>
 
     <!-- Delete Confirmation Dialog -->
@@ -208,6 +127,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Card,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import IconClock from "@/components/icons/IconClock.vue";
+import IconFile from "@/components/icons/IconFile.vue";
+import IconMessageSquare from "@/components/icons/IconMessageSquare.vue";
+import IconPlus from "@/components/icons/IconPlus.vue";
+import IconTrash from "@/components/icons/IconTrash.vue";
 
 definePageMeta({
   layout: "authenticated",
@@ -245,6 +176,14 @@ const formatDate = (dateString: string) => {
     day: "numeric",
     year: "numeric",
   });
+};
+
+const formatMessageCount = (count?: number | null) => {
+  const value = typeof count === "number" ? count : Number(count ?? 0);
+  if (!Number.isFinite(value) || value <= 0) {
+    return "0 AI messages";
+  }
+  return value === 1 ? "1 AI message" : `${value} AI messages`;
 };
 
 // Create new chat

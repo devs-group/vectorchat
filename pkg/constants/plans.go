@@ -10,35 +10,28 @@ const (
 
 	// PlanStandard is the key for the standard plan
 	PlanStandard = "standard"
-
-	// PlanEnterprise is the key for enterprise plans
-	PlanEnterprise = "enterprise"
 )
 
 // Plan display names
 const (
-	PlanFreeDisplay       = "Free"
-	PlanHobbyDisplay      = "Hobby"
-	PlanStandardDisplay   = "Standard"
-	PlanEnterpriseDisplay = "Enterprise"
+	PlanFreeDisplay     = "Free"
+	PlanHobbyDisplay    = "Hobby"
+	PlanStandardDisplay = "Standard"
 )
 
 // Plan pricing in cents
 const (
 	PlanFreePrice     = 0
-	PlanHobbyPrice    = 4000  // $40.00
-	PlanStandardPrice = 15000 // $150.00
+	PlanHobbyPrice    = 1500 // $15.00
+	PlanStandardPrice = 4000 // $40.00
 )
 
 // Billing intervals
 const (
 	BillingMonth = "month"
-	BillingYear  = "year"
 )
 
 // Currency codes
 const (
 	CurrencyUSD = "usd"
-	CurrencyEUR = "eur"
-	CurrencyGBP = "gbp"
 )

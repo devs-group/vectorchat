@@ -52,7 +52,10 @@
         </div>
       </div>
       <div v-else class="text-sm text-muted-foreground">
-        No active subscription.
+        <template v-if="currentPlan">
+          You are on the <strong>{{ currentPlan.display_name }}</strong> plan.
+        </template>
+        <template v-else>No active subscription.</template>
       </div>
     </div>
 
@@ -60,7 +63,7 @@
       <div class="p-6">
         <h2 class="text-lg font-semibold">Plans</h2>
         <p class="text-sm text-muted-foreground">
-          Choose a plan and subscribe using Stripe Checkout.
+          Choose a plan and subscribe.
         </p>
       </div>
       <div class="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
@@ -73,7 +76,7 @@
           <div
             class="h-full rounded-lg"
             :class="[
-              isSubActive && currentPlanKey === plan.key
+              currentPlanKey === plan.key
                 ? 'bg-gradient-to-br from-emerald-500 to-teal-500 p-[2px]'
                 : '',
             ]"
@@ -82,12 +85,11 @@
             <div
               class="rounded-lg p-4 flex flex-col relative border bg-card shadow-sm border-border h-full"
               :class="{
-                'border-transparent':
-                  isSubActive && currentPlanKey === plan.key,
+                'border-transparent': currentPlanKey === plan.key,
               }"
             >
               <div
-                v-if="isSubActive && currentPlanKey === plan.key"
+                v-if="currentPlanKey === plan.key"
                 class="absolute -top-3 left-3"
               >
                 <span
@@ -127,18 +129,16 @@
               </div>
               <div class="mt-auto">
                 <Button
-                  :disabled="isCreatingCheckout || isBlockingSub"
+                  class="w-full"
+                  :disabled="
+                    isCreatingCheckout ||
+                    isBlockingSub ||
+                    currentPlanKey === plan.key ||
+                    (plan.amount_cents === 0 && isSubActive)
+                  "
                   @click="subscribe(plan)"
                 >
-                  {{
-                    isCreatingCheckout
-                      ? "Redirecting…"
-                      : currentPlanKey === plan.key
-                        ? "Subscribed"
-                        : isBlockingSub
-                          ? "Manage in Billing"
-                          : "Subscribe"
-                  }}
+                  {{ planButtonLabel(plan) }}
                 </Button>
               </div>
             </div>
@@ -155,26 +155,7 @@
           v-if="isLoadingPlans"
           class="col-span-full flex justify-center py-6"
         >
-          <svg
-            class="animate-spin h-5 w-5 text-muted-foreground"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            />
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
+          <IconSpinner class="animate-spin h-5 w-5 text-muted-foreground" />
         </div>
       </div>
     </div>
@@ -185,6 +166,7 @@
 import { onMounted } from "vue";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import IconSpinner from "@/components/icons/IconSpinner.vue";
 import type { Plan, Subscription } from "~/types/api";
 
 definePageMeta({
@@ -219,21 +201,51 @@ const {
 const currentSub = computed(
   () => (subResp.value as any)?.subscription as Subscription | null | undefined,
 );
+const selectedPlan = computed(
+  () => (subResp.value as any)?.plan as Plan | null | undefined,
+);
 const currentPlanKey = computed(() => {
+  if (selectedPlan.value?.key) {
+    return selectedPlan.value.key;
+  }
   const meta = currentSub.value?.metadata || null;
   if (!meta) return undefined;
   return (meta["plan_key"] as string) || undefined;
 });
-const currentPlan = computed(() =>
-  (plans.value || []).find((p: any) => p.key === currentPlanKey.value),
-);
+
+const currentPlan = computed(() => {
+  const key = currentPlanKey.value;
+  if (!key) {
+    return selectedPlan.value || null;
+  }
+  return (
+    (plans.value || []).find((p: any) => p.key === key) ||
+    selectedPlan.value ||
+    null
+  );
+});
+
 const isSubActive = computed(() => {
   const s = (currentSub.value?.status || "").toLowerCase();
   return s === "active" || s === "trialing" || s === "past_due";
 });
+
 const isBlockingSub = computed(
   () => isSubActive.value && !willCancelAtPeriodEnd.value,
 );
+
+const planButtonLabel = (plan: Plan) => {
+  if (isCreatingCheckout.value) {
+    return "Redirecting…";
+  }
+  if (currentPlanKey.value === plan.key) {
+    return isSubActive.value ? "Subscribed" : "Current Plan";
+  }
+  if (isBlockingSub.value) {
+    return "Manage in Billing";
+  }
+  return "Subscribe";
+};
 
 const formatPrice = (amountCents: number, currency: string) => {
   const amount = (amountCents || 0) / 100;
@@ -293,6 +305,12 @@ const nextDateFormatted = computed(() =>
 );
 
 const subscribe = async (plan: Plan) => {
+  if (currentPlanKey.value === plan.key) {
+    return;
+  }
+  if (plan.amount_cents === 0) {
+    return;
+  }
   const userId = sessionRef.value?.user?.id;
   if (!userId) {
     console.error("No user session; cannot subscribe");

@@ -3,21 +3,7 @@
     <div class="flex items-center justify-between">
       <h1 class="text-3xl font-bold tracking-tight">API Settings</h1>
       <Button @click="showCreateDialog = true">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="mr-2 h-4 w-4"
-        >
-          <path d="M5 12h14"></path>
-          <path d="M12 5v14"></path>
-        </svg>
+        <IconPlus class="mr-2 h-4 w-4" />
         Create API Key
       </Button>
     </div>
@@ -76,22 +62,7 @@
             >
               <td class="p-4 align-middle">
                 <div class="flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="h-4 w-4 text-muted-foreground"
-                  >
-                    <path d="M15 7h3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3"></path>
-                    <path d="M10 17H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3"></path>
-                    <line x1="8" x2="16" y1="12" y2="12"></line>
-                  </svg>
+                  <IconKey class="h-4 w-4 text-muted-foreground" />
                   <code
                     class="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm"
                   >
@@ -154,26 +125,7 @@
             <tr v-if="!apiKeys || apiKeys.api_keys?.length === 0">
               <td colspan="7" class="p-8 text-center text-muted-foreground">
                 <div v-if="isFetchingAPIKeys" class="flex justify-center">
-                  <svg
-                    class="animate-spin h-5 w-5 text-muted-foreground"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      class="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      stroke-width="4"
-                    ></circle>
-                    <path
-                      class="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
+                  <IconSpinner class="animate-spin h-5 w-5 text-muted-foreground" />
                 </div>
                 <div v-else-if="fetchAPIKeysError">
                   Failed to load API keys. Please try again.
@@ -248,6 +200,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Pagination } from "@/components/ui/pagination";
+import IconKey from "@/components/icons/IconKey.vue";
+import IconPlus from "@/components/icons/IconPlus.vue";
+import IconSpinner from "@/components/icons/IconSpinner.vue";
 import type { APIKeyResponse, APIKeysResponse } from "~/types/api";
 import CreateApiKeyDialog from "./components/CreateApiKeyDialog.vue";
 import ApiKeyGeneratedDialog from "./components/ApiKeyGeneratedDialog.vue";

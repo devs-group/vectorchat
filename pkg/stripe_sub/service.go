@@ -24,16 +24,21 @@ type Config struct {
 	StripeAPIKey string
 	// WebhookSecret is used by the webhook handler to verify signatures.
 	WebhookSecret string
+	// DefaultPlanKey is returned by GetUserPlan when no active Stripe subscription exists.
+	DefaultPlanKey string
 }
 
 // Service is the main entrypoint to interact with the package.
 type Service struct {
-	db            *sqlx.DB
-	webhookSecret string
-	stripe        *client.API
+	db             *sqlx.DB
+	webhookSecret  string
+	stripe         *client.API
+	defaultPlanKey string
 }
 
-var ErrActiveSubscription = errors.New("an active subscription already exists")
+var (
+	ErrActiveSubscription = errors.New("an active subscription already exists")
+)
 
 // New initializes the package: sets Stripe key and runs migrations.
 func New(ctx context.Context, cfg Config) (*Service, error) {
@@ -52,7 +57,12 @@ func New(ctx context.Context, cfg Config) (*Service, error) {
 		return nil, fmt.Errorf("stripe_sub: migrate: %w", err)
 	}
 
-	s := &Service{db: cfg.DB, webhookSecret: cfg.WebhookSecret, stripe: api}
+	s := &Service{
+		db:             cfg.DB,
+		webhookSecret:  cfg.WebhookSecret,
+		stripe:         api,
+		defaultPlanKey: strings.TrimSpace(cfg.DefaultPlanKey),
+	}
 	return s, nil
 }
 
@@ -491,35 +501,54 @@ func (s *Service) GetUserCurrentSubscription(ctx context.Context, externalID *st
 	return &sub, nil
 }
 
-// GetUserPlan returns the user's active plan and the latest subscription record.
-// If there is no subscription or it is not active, plan will be nil.
+// GetUserPlan returns the user's plan and the latest subscription record.
+// When no active Stripe subscription exists, it returns the configured default plan (if set).
 func (s *Service) GetUserPlan(ctx context.Context, externalID *string, email string) (*Plan, *Subscription, error) {
 	sub, err := s.GetUserCurrentSubscription(ctx, externalID, email)
-	if err != nil || sub == nil {
+	if err != nil {
 		return nil, sub, err
 	}
-	if !IsSubscriptionActive(sub, time.Now()) {
-		return nil, sub, nil
-	}
-	// Expect plan_key in subscription metadata (set during Checkout session creation).
-	var planKey string
-	if sub.Metadata != nil {
-		if v, ok := sub.Metadata["plan_key"]; ok {
-			switch t := v.(type) {
-			case string:
-				planKey = t
+	if sub != nil && IsSubscriptionActive(sub, time.Now()) {
+		// Expect plan_key in subscription metadata (set during Checkout session creation).
+		var planKey string
+		if sub.Metadata != nil {
+			if v, ok := sub.Metadata["plan_key"]; ok {
+				switch t := v.(type) {
+				case string:
+					planKey = t
+				}
 			}
 		}
+		planKey = strings.TrimSpace(planKey)
+		if planKey == "" {
+			return nil, sub, nil
+		}
+		plan, err := s.GetPlan(ctx, planKey)
+		if err != nil {
+			return nil, sub, err
+		}
+		return plan, sub, nil
 	}
-	if strings.TrimSpace(planKey) == "" {
-		// No recorded plan key; caller may choose to treat as no plan.
-		return nil, sub, nil
-	}
-	plan, err := s.GetPlan(ctx, planKey)
+	plan, err := s.getDefaultPlan(ctx)
 	if err != nil {
 		return nil, sub, err
 	}
 	return plan, sub, nil
+}
+
+func (s *Service) getDefaultPlan(ctx context.Context) (*Plan, error) {
+	key := strings.TrimSpace(s.defaultPlanKey)
+	if key == "" {
+		return nil, nil
+	}
+	plan, err := s.GetPlan(ctx, key)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return plan, nil
 }
 
 // IsSubscriptionActive determines if a subscription should be treated as active for access control.

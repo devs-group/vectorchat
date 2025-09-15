@@ -34,21 +34,7 @@
         <div
           class="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-            />
-          </svg>
+          <IconMessageSquare class="h-5 w-5" />
         </div>
         <h3 class="mt-3 font-medium text-base">No messages yet</h3>
         <p class="text-xs text-muted-foreground mt-1">
@@ -123,22 +109,7 @@
             v-if="isSendingMessage"
             class="h-4 w-4 animate-spin"
           />
-          <svg
-            v-else
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="h-4 w-4"
-          >
-            <path d="m22 2-7 20-4-9-9-4Z" />
-            <path d="M22 2 11 13" />
-          </svg>
+          <IconSend v-else class="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -148,6 +119,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from "vue";
 
+import IconMessageSquare from "@/components/icons/IconMessageSquare.vue";
+import IconSend from "@/components/icons/IconSend.vue";
 import IconSpinnerArc from "@/components/icons/IconSpinnerArc.vue";
 import type { ChatbotResponse } from "~/types/api";
 
@@ -174,7 +147,6 @@ const newMessage = ref("");
 const sessionId = ref<string | null>(null);
 
 // Loading state
-const isSendingMessage = ref(false);
 const messagesContainer = ref<HTMLDivElement | null>(null);
 
 const scrollToBottom = async () => {
@@ -185,14 +157,16 @@ const scrollToBottom = async () => {
   }
 };
 
+const {
+  data: responseData,
+  execute: executeSendMessage,
+  isLoading: isSendingMessage,
+  error: sendMessageError,
+} = apiService.sendChatMessage();
+
 // Send a message
 const sendMessage = async () => {
   if (!newMessage.value.trim() || isSendingMessage.value) return;
-
-  if (props.chatbot && !props.chatbot.is_enabled) {
-    showError(null, "This chatbot is currently disabled");
-    return;
-  }
 
   const userMessage = newMessage.value.trim();
   messages.value.push({
@@ -202,18 +176,18 @@ const sendMessage = async () => {
   });
 
   newMessage.value = "";
-  isSendingMessage.value = true;
   await scrollToBottom();
 
   try {
-    const { data: responseData, execute: executeSendMessage } =
-      apiService.sendChatMessage(
-        props.chatbot?.id ?? "",
-        userMessage,
-        sessionId.value,
-      );
+    await executeSendMessage({
+      chatID: props.chatbot?.id ?? "",
+      query: userMessage,
+      sessionId: sessionId.value,
+    });
 
-    await executeSendMessage();
+    if (sendMessageError.value) {
+      return;
+    }
 
     if (responseData.value && typeof responseData.value === "object") {
       const apiResponse = responseData.value as {
@@ -240,7 +214,6 @@ const sendMessage = async () => {
       timestamp: new Date().toLocaleTimeString(),
     });
   } finally {
-    isSendingMessage.value = false;
     scrollToBottom();
   }
 };

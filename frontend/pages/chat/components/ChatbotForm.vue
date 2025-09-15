@@ -97,9 +97,17 @@ const submitButtonText = computed(() => {
 // UI helpers
 const creativityLabel = computed(() => {
   const t = Number(temperatureParam.value);
-  if (t < 0.4) return "Focused";
-  if (t < 1.2) return "Balanced";
+  if (t < 0.3) return "Focused";
+  if (t < 0.8) return "Balanced";
   return "Creative";
+});
+
+const responseLengthLabel = computed(() => {
+  const tokens = Number(maxTokens.value);
+  if (tokens <= 500) return "Short";
+  if (tokens <= 1500) return "Medium";
+  if (tokens <= 2500) return "Long";
+  return "Very Long";
 });
 
 const models = [
@@ -235,7 +243,7 @@ const models = [
                 <input
                   type="range"
                   min="0"
-                  max="2"
+                  max="1"
                   step="0.1"
                   v-model.number="temperatureParam"
                   class="w-full appearance-none bg-transparent"
@@ -246,7 +254,7 @@ const models = [
                   <div
                     class="absolute h-2 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600"
                     :style="{
-                      width: `${(Number(temperatureParam) / 2) * 100}%`,
+                      width: `${Number(temperatureParam) * 100}%`,
                     }"
                   />
                 </div>
@@ -262,20 +270,42 @@ const models = [
 
             <!-- Response length -->
             <div>
-              <Label for="maxTokens">Response Length</Label>
-              <Input
-                id="maxTokens"
-                v-model="maxTokens"
-                type="number"
-                min="100"
-                max="4000"
-                step="50"
-                placeholder="2000"
-                class="mt-2 max-w-xs"
-              />
-              <p class="mt-2 text-xs text-muted-foreground">
-                Maximum tokens per response (100–4000)
-              </p>
+              <div class="flex items-center justify-between">
+                <Label>Response Length</Label>
+                <div
+                  class="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground"
+                >
+                  {{ maxTokens }}
+                </div>
+              </div>
+              <div class="mt-3">
+                <input
+                  type="range"
+                  min="100"
+                  max="4000"
+                  step="100"
+                  v-model.number="maxTokens"
+                  class="w-full appearance-none bg-transparent"
+                  aria-label="Response length"
+                />
+                <!-- Custom track -->
+                <div class="relative mt-2 h-2 rounded-full bg-muted">
+                  <div
+                    class="absolute h-2 rounded-full bg-gradient-to-r from-green-300 to-yellow-400"
+                    :style="{
+                      width: `${((Number(maxTokens) - 100) / 3900) * 100}%`,
+                    }"
+                  />
+                </div>
+                <div
+                  class="mt-2 flex items-center justify-between text-xs text-muted-foreground"
+                >
+                  <span>Short</span>
+                  <span>Medium</span>
+                  <span>Long</span>
+                  <span>Very Long</span>
+                </div>
+              </div>
             </div>
           </div>
 

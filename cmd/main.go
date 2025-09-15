@@ -111,9 +111,10 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Initialize Stripe Subscriptions service and migrate its tables
 	svc, err := stripe_sub.New(context.Background(), stripe_sub.Config{
-		DB:            pool.DB,
-		StripeAPIKey:  os.Getenv("STRIPE_API_KEY"),
-		WebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
+		DB:             pool.DB,
+		StripeAPIKey:   os.Getenv("STRIPE_API_KEY"),
+		WebhookSecret:  os.Getenv("STRIPE_WEBHOOK_SECRET"),
+		DefaultPlanKey: constants.PlanFree,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -220,25 +221,23 @@ func runApplication(appCfg *config.AppConfig) error {
 	return app.Listen(":" + port)
 }
 
-// slogAdapter adapts slog.Logger to stripe_sub.Logger
 // defaultPlans returns the requested initial plans seeded on startup.
 func defaultPlans() []stripe_sub.PlanParams {
 	freeFeatures := map[string]any{
-		constants.LimitMessageCredits: 100,
-		constants.LimitTrainingData:   "400 KB",
+		constants.LimitMessageCredits: 500,
+		constants.LimitTrainingData:   "100 KB",
 		constants.LimitChatbots:       1,
-		constants.LimitDataSources:    "5 data sources (websites, files)",
+		constants.LimitDataSources:    "5 data sources (websites, files, texts)",
 		constants.LimitEmbedWebsites:  true,
 		constants.LimitAPIAccess:      true,
-		constants.LimitInactivityDays: 14,
 	}
 	hobbyFeatures := map[string]any{
 		"includes":                    "Everything in Free",
 		constants.LimitAdvancedModels: true,
 		constants.LimitMessageCredits: 2000,
-		constants.LimitTrainingData:   "33 MB",
+		constants.LimitTrainingData:   "4 MB",
 		constants.LimitChatbots:       3,
-		constants.LimitDataSources:    "20 data sources (websites, files)",
+		constants.LimitDataSources:    "20 data sources (websites, files, texts)",
 		constants.LimitAPIAccess:      true,
 		constants.LimitAnalytics:      true,
 	}

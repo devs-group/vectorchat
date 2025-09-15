@@ -59,7 +59,6 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Get("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.GET_TextSources)
 	chat.Delete("/:chatID/text/:id", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_TextSource)
 	chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
-	chat.Put("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateFile)
 	chat.Get("/:chatID/files", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatFiles)
 
 	// Chat
@@ -265,44 +264,6 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 	return c.JSON(models.MessageResponse{
 		Message: "File deleted successfully",
 	})
-}
-
-// @Summary Update chat file
-// @Description Update a file in a chat session
-// @Tags chat
-// @Accept multipart/form-data
-// @Produce json
-// @Param chatID path string true "Chat session ID"
-// @Param filename path string true "File name"
-// @Param file formData file true "Updated file"
-// @Success 200 {object} models.FileUploadResponse
-// @Failure 400 {object} models.APIResponse
-// @Failure 404 {object} models.APIResponse
-// @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
-// @Router /chat/{chatID}/files/{filename} [put]
-func (h *ChatHandler) PUT_UpdateFile(c *fiber.Ctx) error {
-	chatID, err := h.CommonService.ParseUUID(c.Params("chatID"))
-	if err != nil {
-		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
-	}
-
-	filename := c.Params("filename")
-	if filename == "" {
-		return ErrorResponse(c, "Filename is required", nil, http.StatusBadRequest)
-	}
-
-	file, err := c.FormFile("file")
-	if err != nil {
-		return ErrorResponse(c, "No file uploaded", err, http.StatusBadRequest)
-	}
-
-	response, err := h.ChatService.ProcessFileUpdate(c.Context(), chatID, filename, file)
-	if err != nil {
-		return ErrorResponse(c, "Failed to update file", err)
-	}
-
-	return c.JSON(response)
 }
 
 // @Summary List chat files

@@ -21,22 +21,7 @@
           class="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-md"
         >
           <div class="flex items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="h-4 w-4 text-amber-600"
-            >
-              <path
-                d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
-              ></path>
-            </svg>
+            <IconAlertCircle class="h-4 w-4 text-amber-600" />
             <span class="text-sm text-amber-800">
               Store this key securely - it won't be shown again
             </span>
@@ -50,23 +35,7 @@
           :disabled="copyState === 'copied'"
           class="flex-1"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="mr-2 h-4 w-4"
-          >
-            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
-            <path
-              d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
-            ></path>
-          </svg>
+          <IconCopy class="mr-2 h-4 w-4" />
           {{ copyState === "copied" ? "Copied!" : "Copy API Key" }}
         </Button>
         <DialogClose as-child>
@@ -91,6 +60,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import IconAlertCircle from "@/components/icons/IconAlertCircle.vue";
+import IconCopy from "@/components/icons/IconCopy.vue";
 
 interface Props {
   open: boolean;

@@ -3,19 +3,7 @@
     <!-- Header -->
     <div class="flex items-center gap-3 pb-4 border-b">
       <Button variant="ghost" size="icon" @click="emit('back')">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="m15 18-6-6 6-6" />
-        </svg>
+        <IconArrowLeft class="h-5 w-5" />
       </Button>
       <div class="flex-1">
         <h3 class="font-medium">Conversation</h3>
@@ -107,6 +95,7 @@
               :model-value="selectedAssistant?.content || ''"
               rows="6"
               class="max-h-[140px]"
+              disabled
             />
           </div>
           <div>
@@ -152,6 +141,7 @@
 
 <script setup lang="ts">
 import { Button } from "@/components/ui/button";
+import IconArrowLeft from "@/components/icons/IconArrowLeft.vue";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";

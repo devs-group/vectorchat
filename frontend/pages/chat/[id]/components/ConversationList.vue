@@ -26,24 +26,11 @@
       <div
         class="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mb-6"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
+        <IconMessageSquareLines
+          class="text-muted-foreground"
           width="40"
           height="40"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="text-muted-foreground"
-        >
-          <path
-            d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-          />
-          <line x1="9" y1="10" x2="15" y2="10" />
-          <line x1="12" y1="13" x2="12" y2="13" />
-        </svg>
+        />
       </div>
 
       <h3 class="text-xl font-semibold text-foreground mb-2">
@@ -54,6 +41,7 @@
 </template>
 
 <script setup lang="ts">
+import IconMessageSquareLines from "@/components/icons/IconMessageSquareLines.vue";
 import type { ConversationListItemResponse } from "~/types/api";
 
 interface Props {

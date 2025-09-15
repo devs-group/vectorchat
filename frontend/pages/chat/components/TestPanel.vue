@@ -26,19 +26,7 @@
         <div
           class="mx-auto inline-flex h-10 md:h-12 w-10 md:w-12 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            class="h-5 md:h-6 w-5 md:w-6"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-            <path d="M4 4v16" />
-          </svg>
+          <IconLibrary class="h-5 md:h-6 w-5 md:w-6" />
         </div>
         <h3 class="mt-3 md:mt-4 text-base md:text-lg font-medium">
           Add Knowledge to Start<span class="hidden md:inline"> Chatting</span>
@@ -76,6 +64,7 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { useBreakpoints } from "@vueuse/core";
 import { Button } from "@/components/ui/button";
+import IconLibrary from "@/components/icons/IconLibrary.vue";
 import ChatInterface from "./ChatInterface.vue";
 import type { ChatbotResponse } from "~/types/api";
 import { useGlobalState } from "@/composables/useGlobalState";

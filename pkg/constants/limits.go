@@ -20,9 +20,6 @@ const (
 	// LimitEmbedWebsites defines whether the user can embed on unlimited websites
 	LimitEmbedWebsites = "embed_on_unlimited_websites"
 
-	// LimitInactivityDays defines days before inactive resources are deleted
-	LimitInactivityDays = "inactivity_delete_days"
-
 	// LimitSeats defines the number of team seats (for team plans)
 	LimitSeats = "seats"
 

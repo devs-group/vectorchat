@@ -36,6 +36,7 @@ type ChatbotResponse struct {
 	IsEnabled          bool      `json:"is_enabled" example:"true"`
 	CreatedAt          time.Time `json:"created_at" example:"2023-01-01T00:00:00Z"`
 	UpdatedAt          time.Time `json:"updated_at" example:"2023-01-01T00:00:00Z"`
+	AIMessagesAmount   int64     `json:"ai_messages_amount" example:"42"`
 }
 
 type ChatbotsListResponse struct {

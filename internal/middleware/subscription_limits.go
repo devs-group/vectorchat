@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -40,7 +39,7 @@ func (s *SubscriptionLimitsMiddleware) CheckLimit(limitKey string) fiber.Handler
 		}
 
 		// Get user's plan
-		plan, sub, err := s.svc.GetUserPlan(c.Context(), &user.ID, user.Email)
+		plan, _, err := s.svc.GetUserPlan(c.Context(), &user.ID, user.Email)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Failed to retrieve subscription",
@@ -49,8 +48,7 @@ func (s *SubscriptionLimitsMiddleware) CheckLimit(limitKey string) fiber.Handler
 
 		// Default to free plan limits if no active subscription
 		limits := getDefaultLimits()
-		if plan != nil && sub != nil && stripe_sub.IsSubscriptionActive(sub, time.Now()) {
-			// Use plan limits from features
+		if plan != nil {
 			if features, ok := plan.PlanDefinition["features"].(map[string]interface{}); ok {
 				limits = features
 			}
@@ -269,7 +267,7 @@ func (s *SubscriptionLimitsMiddleware) CheckMessageCredits() fiber.Handler {
 			})
 		}
 
-		plan, sub, err := s.svc.GetUserPlan(context.Background(), &user.ID, user.Email)
+		plan, _, err := s.svc.GetUserPlan(context.Background(), &user.ID, user.Email)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Failed to retrieve subscription",
@@ -277,7 +275,7 @@ func (s *SubscriptionLimitsMiddleware) CheckMessageCredits() fiber.Handler {
 		}
 
 		limits := getDefaultLimits()
-		if plan != nil && sub != nil && stripe_sub.IsSubscriptionActive(sub, time.Now()) {
+		if plan != nil {
 			if features, ok := plan.PlanDefinition["features"].(map[string]interface{}); ok {
 				limits = features
 			}

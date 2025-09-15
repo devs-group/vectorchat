@@ -97,7 +97,8 @@
               <Button
                 variant="secondary"
                 @click="addTextSource"
-                :disabled="!textSource.trim()"
+                :disabled="!textSource.trim() || isUploadingText"
+                :loading="isUploadingText"
                 >Add Text</Button
               >
             </div>
@@ -207,10 +208,10 @@
               size="sm"
               class="h-8 w-8 p-0"
               @click="deleteFile(file.filename)"
-              :disabled="isDeletingFile === file.filename"
+              :disabled="isDeletingFile"
             >
               <IconSpinnerArc
-                v-if="isDeletingFile === file.filename"
+                v-if="isDeletingFile"
                 class="h-4 w-4 animate-spin"
               />
               <IconX v-else class="h-4 w-4" />
@@ -285,9 +286,7 @@ const textSources = ref<{ id: string; title: string; uploaded_at: string }[]>(
 const fileInput = ref<HTMLInputElement | null>(null);
 const isLoadingFiles = ref(false);
 const isUploading = ref(false);
-const isDeletingFile = ref<string | null>(null);
 const isDragging = ref(false);
-const isIndexingWebsite = ref(false);
 
 // Tabs & inputs
 const activeTab = ref<"files" | "text" | "website">("files");
@@ -379,22 +378,18 @@ const handleDrop = async (e: DragEvent) => {
   }
 };
 
+const {
+  execute: executeDeleteFile,
+  isLoading: isDeletingFile,
+  error: deleteFileError,
+} = apiService.deleteFile();
 // Delete a file
 const deleteFile = async (filename: string) => {
-  isDeletingFile.value = filename;
-  try {
-    const { execute: executeDelete } = apiService.deleteFile(
-      props.chatId,
-      filename,
-    );
-    await executeDelete();
-    await fetchChatFiles();
-  } catch (error) {
-    console.error("Error deleting file:", error);
-    showError(error);
-  } finally {
-    isDeletingFile.value = null;
+  await executeDeleteFile({ chatID: props.chatId, filename });
+  if (deleteFileError.value) {
+    return;
   }
+  await fetchChatFiles();
 };
 
 // Format file size
@@ -411,53 +406,49 @@ const formatDate = (iso: string | Date) => {
   return d.toLocaleString();
 };
 
+const {
+  execute: uploadText,
+  error: uploadTextError,
+  isLoading: isUploadingText,
+} = apiService.uploadText();
+
 // Add text source (calls backend)
 const addTextSource = async () => {
   if (!props.chatId || !textSource.value.trim()) return;
-  try {
-    const { execute } = apiService.uploadText(
-      props.chatId,
-      textSource.value.trim(),
-    );
-    await execute();
-    showSuccess("Text source added successfully");
-    textSource.value = "";
-    await fetchChatFiles();
-  } catch (e) {
-    console.error("Error uploading text:", e);
-    showError(e, "Error uploading text");
+  await uploadText({ chatID: props.chatId, text: textSource.value.trim() });
+  if (uploadTextError.value) {
+    return;
   }
+  textSource.value = "";
+  await fetchChatFiles();
 };
+
+const { execute: executeDeleteText, error: deleteTextError } =
+  apiService.deleteTextSource();
 // Delete a text source
 const deleteText = async (id: string) => {
-  try {
-    const { execute } = apiService.deleteTextSource(props.chatId, id);
-    await execute();
-    showSuccess("File deleted successfully");
-    await fetchChatFiles();
-  } catch (e) {
-    console.error("Error deleting text source:", e);
-    showError(e, "Error deleting text source");
+  await executeDeleteText({ chatID: props.chatId, id });
+  if (deleteTextError.value) {
+    return;
   }
+  await fetchChatFiles();
 };
+
+const {
+  execute: uploadWebsite,
+  error: uploadWebsiteError,
+  isLoading: isIndexingWebsite,
+} = apiService.uploadWebsite();
+
+// Add website source
 const addWebsite = async () => {
   if (!props.chatId || !websiteUrl.value.trim()) return;
-  try {
-    isIndexingWebsite.value = true;
-    const { execute } = apiService.uploadWebsite(
-      props.chatId,
-      websiteUrl.value.trim(),
-    );
-    await execute();
-    showSuccess("Website indexed successfully");
-    websiteUrl.value = "";
-    await fetchChatFiles();
-  } catch (e) {
-    console.error("Error adding website:", e);
-    showError(e, "Error adding website");
-  } finally {
-    isIndexingWebsite.value = false;
+  await uploadWebsite({ chatId: props.chatId, url: websiteUrl.value.trim() });
+  if (uploadWebsiteError.value) {
+    return;
   }
+  websiteUrl.value = "";
+  await fetchChatFiles();
 };
 
 // Watch for chatId changes

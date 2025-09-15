@@ -3,6 +3,12 @@ import type {
   GenerateAPIKeyRequest,
   Plan,
   Subscription,
+  CreateRevisionRequest,
+  ConversationsResponse,
+  MessageDetails,
+  RevisionsListResponse,
+  RevisionResponse,
+  UpdateRevisionRequest,
 } from "~/types/api";
 
 /**
@@ -85,9 +91,9 @@ export function useApiService() {
     );
   };
 
-  const githubAuthCallback = (queryParams: string) => {
+  const githubAuthCallback = () => {
     return useApi(
-      async () => {
+      async (queryParams: string) => {
         return await useApiFetch("/auth/github/callback?" + queryParams, {
           method: "GET",
         });
@@ -130,7 +136,7 @@ export function useApiService() {
           limit: String(data.limit),
           offset: String(data.offset),
         });
-        return await useApiFetch<import("~/types/api").ConversationsResponse>(
+        return await useApiFetch<ConversationsResponse>(
           `/conversation/conversations/${data.chatbotId}?${params.toString()}`,
           { method: "GET" },
         );
@@ -143,7 +149,7 @@ export function useApiService() {
     return useApi(
       async (data: { chatbotId: string; sessionId: string }) => {
         return await useApiFetch<{
-          messages: import("~/types/api").MessageDetails[];
+          messages: MessageDetails[];
         }>(`/conversation/conversations/${data.chatbotId}/${data.sessionId}`, {
           method: "GET",
         });
@@ -158,7 +164,7 @@ export function useApiService() {
       async (data: { chatbotId: string; includeInactive?: boolean }) => {
         const params = new URLSearchParams();
         if (data.includeInactive) params.set("includeInactive", "true");
-        return await useApiFetch<import("~/types/api").RevisionsListResponse>(
+        return await useApiFetch<RevisionsListResponse>(
           `/conversation/revisions/${data.chatbotId}${params.toString() ? `?${params.toString()}` : ""}`,
           { method: "GET" },
         );
@@ -169,14 +175,11 @@ export function useApiService() {
 
   const createRevision = () => {
     return useApi(
-      async (req: import("~/types/api").CreateRevisionRequest) => {
-        return await useApiFetch<import("~/types/api").RevisionResponse>(
-          "/conversation/revisions",
-          {
-            method: "POST",
-            body: req,
-          },
-        );
+      async (req: CreateRevisionRequest) => {
+        return await useApiFetch<RevisionResponse>("/conversation/revisions", {
+          method: "POST",
+          body: req,
+        });
       },
       { showSuccessToast: true, successMessage: "Revision saved" },
     );
@@ -184,10 +187,7 @@ export function useApiService() {
 
   const updateRevision = () => {
     return useApi(
-      async (data: {
-        revisionId: string;
-        body: import("~/types/api").UpdateRevisionRequest;
-      }) => {
+      async (data: { revisionId: string; body: UpdateRevisionRequest }) => {
         return await useApiFetch(`/conversation/revisions/${data.revisionId}`, {
           method: "PUT",
           body: data.body,
@@ -299,21 +299,23 @@ export function useApiService() {
     );
   };
 
-  const sendChatMessage = (
-    chatID: string,
-    query: string,
-    sessionId?: string | null,
-  ) => {
-    return useApi(async () => {
-      const body: { query: string; session_id?: string } = { query };
-      if (sessionId) {
-        body.session_id = sessionId;
-      }
-      return await useApiFetch(`/chat/${chatID}/message`, {
-        method: "POST",
-        body,
-      });
-    });
+  const sendChatMessage = () => {
+    return useApi(
+      async (data: {
+        chatID: string;
+        query: string;
+        sessionId?: string | null;
+      }) => {
+        const body = {
+          query: data.query,
+          ...(data.sessionId && { session_id: data.sessionId }),
+        };
+        return await useApiFetch(`/chat/${data.chatID}/message`, {
+          method: "POST",
+          body,
+        });
+      },
+    );
   };
 
   const uploadFile = async (chatID: string, file: File) => {
@@ -337,12 +339,12 @@ export function useApiService() {
     }
   };
 
-  const uploadText = (chatID: string, text: string) => {
+  const uploadText = () => {
     return useApi(
-      async () => {
-        return await useApiFetch(`/chat/${chatID}/text`, {
+      async (data: { chatID: string; text: string }) => {
+        return await useApiFetch(`/chat/${data.chatID}/text`, {
           method: "POST",
-          body: { text },
+          body: { text: data.text },
         });
       },
       {
@@ -352,12 +354,12 @@ export function useApiService() {
     );
   };
 
-  const uploadWebsite = (chatID: string, url: string) => {
+  const uploadWebsite = () => {
     return useApi(
-      async () => {
-        return await useApiFetch(`/chat/${chatID}/website`, {
+      async (data: { chatID: string; url: string }) => {
+        return await useApiFetch(`/chat/${data.chatID}/website`, {
           method: "POST",
-          body: { url },
+          body: { url: data.url },
         });
       },
       {
@@ -367,30 +369,15 @@ export function useApiService() {
     );
   };
 
-  const updateFile = (chatID: string, filename: string, file: File) => {
+  const deleteFile = () => {
     return useApi(
-      async () => {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        return await useApiFetch(`/chat/${chatID}/files/${filename}`, {
-          method: "PUT",
-          body: formData,
-        });
-      },
-      {
-        showSuccessToast: true,
-        successMessage: "File updated successfully",
-      },
-    );
-  };
-
-  const deleteFile = (chatID: string, filename: string) => {
-    return useApi(
-      async () => {
-        return await useApiFetch(`/chat/${chatID}/files/${filename}`, {
-          method: "DELETE",
-        });
+      async (data: { chatID: string; filename: string }) => {
+        return await useApiFetch(
+          `/chat/${data.chatID}/files/${data.filename}`,
+          {
+            method: "DELETE",
+          },
+        );
       },
       {
         showSuccessToast: true,
@@ -423,10 +410,10 @@ export function useApiService() {
     );
   };
 
-  const deleteTextSource = (chatID: string, id: string) => {
+  const deleteTextSource = () => {
     return useApi(
-      async () => {
-        return await useApiFetch(`/chat/${chatID}/text/${id}`, {
+      async (data: { chatID: string; id: string }) => {
+        return await useApiFetch(`/chat/${data.chatID}/text/${data.id}`, {
           method: "DELETE",
         });
       },
@@ -480,10 +467,10 @@ export function useApiService() {
   const getSubscription = () => {
     return useApi(
       async () => {
-        return await useApiFetch<{ subscription: Subscription | null }>(
-          "/billing/subscription",
-          { method: "GET" },
-        );
+        return await useApiFetch<{
+          subscription: Subscription | null;
+          plan: Plan | null;
+        }>("/billing/subscription", { method: "GET" });
       },
       { errorMessage: "Failed to fetch subscription" },
     );
@@ -522,7 +509,6 @@ export function useApiService() {
     uploadFile,
     uploadText,
     uploadWebsite,
-    updateFile,
     deleteFile,
     listChatFiles,
     listTextSources,

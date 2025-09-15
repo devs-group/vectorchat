@@ -66,7 +66,7 @@ func NewChatService(
 
 // ChatbotCreateRequest represents the request to create a new chatbot
 // Helper function to convert database Chatbot to models.ChatbotResponse
-func (s *ChatService) toChatbotResponse(chatbot *db.Chatbot) *models.ChatbotResponse {
+func (s *ChatService) toChatbotResponse(chatbot *db.Chatbot, aiMessages int64) *models.ChatbotResponse {
 	return &models.ChatbotResponse{
 		ID:                 chatbot.ID,
 		UserID:             chatbot.UserID,
@@ -79,6 +79,7 @@ func (s *ChatService) toChatbotResponse(chatbot *db.Chatbot) *models.ChatbotResp
 		IsEnabled:          chatbot.IsEnabled,
 		CreatedAt:          chatbot.CreatedAt,
 		UpdatedAt:          chatbot.UpdatedAt,
+		AIMessagesAmount:   aiMessages,
 	}
 }
 
@@ -110,7 +111,7 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 		return nil, err
 	}
 
-	return s.toChatbotResponse(chatbot), nil
+	return s.toChatbotResponse(chatbot, 0), nil
 }
 
 // CreateChatbot creates a new chatbot with default settings
@@ -178,8 +179,18 @@ func (s *ChatService) ListChatbotsFormatted(ctx context.Context, userID string) 
 
 	// Format the response
 	var formattedChatbots []models.ChatbotResponse
+	chatbotIDs := make([]uuid.UUID, 0, len(chatbots))
 	for _, chatbot := range chatbots {
-		formattedChatbots = append(formattedChatbots, *s.toChatbotResponse(chatbot))
+		chatbotIDs = append(chatbotIDs, chatbot.ID)
+	}
+
+	counts, err := s.messageRepo.CountAssistantMessagesByChatbotIDs(ctx, chatbotIDs)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to count assistant messages")
+	}
+
+	for _, chatbot := range chatbots {
+		formattedChatbots = append(formattedChatbots, *s.toChatbotResponse(chatbot, counts[chatbot.ID]))
 	}
 
 	return &models.ChatbotsListResponse{
@@ -194,7 +205,12 @@ func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatID, user
 		return nil, err
 	}
 
-	return s.toChatbotResponse(chatbot), nil
+	count, err := s.messageRepo.CountAssistantMessagesByChatbotID(ctx, chatbot.ID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to count assistant messages")
+	}
+
+	return s.toChatbotResponse(chatbot, count), nil
 }
 
 // UpdateChatbotAll updates all chatbot fields in a single operation
@@ -383,7 +399,12 @@ func (s *ChatService) GetChatbotFormatted(ctx context.Context, chatID, userID st
 		return nil, apperrors.ErrChatbotNotFound
 	}
 
-	return s.toChatbotResponse(chatbot), nil
+	count, err := s.messageRepo.CountAssistantMessagesByChatbotID(ctx, chatbotUUID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to count assistant messages")
+	}
+
+	return s.toChatbotResponse(chatbot, count), nil
 }
 
 // ProcessFileUpload validates and stores a new file, similar to ProcessTextUpload
@@ -395,31 +416,6 @@ func (s *ChatService) ProcessFileUpload(ctx context.Context, chatbotID uuid.UUID
 
 	return &models.FileUploadResponse{
 		Message:   "File processed successfully",
-		ChatID:    chatbotID,
-		ChatbotID: chatbotID,
-		File:      f.Filename,
-		Filename:  f.Filename,
-		Size:      size,
-	}, nil
-}
-
-// ProcessFileUpdate handles file update processing
-func (s *ChatService) ProcessFileUpdate(ctx context.Context, chatbotID uuid.UUID, filename string, fileHeader *multipart.FileHeader) (*models.FileUploadResponse, error) {
-	// Find existing file by original filename
-	existing, err := s.fileRepo.FindByChatbotIDAndFilename(ctx, chatbotID, filename)
-	if err == nil && existing != nil {
-		if err := s.DeleteFileSource(ctx, chatbotID, existing.ID.String()); err != nil {
-			return nil, err
-		}
-	}
-
-	f, size, err := s.SaveFile(ctx, chatbotID, fileHeader)
-	if err != nil {
-		return nil, err
-	}
-
-	return &models.FileUploadResponse{
-		Message:   "File updated successfully",
 		ChatID:    chatbotID,
 		ChatbotID: chatbotID,
 		File:      f.Filename,
