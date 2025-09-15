@@ -35,10 +35,10 @@
           message.role === 'user' ? 'justify-end' : 'justify-start',
         ]"
       >
-        <div class="relative">
+        <div>
           <div
             :class="[
-              'max-w-[80%] rounded-lg px-4 py-2',
+              'max-w-[80%] rounded-lg px-4 py-2 mt-2 relative',
               message.role === 'user'
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted',
@@ -55,18 +55,17 @@
             >
               {{ formatDate(message.created_at) }}
             </div>
+
+            <!-- Revise button for assistant messages -->
+            <button
+              v-if="message.role === 'assistant'"
+              class="absolute right-4 -bottom-4 ml-auto text-xs bg-white text-secondary-foreground cursor-pointer px-2 py-1 rounded-md border"
+              @click="openRevisionDrawer(index)"
+              :title="'Revise answer'"
+            >
+              <p class="text-xs">Improve Message</p>
+            </button>
           </div>
-          <!-- Revise button for assistant messages -->
-          <Button
-            v-if="message.role === 'assistant'"
-            class="absolute -right-10 bottom-2 h-7 w-7 p-0"
-            variant="outline"
-            size="icon"
-            @click="openRevisionDrawer(index)"
-            :title="'Revise answer'"
-          >
-            <Pencil :size="14" />
-          </Button>
         </div>
       </div>
     </div>
@@ -96,11 +95,19 @@
         <div class="space-y-4 overflow-auto pr-2">
           <div>
             <Label class="mb-2 block">User message</Label>
-            <Textarea :model-value="selectedPrevUser?.content || ''" disabled rows="3" />
+            <Textarea
+              :model-value="selectedPrevUser?.content || ''"
+              disabled
+              rows="3"
+            />
           </div>
           <div>
-            <Label class="mb-2 block">Bot response</Label>
-            <Textarea :model-value="selectedAssistant?.content || ''" disabled rows="6" />
+            <Label class="mb-2 block">AI response</Label>
+            <Textarea
+              :model-value="selectedAssistant?.content || ''"
+              rows="6"
+              class="max-h-[140px]"
+            />
           </div>
           <div>
             <Label class="mb-2 block">Revised answer</Label>
@@ -114,14 +121,27 @@
 
         <div class="mt-auto flex items-center justify-between gap-2">
           <div>
-            <Button v-if="existingRevision" variant="destructive" @click="handleCancelRevision" :disabled="actionLoading">
+            <Button
+              v-if="existingRevision"
+              variant="destructive"
+              @click="handleCancelRevision"
+              :disabled="actionLoading"
+            >
               Cancel revision
             </Button>
           </div>
           <div class="ml-auto flex gap-2">
-            <Button variant="ghost" @click="drawerOpen = false" :disabled="actionLoading">Close</Button>
-            <Button @click="handleSaveRevision" :disabled="!revisedAnswer || actionLoading">
-              {{ existingRevision ? 'Update Answer' : 'Update Answer' }}
+            <Button
+              variant="ghost"
+              @click="drawerOpen = false"
+              :disabled="actionLoading"
+              >Close</Button
+            >
+            <Button
+              @click="handleSaveRevision"
+              :disabled="!revisedAnswer || actionLoading"
+            >
+              {{ existingRevision ? "Update Answer" : "Update Answer" }}
             </Button>
           </div>
         </div>
@@ -136,7 +156,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Pencil } from "lucide-vue-next";
-import { ref, computed } from 'vue';
+import { ref, computed } from "vue";
 import { useApiService } from "~/composables/useApiService";
 import type { MessageDetails, RevisionResponse } from "~/types/api";
 
@@ -170,58 +190,71 @@ const formatTime = (date: Date) => {
 };
 
 // Revision drawer state
-const drawerOpen = ref(false)
-const selectedAssistantIndex = ref<number | null>(null)
-const selectedAssistant = computed(() => selectedAssistantIndex.value != null ? props.messages?.[selectedAssistantIndex.value] ?? null : null)
+const drawerOpen = ref(false);
+const selectedAssistantIndex = ref<number | null>(null);
+const selectedAssistant = computed(() =>
+  selectedAssistantIndex.value != null
+    ? (props.messages?.[selectedAssistantIndex.value] ?? null)
+    : null,
+);
 const selectedPrevUser = computed(() => {
-  if (selectedAssistantIndex.value == null || !props.messages) return null
+  if (selectedAssistantIndex.value == null || !props.messages) return null;
   for (let i = selectedAssistantIndex.value - 1; i >= 0; i--) {
-    const m = props.messages[i]
-    if (m.role === 'user') return m
+    const m = props.messages[i];
+    if (m.role === "user") return m;
   }
-  return null
-})
+  return null;
+});
 
-const revisedAnswer = ref("")
-const revisionReason = ref("")
-const existingRevision = ref<RevisionResponse | null>(null)
-const actionLoading = ref(false)
+const revisedAnswer = ref("");
+const revisionReason = ref("");
+const existingRevision = ref<RevisionResponse | null>(null);
+const actionLoading = ref(false);
 
-const api = useApiService()
-const { execute: execGetRevisions, data: revisionsData } = api.getRevisions()
-const { execute: execCreateRevision, error: createErr } = api.createRevision()
-const { execute: execUpdateRevision, error: updateErr } = api.updateRevision()
-const { execute: execDeleteRevision, error: deleteErr } = api.deleteRevision()
+const api = useApiService();
+const { execute: execGetRevisions, data: revisionsData } = api.getRevisions();
+const { execute: execCreateRevision, error: createErr } = api.createRevision();
+const { execute: execUpdateRevision, error: updateErr } = api.updateRevision();
+const { execute: execDeleteRevision, error: deleteErr } = api.deleteRevision();
 
 const openRevisionDrawer = async (assistantIndex: number) => {
-  selectedAssistantIndex.value = assistantIndex
-  revisedAnswer.value = props.messages?.[assistantIndex]?.content ?? ""
-  revisionReason.value = ""
-  existingRevision.value = null
+  selectedAssistantIndex.value = assistantIndex;
+  revisedAnswer.value = "";
+  revisionReason.value = "";
+  existingRevision.value = null;
 
   // Try fetch existing revisions for this chatbot and bind if found
-  const chatbotId = props.messages?.[assistantIndex]?.chatbot_id
+  const chatbotId = props.messages?.[assistantIndex]?.chatbot_id;
   if (chatbotId) {
-    await execGetRevisions({ chatbotId })
-    const list = (revisionsData.value as any)?.revisions as RevisionResponse[] | undefined
-    const msgId = props.messages?.[assistantIndex]?.id
+    await execGetRevisions({ chatbotId });
+    const list = (revisionsData.value as any)?.revisions as
+      | RevisionResponse[]
+      | undefined;
+    const msgId = props.messages?.[assistantIndex]?.id;
     if (list && msgId) {
-      const found = list.find(r => r.is_active && r.original_message_id === msgId)
+      const found = list.find(
+        (r) => r.is_active && r.original_message_id === msgId,
+      );
       if (found) {
-        existingRevision.value = found
+        existingRevision.value = found;
         // prefill from existing
-        revisedAnswer.value = found.revised_answer
-        revisionReason.value = found.revision_reason ?? ""
+        revisedAnswer.value = found.revised_answer ?? "";
+        revisionReason.value = found.revision_reason ?? "";
       }
     }
   }
 
-  drawerOpen.value = true
-}
+  drawerOpen.value = true;
+};
 
 const handleSaveRevision = async () => {
-  if (!selectedAssistant.value || !selectedPrevUser.value || !revisedAnswer.value) return
-  actionLoading.value = true
+  if (
+    !selectedAssistant.value ||
+    !selectedPrevUser.value ||
+    !revisedAnswer.value
+  )
+    return;
+  actionLoading.value = true;
   try {
     if (existingRevision.value) {
       await execUpdateRevision({
@@ -230,7 +263,7 @@ const handleSaveRevision = async () => {
           revised_answer: revisedAnswer.value,
           revision_reason: revisionReason.value || undefined,
         },
-      })
+      });
     } else {
       await execCreateRevision({
         chatbot_id: selectedAssistant.value.chatbot_id,
@@ -239,27 +272,27 @@ const handleSaveRevision = async () => {
         original_answer: selectedAssistant.value.content,
         revised_answer: revisedAnswer.value,
         revision_reason: revisionReason.value || undefined,
-      })
+      });
     }
     if (!createErr?.value && !updateErr?.value) {
-      drawerOpen.value = false
+      drawerOpen.value = false;
     }
   } finally {
-    actionLoading.value = false
+    actionLoading.value = false;
   }
-}
+};
 
 const handleCancelRevision = async () => {
-  if (!existingRevision.value) return
-  actionLoading.value = true
+  if (!existingRevision.value) return;
+  actionLoading.value = true;
   try {
-    await execDeleteRevision(existingRevision.value.id)
+    await execDeleteRevision(existingRevision.value.id);
     if (!deleteErr?.value) {
-      existingRevision.value = null
-      drawerOpen.value = false
+      existingRevision.value = null;
+      drawerOpen.value = false;
     }
   } finally {
-    actionLoading.value = false
+    actionLoading.value = false;
   }
-}
+};
 </script>

@@ -42,4 +42,3 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
   </DialogPortal>
   
 </template>
-

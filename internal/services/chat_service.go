@@ -941,14 +941,14 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 		log.Printf("Warning: Failed to check for revised answers: %v", err)
 	}
 
-    if revisedAnswer != nil {
-        slog.Info("revised answer similarity", "similarity", revisedAnswer.Similarity)
-    } else {
-        slog.Info("revised answer similarity", "similarity", 0.0)
-    }
+	if revisedAnswer != nil {
+		slog.Info("revised answer similarity", "similarity", revisedAnswer.Similarity)
+	} else {
+		slog.Info("revised answer similarity", "similarity", 0.0)
+	}
 	// If we have a high-confidence revised answer, use it directly
-    // If we have a high-confidence revised answer, use it directly
-    if revisedAnswer != nil && revisedAnswer.Similarity > 0.95 {
+	// If we have a high-confidence revised answer, use it directly
+	if revisedAnswer != nil && revisedAnswer.Similarity > 0.95 {
 		// Save the revised answer as assistant's response
 		assistantMessage := &db.ChatMessage{
 			ID:        uuid.New(),
@@ -974,8 +974,8 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 	var ragContextBuilder strings.Builder
 
 	// Add revised answer to context if available (but not high confidence)
-    if revisedAnswer != nil && revisedAnswer.Similarity > 0.85 {
-		ragContextBuilder.WriteString("Previous similar question and answer:\n")
+	if revisedAnswer != nil && revisedAnswer.Similarity > 0.80 {
+		ragContextBuilder.WriteString("Note that the previous similar question and answer has been revised! Use this new answer!:\n")
 		ragContextBuilder.WriteString("---------------------\n")
 		ragContextBuilder.WriteString(fmt.Sprintf("Q: %s\n", revisedAnswer.Question))
 		ragContextBuilder.WriteString(fmt.Sprintf("A: %s\n", revisedAnswer.RevisedAnswer))
@@ -992,7 +992,7 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 	}
 
 	// Fetch conversation history
-	const historyLimit = 10
+	const historyLimit = 20
 	history, err := s.messageRepo.FindRecentBySessionID(ctx, currentSessionID, historyLimit)
 	if err != nil {
 		return "", "", apperrors.Wrap(err, "failed to fetch conversation history")
@@ -1049,17 +1049,16 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 
 // checkForRevisedAnswer looks for similar questions that have been revised by admins
 func (s *ChatService) checkForRevisedAnswer(ctx context.Context, queryEmbedding []float32, chatbotID uuid.UUID, query string) (*db.AnswerRevisionWithEmbedding, error) {
-    // Look for highly similar revised answers via vector search
-    revisions, err := s.revisionRepo.FindSimilarRevisions(ctx, queryEmbedding, chatbotID, 0.85, 1)
-    if err != nil {
-        return nil, err
-    }
-    if len(revisions) > 0 {
-        return revisions[0], nil
-    }
-    return nil, nil
+	// Look for highly similar revised answers via vector search
+	revisions, err := s.revisionRepo.FindSimilarRevisions(ctx, queryEmbedding, chatbotID, 0.85, 1)
+	if err != nil {
+		return nil, err
+	}
+	if len(revisions) > 0 {
+		return revisions[0], nil
+	}
+	return nil, nil
 }
-
 
 // CreateAnswerRevision creates a new answer revision for admin corrections
 func (s *ChatService) CreateAnswerRevision(ctx context.Context, req *models.CreateRevisionRequest) (*db.AnswerRevision, error) {
