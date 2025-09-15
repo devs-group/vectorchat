@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"log/slog"
 	"mime/multipart"
 	"net/url"
 	"os"
@@ -940,8 +941,14 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 		log.Printf("Warning: Failed to check for revised answers: %v", err)
 	}
 
+    if revisedAnswer != nil {
+        slog.Info("revised answer similarity", "similarity", revisedAnswer.Similarity)
+    } else {
+        slog.Info("revised answer similarity", "similarity", 0.0)
+    }
 	// If we have a high-confidence revised answer, use it directly
-	if revisedAnswer != nil && revisedAnswer.Similarity > 0.95 {
+    // If we have a high-confidence revised answer, use it directly
+    if revisedAnswer != nil && revisedAnswer.Similarity > 0.95 {
 		// Save the revised answer as assistant's response
 		assistantMessage := &db.ChatMessage{
 			ID:        uuid.New(),
@@ -967,7 +974,7 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 	var ragContextBuilder strings.Builder
 
 	// Add revised answer to context if available (but not high confidence)
-	if revisedAnswer != nil && revisedAnswer.Similarity > 0.85 {
+    if revisedAnswer != nil && revisedAnswer.Similarity > 0.85 {
 		ragContextBuilder.WriteString("Previous similar question and answer:\n")
 		ragContextBuilder.WriteString("---------------------\n")
 		ragContextBuilder.WriteString(fmt.Sprintf("Q: %s\n", revisedAnswer.Question))
@@ -1042,18 +1049,17 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatID, userID, query
 
 // checkForRevisedAnswer looks for similar questions that have been revised by admins
 func (s *ChatService) checkForRevisedAnswer(ctx context.Context, queryEmbedding []float32, chatbotID uuid.UUID, query string) (*db.AnswerRevisionWithEmbedding, error) {
-	// Look for highly similar revised answers (threshold: 0.85)
-	revisions, err := s.revisionRepo.FindSimilarRevisions(ctx, queryEmbedding, chatbotID, 0.85, 1)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(revisions) > 0 {
-		return revisions[0], nil
-	}
-
-	return nil, nil
+    // Look for highly similar revised answers via vector search
+    revisions, err := s.revisionRepo.FindSimilarRevisions(ctx, queryEmbedding, chatbotID, 0.85, 1)
+    if err != nil {
+        return nil, err
+    }
+    if len(revisions) > 0 {
+        return revisions[0], nil
+    }
+    return nil, nil
 }
+
 
 // CreateAnswerRevision creates a new answer revision for admin corrections
 func (s *ChatService) CreateAnswerRevision(ctx context.Context, req *models.CreateRevisionRequest) (*db.AnswerRevision, error) {
@@ -1157,7 +1163,7 @@ func (s *ChatService) UpdateRevision(ctx context.Context, revisionID uuid.UUID, 
 
 // DeactivateRevision deactivates a revision (soft delete)
 func (s *ChatService) DeactivateRevision(ctx context.Context, revisionID uuid.UUID) error {
-    return s.revisionRepo.DeactivateRevision(ctx, revisionID)
+	return s.revisionRepo.DeactivateRevision(ctx, revisionID)
 }
 
 // chunkText splits text into chunks of the given size
@@ -1175,37 +1181,37 @@ func chunkText(text string, size int) []string {
 
 // intPtr returns a pointer to the given int
 func intPtr(i int) *int {
-    return &i
+	return &i
 }
 
 // GetConversationMessages returns all messages in a session for a chatbot, verifying ownership and session mapping
 func (s *ChatService) GetConversationMessages(ctx context.Context, chatbotID uuid.UUID, sessionID uuid.UUID) ([]models.MessageDetails, error) {
-    // Fetch one message to validate session belongs to chatbot
-    msgs, err := s.messageRepo.FindRecentBySessionID(ctx, sessionID, 1)
-    if err != nil {
-        return nil, err
-    }
-    if len(msgs) > 0 {
-        if msgs[0].ChatbotID != chatbotID {
-            return nil, apperrors.ErrUnauthorizedChatbotAccess
-        }
-    }
+	// Fetch one message to validate session belongs to chatbot
+	msgs, err := s.messageRepo.FindRecentBySessionID(ctx, sessionID, 1)
+	if err != nil {
+		return nil, err
+	}
+	if len(msgs) > 0 {
+		if msgs[0].ChatbotID != chatbotID {
+			return nil, apperrors.ErrUnauthorizedChatbotAccess
+		}
+	}
 
-    // Fetch all messages chronologically
-    all, err := s.messageRepo.FindAllBySessionID(ctx, sessionID)
-    if err != nil {
-        return nil, err
-    }
+	// Fetch all messages chronologically
+	all, err := s.messageRepo.FindAllBySessionID(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
 
-    out := make([]models.MessageDetails, 0, len(all))
-    for _, m := range all {
-        out = append(out, models.MessageDetails{
-            ID:        m.ID,
-            ChatbotID: m.ChatbotID,
-            Role:      m.Role,
-            Content:   m.Content,
-            CreatedAt: m.CreatedAt,
-        })
-    }
-    return out, nil
+	out := make([]models.MessageDetails, 0, len(all))
+	for _, m := range all {
+		out = append(out, models.MessageDetails{
+			ID:        m.ID,
+			ChatbotID: m.ChatbotID,
+			Role:      m.Role,
+			Content:   m.Content,
+			CreatedAt: m.CreatedAt,
+		})
+	}
+	return out, nil
 }

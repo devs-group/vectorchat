@@ -127,7 +127,7 @@
               <span
                 v-if="isIndexingWebsite"
                 class="text-xs text-muted-foreground"
-                >This may take a minute</span
+                >This may take a moment</span
               >
             </div>
             <div

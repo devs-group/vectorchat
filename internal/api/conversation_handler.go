@@ -196,7 +196,7 @@ func (h *ConversationHandler) GetRevisions(c *fiber.Ctx) error {
 	includeInactive := c.Query("includeInactive") == "true"
 
 	// Get user ID from context
-	userID, ok := c.Locals("userID").(string)
+	user, ok := c.Locals("user").(*db.User)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "User not authenticated",
@@ -204,7 +204,7 @@ func (h *ConversationHandler) GetRevisions(c *fiber.Ctx) error {
 	}
 
 	// Verify the user owns this chatbot
-	isOwner, err := h.chatService.CheckChatbotOwnership(c.Context(), chatbotID, userID)
+	isOwner, err := h.chatService.CheckChatbotOwnership(c.Context(), chatbotID, user.ID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to verify ownership",
@@ -270,7 +270,7 @@ func (h *ConversationHandler) CreateRevision(c *fiber.Ctx) error {
 	}
 
 	// Get user ID from context
-	userID, ok := c.Locals("userID").(string)
+	user, ok := c.Locals("user").(*db.User)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "User not authenticated",
@@ -278,10 +278,10 @@ func (h *ConversationHandler) CreateRevision(c *fiber.Ctx) error {
 	}
 
 	// Set the revised_by field to the current user
-	req.RevisedBy = userID
+	req.RevisedBy = user.ID
 
 	// Verify the user owns this chatbot
-	isOwner, err := h.chatService.CheckChatbotOwnership(c.Context(), req.ChatbotID, userID)
+	isOwner, err := h.chatService.CheckChatbotOwnership(c.Context(), req.ChatbotID, user.ID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to verify ownership",

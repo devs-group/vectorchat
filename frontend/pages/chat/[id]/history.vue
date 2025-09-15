@@ -17,8 +17,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
-import ConversationList from "../components/ConversationList.vue";
-import ConversationDetail from "../components/ConversationDetail.vue";
+import ConversationList from "./components/ConversationList.vue";
+import ConversationDetail from "./components/ConversationDetail.vue";
 import { useRoute } from "vue-router";
 import { useApiService } from "~/composables/useApiService";
 

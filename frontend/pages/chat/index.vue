@@ -263,29 +263,15 @@ const showDeleteConfirmation = (chatId: string) => {
   showDeleteDialog.value = true;
 };
 
+const { execute: executeDelete } = apiService.deleteChatbot();
+
 // Delete chat
 const deleteChat = async () => {
   if (!chatToDelete.value) return;
-
-  try {
-    const { execute: executeDelete } = apiService.deleteChatbot(
-      chatToDelete.value,
-    );
-    await executeDelete();
-
-    // Refresh the chatbots list
-    await listChatbots();
-
-    toast.success("Chatbot deleted successfully");
-  } catch (error) {
-    console.error("Error deleting chatbot:", error);
-    toast.error("Failed to delete chatbot", {
-      description: (error as Error)?.message || "An error occurred",
-    });
-  } finally {
-    showDeleteDialog.value = false;
-    chatToDelete.value = null;
-  }
+  await executeDelete(chatToDelete.value);
+  await listChatbots();
+  showDeleteDialog.value = false;
+  chatToDelete.value = null;
 };
 
 // Cancel delete

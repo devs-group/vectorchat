@@ -47,7 +47,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from "vue";
 import ChatbotForm from "../components/ChatbotForm.vue";
-import KnowledgeBase from "../components/KnowledgeBase.vue";
+import KnowledgeBase from "./components/KnowledgeBase.vue";
 import { Switch } from "@/components/ui/switch";
 import type { ChatbotResponse } from "~/types/api";
 import { useRoute, useRouter } from "vue-router";

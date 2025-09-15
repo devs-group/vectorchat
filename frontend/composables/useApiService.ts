@@ -102,7 +102,7 @@ export function useApiService() {
   // Chat endpoints
   const createChatbot = () => {
     return useApi(
-      async (chatbotData: {
+      async (data: {
         name: string;
         description: string;
         model_name: string;
@@ -112,7 +112,7 @@ export function useApiService() {
       }) => {
         return await useApiFetch("/chat/chatbot", {
           method: "POST",
-          body: chatbotData,
+          body: data,
         });
       },
       {
@@ -149,6 +149,62 @@ export function useApiService() {
         });
       },
       { errorMessage: "Failed to fetch conversation messages" },
+    );
+  };
+
+  // Revisions endpoints
+  const getRevisions = () => {
+    return useApi(
+      async (data: { chatbotId: string; includeInactive?: boolean }) => {
+        const params = new URLSearchParams();
+        if (data.includeInactive) params.set("includeInactive", "true");
+        return await useApiFetch<import("~/types/api").RevisionsListResponse>(
+          `/conversation/revisions/${data.chatbotId}${params.toString() ? `?${params.toString()}` : ""}`,
+          { method: "GET" },
+        );
+      },
+      { errorMessage: "Failed to fetch revisions" },
+    );
+  };
+
+  const createRevision = () => {
+    return useApi(
+      async (req: import("~/types/api").CreateRevisionRequest) => {
+        return await useApiFetch<import("~/types/api").RevisionResponse>(
+          "/conversation/revisions",
+          {
+            method: "POST",
+            body: req,
+          },
+        );
+      },
+      { showSuccessToast: true, successMessage: "Revision saved" },
+    );
+  };
+
+  const updateRevision = () => {
+    return useApi(
+      async (data: {
+        revisionId: string;
+        body: import("~/types/api").UpdateRevisionRequest;
+      }) => {
+        return await useApiFetch(`/conversation/revisions/${data.revisionId}`, {
+          method: "PUT",
+          body: data.body,
+        });
+      },
+      { showSuccessToast: true, successMessage: "Revision updated" },
+    );
+  };
+
+  const deleteRevision = () => {
+    return useApi(
+      async (revisionId: string) => {
+        return await useApiFetch(`/conversation/revisions/${revisionId}`, {
+          method: "DELETE",
+        });
+      },
+      { showSuccessToast: true, successMessage: "Revision canceled" },
     );
   };
 
@@ -229,9 +285,9 @@ export function useApiService() {
     );
   };
 
-  const deleteChatbot = (chatbotId: string) => {
+  const deleteChatbot = () => {
     return useApi(
-      async () => {
+      async (chatbotId: string) => {
         return await useApiFetch(`/chat/chatbot/${chatbotId}`, {
           method: "DELETE",
         });
@@ -475,6 +531,10 @@ export function useApiService() {
     // Conversations
     listConversations,
     getConversationMessages,
+    getRevisions,
+    createRevision,
+    updateRevision,
+    deleteRevision,
 
     // Health
     healthCheck,

@@ -171,3 +171,39 @@ export interface ConversationsResponse {
   limit: number;
   offset: number;
 }
+
+// Revisions
+export interface CreateRevisionRequest {
+  chatbot_id: string;
+  original_message_id?: string;
+  question: string;
+  original_answer: string;
+  revised_answer: string;
+  revision_reason?: string | null;
+}
+
+export interface UpdateRevisionRequest {
+  question?: string;
+  revised_answer?: string;
+  revision_reason?: string | null;
+  is_active?: boolean;
+}
+
+export interface RevisionResponse {
+  id: string;
+  chatbot_id: string;
+  original_message_id?: string | null;
+  question: string;
+  original_answer: string;
+  revised_answer: string;
+  revision_reason?: string | null;
+  revised_by: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+  similarity?: number;
+}
+
+export interface RevisionsListResponse {
+  revisions: RevisionResponse[];
+}
