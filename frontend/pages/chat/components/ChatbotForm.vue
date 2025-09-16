@@ -125,6 +125,11 @@ const models = [
     name: "GPT-4",
     hint: "Most capable, best for complex tasks",
   },
+  {
+    id: "gpt-5-instant",
+    name: "GPT-5 Instant",
+    hint: "Latest generation, optimized for rapid responses",
+  },
   { id: "gpt-4o", name: "GPT-4o", hint: "Fast multimodal reasoning" },
   { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", hint: "Great speed & value" },
 ];
