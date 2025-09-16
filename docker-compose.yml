@@ -27,6 +27,7 @@ services:
     environment:
       - PG_CONNECTION_STRING=postgres://postgres:postgres@postgres:5432/vectordb?sslmode=disable
       - OPENAI_API_KEY
+      - CRAWLER_API_URL=http://crawl4ai:11235
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,6 +76,14 @@ services:
       - ./pgadmin4/pgpass:/pgadmin4/pgpass
     depends_on:
       - postgres
+    networks:
+      - vectorchat-network
+
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    container_name: vectorchat-crawl4ai
+    ports:
+      - "11235:11235"
     networks:
       - vectorchat-network
 

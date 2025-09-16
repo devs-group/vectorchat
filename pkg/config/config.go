@@ -10,4 +10,5 @@ type AppConfig struct {
 	IsSSL          bool   `env:"IS_SSL" envDefault:"false"`
 	MigrationsPath string `env:"MIGRATIONS_PATH" envRequired:"true"`
 	FrontendURL    string `env:"FRONTEND_URL" envRequired:"true"`
+	CrawlerAPIURL  string `env:"CRAWLER_API_URL" envDefault:"http://localhost:11235"`
 }

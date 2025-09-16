@@ -2,15 +2,19 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"log/slog"
 	"mime/multipart"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,15 +31,17 @@ import (
 // ChatService handles chat interactions with context from vector database
 type ChatService struct {
 	*CommonService
-	chatbotRepo  *db.ChatbotRepository
-	documentRepo *db.DocumentRepository
-	fileRepo     *db.FileRepository
-	messageRepo  *db.ChatMessageRepository
-	revisionRepo *db.RevisionRepository
-	vectorizer   vectorize.Vectorizer
-	openaiKey    string
-	db           *db.Database
-	uploadsDir   string
+	chatbotRepo     *db.ChatbotRepository
+	documentRepo    *db.DocumentRepository
+	fileRepo        *db.FileRepository
+	messageRepo     *db.ChatMessageRepository
+	revisionRepo    *db.RevisionRepository
+	vectorizer      vectorize.Vectorizer
+	openaiKey       string
+	db              *db.Database
+	uploadsDir      string
+	webCrawler      crawler.WebCrawler
+	crawlerDisabled atomic.Bool
 }
 
 // NewChatService creates a new chat service
@@ -46,6 +52,7 @@ func NewChatService(
 	messageRepo *db.ChatMessageRepository,
 	revisionRepo *db.RevisionRepository,
 	vectorizer vectorize.Vectorizer,
+	webCrawler crawler.WebCrawler,
 	openaiKey string,
 	db *db.Database,
 	uploadsDir string,
@@ -58,6 +65,7 @@ func NewChatService(
 		messageRepo:   messageRepo,
 		revisionRepo:  revisionRepo,
 		vectorizer:    vectorizer,
+		webCrawler:    webCrawler,
 		openaiKey:     openaiKey,
 		db:            db,
 		uploadsDir:    uploadsDir,
@@ -693,7 +701,7 @@ func (s *ChatService) AddWebsite(ctx context.Context, chatbotID uuid.UUID, rootU
 	}
 
 	// Run a small crawl
-	pages, err := crawler.CrawlWebsite(ctx, rootURL, crawler.Options{MaxPages: 25, MaxDepth: 2, Timeout: 40 * time.Second})
+	pages, err := s.crawlWebsite(ctx, rootURL, crawler.Options{MaxPages: 25, MaxDepth: 2, Timeout: 40 * time.Second})
 	if err != nil {
 		return apperrors.Wrap(err, "failed to crawl website")
 	}
@@ -736,6 +744,32 @@ func (s *ChatService) AddWebsite(ctx context.Context, chatbotID uuid.UUID, rootU
 		return apperrors.Wrap(err, "failed to commit website indexing")
 	}
 	return nil
+}
+
+// crawlWebsite obtains markdown for a root URL using crawl4ai when available and
+// falls back to the built-in crawler if the external service fails or yields no content.
+func (s *ChatService) crawlWebsite(ctx context.Context, rootURL string, opts crawler.Options) ([]crawler.Page, error) {
+	if s.webCrawler != nil && !s.crawlerDisabled.Load() {
+		pages, err := s.webCrawler.Crawl(ctx, rootURL, opts)
+		if err == nil && len(pages) > 0 {
+			return pages, nil
+		}
+		if err != nil {
+			disable := false
+			var opErr *net.OpError
+			if errors.As(err, &opErr) {
+				disable = errors.Is(opErr.Err, syscall.ECONNREFUSED)
+			}
+			if disable && s.crawlerDisabled.CompareAndSwap(false, true) {
+				slog.Info("crawl4ai unavailable; disabling external crawler", "url", rootURL, "error", err, "hint", "start crawl4ai or update CRAWLER_API_URL")
+			} else {
+				slog.Warn("crawl4ai crawl failed; using fallback crawler", "error", err, "url", rootURL)
+			}
+		} else {
+			slog.Warn("crawl4ai returned no pages; using fallback crawler", "url", rootURL)
+		}
+	}
+	return crawler.CrawlWebsite(ctx, rootURL, opts)
 }
 
 // ParseURL is a helper to parse URL strings (minimal wrapper)

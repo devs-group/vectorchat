@@ -21,6 +21,7 @@ import (
 	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
 	swaggerDocs "github.com/yourusername/vectorchat/docs"
 	"github.com/yourusername/vectorchat/internal/api"
+	"github.com/yourusername/vectorchat/internal/crawler"
 	"github.com/yourusername/vectorchat/internal/db"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
@@ -130,6 +131,12 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
 
+	// Initialize crawl4ai client (optional)
+	webCrawler, err := crawler.NewAPIClient(appCfg.CrawlerAPIURL, nil)
+	if err != nil {
+		logger.Warn("failed to initialize crawl4ai client; falling back to built-in crawler", "error", err)
+	}
+
 	// Initialize repositories
 	repos := db.NewRepositories(pool)
 
@@ -141,7 +148,7 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Initialize services
 	authService := services.NewAuthService(repos.User, repos.APIKey)
-	chatService := services.NewChatService(repos.Chat, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, openaiKey, pool, uploadsDir)
+	chatService := services.NewChatService(repos.Chat, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, webCrawler, openaiKey, pool, uploadsDir)
 	apiKeyService := services.NewAPIKeyService(repos.APIKey)
 	commonService := services.NewCommonService()
 
