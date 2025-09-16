@@ -69,6 +69,29 @@ func (c *APIClient) Crawl(ctx context.Context, root string, opts Options) ([]Pag
 		"output": "markdown",
 	}
 
+	payload["browser_config"] = map[string]any{
+		"type": "BrowserConfig",
+		"params": map[string]any{
+			"headless":   true,
+			"text_mode":  true,
+			"light_mode": true,
+			"verbose":    false,
+		},
+	}
+
+	payload["crawler_config"] = map[string]any{
+		"type": "CrawlerRunConfig",
+		"params": map[string]any{
+			"stream":                 true,
+			"cache_mode":             "ENABLED",
+			"screenshot":             false,
+			"pdf":                    false,
+			"capture_mhtml":          false,
+			"excluded_tags":          []string{"script", "style", "noscript"},
+			"exclude_external_links": true,
+		},
+	}
+
 	if opts.MaxDepth > 0 {
 		payload["max_depth"] = opts.MaxDepth
 	}
