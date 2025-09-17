@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/yourusername/vectorchat/internal/db"
+	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/pkg/models"
@@ -35,6 +36,7 @@ func (h *ConversationHandler) RegisterRoutes(app *fiber.App) {
 	// Conversation management
 	conversation.Get("/conversations/:chatbotID", h.GetConversations)
 	conversation.Get("/conversations/:chatbotID/:sessionID", h.GetConversationMessages)
+	conversation.Delete("/conversations/:chatbotID/:sessionID", h.DeleteConversation)
 
 	// Revision management
 	conversation.Get("/revisions/:chatbotID", h.GetRevisions)
@@ -177,6 +179,62 @@ func (h *ConversationHandler) GetConversationMessages(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"messages": msgs})
+}
+
+// DeleteConversation removes a conversation session and its messages
+// @Summary Delete conversation session
+// @Description Deletes all messages for a conversation session belonging to the chatbot
+// @Tags conversation
+// @Accept json
+// @Produce json
+// @Param chatbotID path string true "Chatbot ID"
+// @Param sessionID path string true "Session ID"
+// @Success 204 {null} nil
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 403 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security ApiKeyAuth
+// @Router /conversation/conversations/{chatbotID}/{sessionID} [delete]
+func (h *ConversationHandler) DeleteConversation(c *fiber.Ctx) error {
+	chatbotIDStr := c.Params("chatbotID")
+	sessionIDStr := c.Params("sessionID")
+
+	chatbotID, err := uuid.Parse(chatbotIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid chatbot ID format"})
+	}
+	sessionID, err := uuid.Parse(sessionIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid session ID format"})
+	}
+
+	user, ok := c.Locals("user").(*db.User)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
+	}
+
+	isOwner, err := h.chatService.CheckChatbotOwnership(c.Context(), chatbotID, user.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify ownership"})
+	}
+	if !isOwner {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You don't have access to this chatbot"})
+	}
+
+	if err := h.chatService.DeleteConversation(c.Context(), chatbotID, sessionID); err != nil {
+		switch {
+		case apperrors.Is(err, apperrors.ErrUnauthorizedChatbotAccess):
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You don't have access to this conversation"})
+		case apperrors.Is(err, apperrors.ErrNotFound):
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Conversation not found"})
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete conversation"})
+		}
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // GetRevisions retrieves all revisions for a chatbot

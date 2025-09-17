@@ -14,9 +14,20 @@
                 {{ getConversationPreview(conversation) }}
               </p>
             </div>
-            <time class="text-xs text-muted-foreground ml-2 whitespace-nowrap">
-              {{ formatRelativeTime(conversation.first_message_at) }}
-            </time>
+            <div class="flex items-center gap-3">
+              <time class="text-xs text-muted-foreground whitespace-nowrap">
+                {{ formatRelativeTime(conversation.first_message_at) }}
+              </time>
+              <button
+                type="button"
+                class="text-destructive hover:text-destructive/80"
+                @click.stop="onDelete(conversation.session_id)"
+                aria-label="Delete conversation"
+                title="Delete conversation"
+              >
+                <IconTrash class="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -88,6 +99,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import IconMessageSquareLines from "@/components/icons/IconMessageSquareLines.vue";
+import IconTrash from "@/components/icons/IconTrash.vue";
 import type {
   ConversationListItemResponse,
   ConversationPaginationResponse,
@@ -103,6 +115,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   select: [sessionId: string];
   "page-change": [page: number];
+  delete: [sessionId: string];
 }>();
 
 const DEFAULT_ITEMS_PER_PAGE = 20;
@@ -143,6 +156,10 @@ const shouldShowPagination = computed(
 
 const onPageChange = (page: number) => {
   emit("page-change", page);
+};
+
+const onDelete = (sessionId: string) => {
+  emit("delete", sessionId);
 };
 
 const getConversationPreview = (conversation: ConversationListItemResponse) => {

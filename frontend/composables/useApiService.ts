@@ -171,6 +171,22 @@ export function useApiService() {
     );
   };
 
+  const deleteConversation = () => {
+    return useApi(
+      async (data: { chatbotId: string; sessionId: string }) => {
+        return await useApiFetch(
+          `/conversation/conversations/${data.chatbotId}/${data.sessionId}`,
+          { method: "DELETE" },
+        );
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Conversation deleted",
+        errorMessage: "Failed to delete conversation",
+      },
+    );
+  };
+
   // Revisions endpoints
   const getRevisions = () => {
     return useApi(
@@ -663,6 +679,7 @@ export function useApiService() {
     // Conversations
     listConversations,
     getConversationMessages,
+    deleteConversation,
     getRevisions,
     createRevision,
     updateRevision,

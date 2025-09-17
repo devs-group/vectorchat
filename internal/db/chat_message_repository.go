@@ -85,6 +85,22 @@ func (r *ChatMessageRepository) FindAllBySessionID(ctx context.Context, sessionI
 	return messages, nil
 }
 
+// DeleteByChatbotAndSessionID removes all messages for the given chatbot and session.
+func (r *ChatMessageRepository) DeleteByChatbotAndSessionID(ctx context.Context, chatbotID, sessionID uuid.UUID) (int64, error) {
+	query := `DELETE FROM chat_messages WHERE chatbot_id = $1 AND session_id = $2`
+	result, err := r.db.ExecContext(ctx, query, chatbotID, sessionID)
+	if err != nil {
+		return 0, err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return rows, nil
+}
+
 // CountAssistantMessagesByChatbotID returns the number of assistant messages for a chatbot.
 func (r *ChatMessageRepository) CountAssistantMessagesByChatbotID(ctx context.Context, chatbotID uuid.UUID) (int64, error) {
 	var count int64

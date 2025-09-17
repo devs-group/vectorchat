@@ -1247,6 +1247,31 @@ func (s *ChatService) GetConversations(ctx context.Context, chatbotID uuid.UUID,
 	return &response, nil
 }
 
+// DeleteConversation removes all messages associated with a session if it belongs to the chatbot.
+func (s *ChatService) DeleteConversation(ctx context.Context, chatbotID, sessionID uuid.UUID) error {
+	msgs, err := s.messageRepo.FindRecentBySessionID(ctx, sessionID, 1)
+	if err != nil {
+		return err
+	}
+	if len(msgs) == 0 {
+		return apperrors.ErrNotFound
+	}
+
+	if msgs[0].ChatbotID != chatbotID {
+		return apperrors.ErrUnauthorizedChatbotAccess
+	}
+
+	rows, err := s.messageRepo.DeleteByChatbotAndSessionID(ctx, chatbotID, sessionID)
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return apperrors.ErrNotFound
+	}
+
+	return nil
+}
+
 // GetRevisions retrieves all revisions for a chatbot
 func (s *ChatService) GetRevisions(ctx context.Context, chatbotID uuid.UUID, includeInactive bool) ([]*db.AnswerRevision, error) {
 	return s.revisionRepo.GetRevisionsByChat(ctx, chatbotID, includeInactive)
