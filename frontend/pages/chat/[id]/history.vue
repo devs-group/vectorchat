@@ -16,7 +16,9 @@
         </div>
         <ConversationList
           :conversations="conversations?.conversations ?? null"
+          :pagination="conversations?.pagination ?? null"
           @select="selectConversation"
+          @page-change="handlePageChange"
         />
       </div>
       <ConversationDetail
@@ -42,6 +44,7 @@ const chatId = computed(() => route.params.id as string);
 
 // State
 const selectedConversationId = ref<string | null>(null);
+const ITEMS_PER_PAGE = 20;
 const { listConversations, getConversationMessages } = useApiService();
 
 const {
@@ -56,12 +59,21 @@ const {
   execute: fetchMessages,
 } = getConversationMessages();
 
-onMounted(async () => {
+const currentPage = computed(() => {
+  return conversations.value?.pagination.page ?? 1;
+});
+
+const loadConversations = async (page = 1) => {
+  const safePage = page < 1 ? 1 : page;
   await fetchConversationsList({
     chatbotId: chatId.value,
-    limit: 20,
-    offset: 0,
+    limit: ITEMS_PER_PAGE,
+    page: safePage,
   });
+};
+
+onMounted(async () => {
+  await loadConversations();
 });
 
 // Methods
@@ -74,11 +86,17 @@ const handleBack = () => {
 };
 
 const refreshConversations = async () => {
-  await fetchConversationsList({
-    chatbotId: chatId.value,
-    limit: 20,
-    offset: 0,
-  });
+  await loadConversations(currentPage.value);
+};
+
+watch(chatId, async (newId, oldId) => {
+  if (!newId || newId === oldId) return;
+  selectedConversationId.value = null;
+  await loadConversations();
+});
+
+const handlePageChange = async (page: number) => {
+  await loadConversations(page);
 };
 
 // Watch for selection and load messages on-demand

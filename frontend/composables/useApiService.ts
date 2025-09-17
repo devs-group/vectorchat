@@ -132,13 +132,25 @@ export function useApiService() {
   // Conversations endpoints
   const listConversations = () => {
     return useApi(
-      async (data: { chatbotId: string; limit: number; offset: number }) => {
-        const params = new URLSearchParams({
-          limit: String(data.limit),
-          offset: String(data.offset),
-        });
+      async (data: {
+        chatbotId: string;
+        page?: number;
+        limit?: number;
+        offset?: number;
+      }) => {
+        const params = new URLSearchParams();
+        if (data.limit !== undefined) params.set("limit", String(data.limit));
+        if (data.page !== undefined) {
+          params.set("page", String(data.page));
+        } else if (data.offset !== undefined) {
+          params.set("offset", String(data.offset));
+        }
+
+        const query = params.toString();
         return await useApiFetch<ConversationsResponse>(
-          `/conversation/conversations/${data.chatbotId}?${params.toString()}`,
+          `/conversation/conversations/${data.chatbotId}${
+            query ? `?${query}` : ""
+          }`,
           { method: "GET" },
         );
       },

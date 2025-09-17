@@ -71,6 +71,7 @@ func (h *ConversationHandler) GetConversations(c *fiber.Ctx) error {
 	// Get pagination parameters
 	limit := 20
 	offset := 0
+	requestedPage := 0
 
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
@@ -82,6 +83,16 @@ func (h *ConversationHandler) GetConversations(c *fiber.Ctx) error {
 		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
 			offset = o
 		}
+	}
+
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			requestedPage = p
+		}
+	}
+
+	if requestedPage > 0 {
+		offset = (requestedPage - 1) * limit
 	}
 
 	// Get user ID from context (set by auth middleware)

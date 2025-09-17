@@ -166,11 +166,24 @@ export interface ConversationListItemResponse {
   last_message_at: string;
 }
 
+export interface ConversationPaginationResponse {
+  page: number;
+  per_page: number;
+  total_items: number;
+  total_pages: number;
+  has_next_page: boolean;
+  has_prev_page: boolean;
+  offset: number;
+  requested_offset?: number;
+  next_page?: number;
+  prev_page?: number;
+  next_offset?: number;
+  prev_offset?: number;
+}
+
 export interface ConversationsResponse {
   conversations: ConversationListItemResponse[];
-  total: number;
-  limit: number;
-  offset: number;
+  pagination: ConversationPaginationResponse;
 }
 
 // Revisions

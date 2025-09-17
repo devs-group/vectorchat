@@ -1,43 +1,29 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import IconSpinner from '@/components/icons/IconSpinner.vue'
+import type { PrimitiveProps } from "reka-ui"
+import type { HTMLAttributes } from "vue"
+import type { ButtonVariants } from "."
+import { Primitive } from "reka-ui"
+import { cn } from "@/lib/utils"
+import { buttonVariants } from "."
 
-const props = withDefaults(defineProps<{
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
-  size?: 'default' | 'sm' | 'lg' | 'icon'
-  loading?: boolean
-}>(), {
-  variant: 'default',
-  size: 'default',
-  loading: false
-})
+interface Props extends PrimitiveProps {
+  variant?: ButtonVariants["variant"]
+  size?: ButtonVariants["size"]
+  class?: HTMLAttributes["class"]
+}
 
-const classes = computed(() => {
-  return [
-    'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
-    {
-      'bg-primary text-primary-foreground hover:bg-primary/90': props.variant === 'default',
-      'bg-destructive text-destructive-foreground hover:bg-destructive/90': props.variant === 'destructive',
-      'border border-input bg-background hover:bg-accent hover:text-accent-foreground': props.variant === 'outline',
-      'bg-secondary text-secondary-foreground hover:bg-secondary/80': props.variant === 'secondary',
-      'hover:bg-accent hover:text-accent-foreground': props.variant === 'ghost',
-      'text-primary underline-offset-4 hover:underline': props.variant === 'link',
-      'h-10 px-4 py-2': props.size === 'default',
-      'h-9 rounded-md px-3': props.size === 'sm',
-      'h-11 rounded-md px-8': props.size === 'lg',
-      'h-10 w-10': props.size === 'icon',
-    }
-  ]
+const props = withDefaults(defineProps<Props>(), {
+  as: "button",
 })
 </script>
 
 <template>
-  <button
-    :class="classes"
-    :disabled="loading"
-    v-bind="$attrs"
+  <Primitive
+    data-slot="button"
+    :as="as"
+    :as-child="asChild"
+    :class="cn(buttonVariants({ variant, size }), props.class)"
   >
-    <IconSpinner v-if="loading" class="mr-2 h-4 w-4 animate-spin" />
     <slot />
-  </button>
+  </Primitive>
 </template>

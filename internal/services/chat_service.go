@@ -1155,37 +1155,95 @@ func (s *ChatService) GetConversations(ctx context.Context, chatbotID uuid.UUID,
 		offset = 0
 	}
 
-	// Get basic conversation info
-	conversations, err := s.revisionRepo.GetConversations(ctx, chatbotID, limit, offset)
+	total, err := s.revisionRepo.GetTotalConversationsCount(ctx, chatbotID)
 	if err != nil {
 		return nil, err
 	}
 
-	// For each conversation, get the first message
-	var response models.ConversationsResponse
-	response.Converstations = make([]models.ConversationResponse, 0, len(conversations))
-	for _, conv := range conversations {
-		// Get first message
-		messages, err := s.messageRepo.FindLastBySessionID(ctx, conv.SessionID, 1)
-		if err != nil {
-			return nil, err
-		}
-		if len(messages) > 0 {
-			firstMessage := messages[0]
-			response.Converstations = append(response.Converstations, models.ConversationResponse{
-				SessionID:            conv.SessionID,
-				FirstMesssageContent: firstMessage.Content,
-				FirstMessageAt:       conv.FirstMessageAt,
-				LastMessageAt:        conv.LastMessageAt,
-			})
+	requestedOffset := offset
+	effectiveOffset := offset
+	if total == 0 {
+		effectiveOffset = 0
+	} else if limit > 0 {
+		maxPageIndex := int((total - 1) / int64(limit))
+		maxOffset := maxPageIndex * limit
+		if effectiveOffset > maxOffset {
+			effectiveOffset = maxOffset
 		}
 	}
-	response.Limit = limit
-	response.Offset = offset
-	response.Total, err = s.revisionRepo.GetTotalConversationsCount(ctx, chatbotID)
+
+	conversations, err := s.revisionRepo.GetConversations(ctx, chatbotID, limit, effectiveOffset)
 	if err != nil {
 		return nil, err
 	}
+
+	response := models.ConversationsResponse{
+		Conversations: make([]models.ConversationResponse, 0, len(conversations)),
+	}
+
+	for _, conv := range conversations {
+		response.Conversations = append(response.Conversations, models.ConversationResponse{
+			SessionID:           conv.SessionID,
+			FirstMessageContent: conv.FirstMessageContent,
+			FirstMessageAt:      conv.FirstMessageAt,
+			LastMessageAt:       conv.LastMessageAt,
+		})
+	}
+
+	page := 1
+	if limit > 0 {
+		page = (effectiveOffset / limit) + 1
+	}
+
+	var totalPages int
+	if total > 0 && limit > 0 {
+		totalPages = int((total + int64(limit) - 1) / int64(limit))
+	}
+
+	hasNext := totalPages > 0 && page < totalPages
+	hasPrev := totalPages > 0 && page > 1
+
+	var nextPage *int
+	var prevPage *int
+	var nextOffset *int
+	var prevOffset *int
+
+	if hasNext {
+		np := page + 1
+		nextPage = &np
+		no := (np - 1) * limit
+		nextOffset = &no
+	}
+	if hasPrev {
+		pp := page - 1
+		prevPage = &pp
+		po := (pp - 1) * limit
+		if po < 0 {
+			po = 0
+		}
+		prevOffset = &po
+	}
+
+	var requestedOffsetPtr *int
+	if requestedOffset != effectiveOffset {
+		requestedOffsetPtr = &requestedOffset
+	}
+
+	response.Pagination = models.ConversationPagination{
+		Page:            page,
+		PerPage:         limit,
+		TotalItems:      total,
+		TotalPages:      totalPages,
+		HasNextPage:     hasNext,
+		HasPrevPage:     hasPrev,
+		Offset:          effectiveOffset,
+		RequestedOffset: requestedOffsetPtr,
+		NextPage:        nextPage,
+		PrevPage:        prevPage,
+		NextOffset:      nextOffset,
+		PrevOffset:      prevOffset,
+	}
+
 	return &response, nil
 }
 

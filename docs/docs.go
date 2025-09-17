@@ -1914,6 +1914,59 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ConversationPagination": {
+            "type": "object",
+            "properties": {
+                "has_next_page": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "has_prev_page": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "next_offset": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "next_page": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "per_page": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "prev_offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "prev_page": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "requested_offset": {
+                    "type": "integer",
+                    "example": 40
+                },
+                "total_items": {
+                    "type": "integer",
+                    "example": 100
+                },
+                "total_pages": {
+                    "type": "integer",
+                    "example": 5
+                }
+            }
+        },
         "models.ConversationResponse": {
             "type": "object",
             "properties": {
@@ -1922,7 +1975,8 @@ const docTemplate = `{
                     "example": "2023-01-01T00:00:00Z"
                 },
                 "first_message_content": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Hi there"
                 },
                 "last_message_at": {
                     "type": "string",
@@ -1943,17 +1997,8 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.ConversationResponse"
                     }
                 },
-                "limit": {
-                    "type": "integer",
-                    "example": 10
-                },
-                "offset": {
-                    "type": "integer",
-                    "example": 0
-                },
-                "total": {
-                    "type": "integer",
-                    "example": 100
+                "pagination": {
+                    "$ref": "#/definitions/models.ConversationPagination"
                 }
             }
         },

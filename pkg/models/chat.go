@@ -91,18 +91,31 @@ type RevisionResponse struct {
 }
 
 type ConversationResponse struct {
-	SessionID            uuid.UUID `json:"session_id" example:"880e8400-e29b-41d4-a716-446655440003"`
-	FirstMesssageContent string    `json:"first_message_content"`
-	FirstMessageAt       time.Time `json:"first_message_at" example:"2023-01-01T00:00:00Z"`
-	LastMessageAt        time.Time `json:"last_message_at" example:"2023-01-01T00:00:00Z"`
+	SessionID           uuid.UUID `json:"session_id" example:"880e8400-e29b-41d4-a716-446655440003"`
+	FirstMessageContent string    `json:"first_message_content" example:"Hi there"`
+	FirstMessageAt      time.Time `json:"first_message_at" example:"2023-01-01T00:00:00Z"`
+	LastMessageAt       time.Time `json:"last_message_at" example:"2023-01-01T00:00:00Z"`
 }
 
-// ConversationsResponse represents a conversation with messages
+type ConversationPagination struct {
+	Page            int   `json:"page" example:"1"`
+	PerPage         int   `json:"per_page" example:"20"`
+	TotalItems      int64 `json:"total_items" example:"100"`
+	TotalPages      int   `json:"total_pages" example:"5"`
+	HasNextPage     bool  `json:"has_next_page" example:"true"`
+	HasPrevPage     bool  `json:"has_prev_page" example:"false"`
+	Offset          int   `json:"offset" example:"0"`
+	RequestedOffset *int  `json:"requested_offset,omitempty" example:"40"`
+	NextPage        *int  `json:"next_page,omitempty" example:"2"`
+	PrevPage        *int  `json:"prev_page,omitempty" example:"1"`
+	NextOffset      *int  `json:"next_offset,omitempty" example:"20"`
+	PrevOffset      *int  `json:"prev_offset,omitempty" example:"0"`
+}
+
+// ConversationsResponse represents a conversation with pagination metadata
 type ConversationsResponse struct {
-	Converstations []ConversationResponse `json:"conversations"`
-	Limit          int                    `json:"limit" example:"10"`
-	Offset         int                    `json:"offset" example:"0"`
-	Total          int64                  `json:"total" example:"100"`
+	Conversations []ConversationResponse `json:"conversations"`
+	Pagination    ConversationPagination `json:"pagination"`
 }
 
 // MessageDetails represents individual message details in a conversation

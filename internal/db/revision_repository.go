@@ -235,18 +235,40 @@ func (r *RevisionRepository) DeactivateRevision(ctx context.Context, id uuid.UUI
 }
 
 // GetConversations gets all conversations (sessions) for a chatbot
+
 func (r *RevisionRepository) GetConversations(ctx context.Context, chatbotID uuid.UUID, limit int, offset int) ([]*Conversation, error) {
-	// Get unique sessions with their latest message
 	query := `
-		SELECT DISTINCT
-			session_id,
-			MAX(created_at) as last_message_at,
-			MIN(created_at) as first_message_at
-		FROM chat_messages
-		WHERE chatbot_id = $1
-		GROUP BY session_id
-		ORDER BY last_message_at DESC
-		LIMIT $2 OFFSET $3
+		WITH conversation_stats AS (
+			SELECT
+				session_id,
+				MIN(created_at) AS first_message_at,
+				MAX(created_at) AS last_message_at
+			FROM chat_messages
+			WHERE chatbot_id = $1
+			GROUP BY session_id
+		), paged_conversations AS (
+			SELECT
+				session_id,
+				first_message_at,
+				last_message_at
+			FROM conversation_stats
+			ORDER BY last_message_at DESC
+			LIMIT $2 OFFSET $3
+		)
+		SELECT
+			pc.session_id,
+			pc.last_message_at,
+			pc.first_message_at,
+			fm.first_message_content
+		FROM paged_conversations pc
+		LEFT JOIN LATERAL (
+			SELECT content AS first_message_content
+			FROM chat_messages m
+			WHERE m.session_id = pc.session_id
+			ORDER BY m.created_at ASC
+			LIMIT 1
+		) fm ON TRUE
+		ORDER BY pc.last_message_at DESC
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, chatbotID, limit, offset)
@@ -259,7 +281,7 @@ func (r *RevisionRepository) GetConversations(ctx context.Context, chatbotID uui
 	for rows.Next() {
 		var conv Conversation
 
-		err := rows.Scan(&conv.SessionID, &conv.LastMessageAt, &conv.FirstMessageAt)
+		err := rows.Scan(&conv.SessionID, &conv.LastMessageAt, &conv.FirstMessageAt, &conv.FirstMessageContent)
 		if err != nil {
 			return nil, apperrors.Wrap(err, "failed to scan conversation")
 		}
@@ -272,21 +294,27 @@ func (r *RevisionRepository) GetConversations(ctx context.Context, chatbotID uui
 
 // GetTotalConversationsCount returns the total number of conversations for a chatbot (used for pagination)
 func (r *RevisionRepository) GetTotalConversationsCount(ctx context.Context, chatbotID uuid.UUID) (int64, error) {
-	// Get unique sessions with their latest message
 	query := `
-		SELECT COUNT(session_id)
-		FROM chat_messages
-		WHERE chatbot_id = $1
-		GROUP BY session_id;
+		SELECT COUNT(*)
+		FROM (
+			SELECT 1
+			FROM chat_messages
+			WHERE chatbot_id = $1
+			GROUP BY session_id
+		) AS sessions
 	`
 
-	var count int64
+	var count sql.NullInt64
 	err := r.db.GetContext(ctx, &count, query, chatbotID)
 	if err != nil {
 		return 0, apperrors.Wrap(err, "failed to get conversations total count")
 	}
 
-	return count, nil
+	if !count.Valid {
+		return 0, nil
+	}
+
+	return count.Int64, nil
 }
 
 // Helper function to join strings
