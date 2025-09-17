@@ -871,8 +871,33 @@ func (s *ChatService) ParseChatID(chatIDStr string) (uuid.UUID, error) {
 	return s.ParseUUID(chatIDStr)
 }
 
-// ChatWithChatbot handles chat interactions with chatbot context, including conversation history.
+// ChatWithChatbot handles chat interactions without streaming.
 func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbot *db.Chatbot, query string, sessionID *string) (string, string, error) {
+	return s.chatWithChatbot(ctx, chatbot, query, sessionID, nil)
+}
+
+// ChatWithChatbotStream handles chat interactions and streams chunks via the provided callback.
+func (s *ChatService) ChatWithChatbotStream(
+	ctx context.Context,
+	chatbot *db.Chatbot,
+	query string,
+	sessionID *string,
+	streamFn func(context.Context, string) error,
+) (string, string, error) {
+	if streamFn == nil {
+		return "", "", apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "stream function is required")
+	}
+	return s.chatWithChatbot(ctx, chatbot, query, sessionID, streamFn)
+}
+
+// chatWithChatbot contains the shared logic for handling chatbot conversations with optional streaming.
+func (s *ChatService) chatWithChatbot(
+	ctx context.Context,
+	chatbot *db.Chatbot,
+	query string,
+	sessionID *string,
+	streamFn func(context.Context, string) error,
+) (string, string, error) {
 	if chatbot == nil {
 		return "", "", apperrors.Wrap(apperrors.ErrChatbotNotFound, "chatbot is required")
 	}
@@ -932,6 +957,11 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbot *db.Chatbot, 
 	// If we have a high-confidence revised answer, use it directly
 	// If we have a high-confidence revised answer, use it directly
 	if revisedAnswer != nil && revisedAnswer.Similarity > 0.95 {
+		if streamFn != nil {
+			if err := streamFn(ctx, revisedAnswer.RevisedAnswer); err != nil {
+				return "", "", err
+			}
+		}
 		// Save the revised answer as assistant's response
 		assistantMessage := &db.ChatMessage{
 			ID:        uuid.New(),
@@ -1011,7 +1041,22 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbot *db.Chatbot, 
 	)
 
 	// Generate response
-	completion := ""
+	var streamedResponse strings.Builder
+	callOptions := []llms.CallOption{
+		llms.WithMaxTokens(chatbot.MaxTokens),
+		llms.WithTemperature(chatbot.TemperatureParam),
+	}
+	if streamFn != nil {
+		callOptions = append(callOptions, llms.WithStreamingFunc(func(callCtx context.Context, chunk []byte) error {
+			if len(chunk) == 0 {
+				return nil
+			}
+			textChunk := string(chunk)
+			streamedResponse.WriteString(textChunk)
+			return streamFn(callCtx, textChunk)
+		}))
+	}
+
 	response, err := llm.GenerateContent(ctx, []llms.MessageContent{
 		{
 			Role: llms.ChatMessageTypeHuman,
@@ -1019,13 +1064,16 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbot *db.Chatbot, 
 				llms.TextPart(finalPrompt),
 			},
 		},
-	}, llms.WithMaxTokens(chatbot.MaxTokens), llms.WithTemperature(chatbot.TemperatureParam))
+	}, callOptions...)
 	if err != nil {
 		return "", "", apperrors.Wrap(err, "failed to generate completion")
 	}
 
-	for _, choice := range response.Choices {
-		completion += choice.Content
+	completion := streamedResponse.String()
+	if completion == "" {
+		for _, choice := range response.Choices {
+			completion += choice.Content
+		}
 	}
 
 	// Save assistant's message

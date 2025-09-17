@@ -320,6 +320,137 @@ export function useApiService() {
     );
   };
 
+  const streamChatMessage = (
+    data: {
+      chatID: string;
+      query: string;
+      sessionId?: string | null;
+    },
+    handlers: {
+      onChunk?: (chunk: string) => void | Promise<void>;
+      onDone?: (payload: { content: string; sessionId?: string }) => void | Promise<void>;
+      onError?: (payload: { message: string }) => void | Promise<void>;
+    },
+  ) => {
+    const controller = new AbortController();
+    const config = useRuntimeConfig();
+
+    const body = {
+      query: data.query,
+      ...(data.sessionId && { session_id: data.sessionId }),
+    };
+
+    const processEvent = async (rawEvent: string) => {
+      const dataLines = rawEvent
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim());
+
+      if (dataLines.length === 0) {
+        return;
+      }
+
+      const payloadRaw = dataLines.join("");
+
+      try {
+        const payload = JSON.parse(payloadRaw) as {
+          type: string;
+          content?: string;
+          session_id?: string;
+          error?: string;
+        };
+
+        if (payload.type === "chunk" && payload.content && handlers.onChunk) {
+          await handlers.onChunk(payload.content);
+        } else if (payload.type === "done" && handlers.onDone) {
+          await handlers.onDone({
+            content: payload.content ?? "",
+            sessionId: payload.session_id,
+          });
+        } else if (payload.type === "error" && handlers.onError) {
+          await handlers.onError({
+            message: payload.error ?? "Stream error",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to parse stream payload", error, rawEvent);
+      }
+    };
+
+    (async () => {
+      try {
+        const response = await fetch(
+          `${config.public.apiBase as string}/chat/${data.chatID}/stream-message`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+            credentials: "include",
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          let message = `Stream request failed (${response.status})`;
+          try {
+            const errorBody = await response.json();
+            message = errorBody?.error ?? message;
+          } catch (parseError) {
+            // ignore, use default message
+          }
+          if (handlers.onError) {
+            await handlers.onError({ message });
+          }
+          return;
+        }
+
+        if (!response.body) {
+          if (handlers.onError) {
+            await handlers.onError({ message: "Stream response body is empty" });
+          }
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) {
+            buffer += decoder.decode();
+            break;
+          }
+          buffer += decoder.decode(value, { stream: true });
+
+          let separatorIndex = buffer.indexOf("\n\n");
+          while (separatorIndex !== -1) {
+            const rawEvent = buffer.slice(0, separatorIndex);
+            buffer = buffer.slice(separatorIndex + 2);
+            await processEvent(rawEvent.trim());
+            separatorIndex = buffer.indexOf("\n\n");
+          }
+        }
+
+        if (buffer.trim() !== "") {
+          await processEvent(buffer.trim());
+        }
+      } catch (error: any) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error("Stream error", error);
+        if (handlers.onError) {
+          await handlers.onError({ message: error?.message ?? "Stream connection failed" });
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  };
+
   const uploadFile = async (chatID: string, file: File) => {
     const config = useRuntimeConfig();
     const formData = new FormData();
@@ -508,6 +639,7 @@ export function useApiService() {
     toggleChatbot,
     deleteChatbot,
     sendChatMessage,
+    streamChatMessage,
     uploadFile,
     uploadText,
     uploadWebsite,

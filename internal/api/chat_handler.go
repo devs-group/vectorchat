@@ -1,11 +1,17 @@
 package api
 
 import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/services"
@@ -63,6 +69,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 
 	// Chat
 	chat.Post("/:chatID/message", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckMessageCredits(), h.POST_ChatMessage)
+	chat.Post("/:chatID/stream-message", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckMessageCredits(), h.POST_StreamChatMessage)
 }
 
 // @Summary Health check endpoint
@@ -332,36 +339,15 @@ func (h *ChatHandler) GET_ListChatbots(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /chat/{chatID}/message [post]
 func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
-	var req models.ChatMessageRequest
-	chatID := c.Params("chatID")
-	if chatID == "" {
-		return ErrorResponse(c, "Chat ID is required", nil, http.StatusBadRequest)
-	}
-
-	if err := c.BodyParser(&req); err != nil {
-		// Fallback for form value if body parsing fails
-		req.Query = c.FormValue("query")
-	}
-
-	query, err := h.ChatService.ValidateAndParseQuery(&req, c.FormValue("query"))
+	ctxData, status, msg, err := h.prepareChatMessageContext(c)
 	if err != nil {
-		return ErrorResponse(c, "Invalid query parameter", err, http.StatusBadRequest)
-	}
-
-	user, err := GetUser(c)
-	if err != nil {
-		return err
-	}
-
-	chatbot, err := h.ChatService.GetChatbotForUser(c.Context(), chatID, user.ID)
-	if err != nil {
-		if apperrors.Is(err, apperrors.ErrChatbotNotFound) {
-			return ErrorResponse(c, "Chatbot not found", err, http.StatusNotFound)
+		if status == 0 {
+			return err
 		}
-		return ErrorResponse(c, "Failed to load chatbot", err)
+		return ErrorResponse(c, msg, err, status)
 	}
 
-	response, sessionID, err := h.ChatService.ChatWithChatbot(c.Context(), chatbot, query, req.SessionID)
+	response, sessionID, err := h.ChatService.ChatWithChatbot(c.Context(), ctxData.chatbot, ctxData.query, ctxData.sessionID)
 	if err != nil {
 		if apperrors.Is(err, apperrors.ErrNoDocumentsFound) {
 			return ErrorResponse(c, "No documents found for this chat. Please upload some files first.", err, http.StatusNotFound)
@@ -377,6 +363,119 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 		"response":   response,
 		"session_id": sessionID,
 	})
+}
+
+// @Summary Stream chat message
+// @Description Send a message and receive a streamed response with context from uploaded files
+// @Tags chat
+// @Accept json
+// @Produce text/event-stream
+// @Param message body models.ChatMessageRequest true "Chat message"
+// @Param chatID path string true "Chat session ID"
+// @Success 200 {string} string "Streamed response"
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security ApiKeyAuth
+// @Router /chat/{chatID}/stream-message [post]
+func (h *ChatHandler) POST_StreamChatMessage(c *fiber.Ctx) error {
+	ctxData, status, msg, err := h.prepareChatMessageContext(c)
+	if err != nil {
+		if status == 0 {
+			return err
+		}
+		return ErrorResponse(c, msg, err, status)
+	}
+
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+
+	ctx := c.Context()
+
+	type streamEvent struct {
+		Type      string `json:"type"`
+		Content   string `json:"content,omitempty"`
+		SessionID string `json:"session_id,omitempty"`
+		Error     string `json:"error,omitempty"`
+	}
+
+	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		send := func(event streamEvent) error {
+			payload, err := json.Marshal(event)
+			if err != nil {
+				return err
+			}
+			if _, err = fmt.Fprintf(w, "data: %s\n\n", payload); err != nil {
+				return err
+			}
+			return w.Flush()
+		}
+
+		clientClosed := false
+		completion, sessionID, err := h.ChatService.ChatWithChatbotStream(ctx, ctxData.chatbot, ctxData.query, ctxData.sessionID, func(callCtx context.Context, chunk string) error {
+			if chunk == "" {
+				return nil
+			}
+			if err := send(streamEvent{Type: "chunk", Content: chunk}); err != nil {
+				clientClosed = true
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			if clientClosed || errors.Is(err, context.Canceled) {
+				return
+			}
+			_ = send(streamEvent{Type: "error", Error: err.Error()})
+			return
+		}
+		_ = send(streamEvent{Type: "done", Content: completion, SessionID: sessionID})
+	})
+
+	return nil
+}
+
+type chatMessageContext struct {
+	chatbot   *db.Chatbot
+	query     string
+	sessionID *string
+}
+
+func (h *ChatHandler) prepareChatMessageContext(c *fiber.Ctx) (*chatMessageContext, int, string, error) {
+	var req models.ChatMessageRequest
+	chatID := c.Params("chatID")
+	if chatID == "" {
+		return nil, http.StatusBadRequest, "Chat ID is required", nil
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		// Fallback for form value if body parsing fails
+		req.Query = c.FormValue("query")
+	}
+
+	query, err := h.ChatService.ValidateAndParseQuery(&req, c.FormValue("query"))
+	if err != nil {
+		return nil, http.StatusBadRequest, "Invalid query parameter", err
+	}
+
+	user, err := GetUser(c)
+	if err != nil {
+		return nil, 0, "", err
+	}
+
+	chatbot, err := h.ChatService.GetChatbotForUser(c.Context(), chatID, user.ID)
+	if err != nil {
+		if apperrors.Is(err, apperrors.ErrChatbotNotFound) {
+			return nil, http.StatusNotFound, "Chatbot not found", err
+		}
+		return nil, http.StatusInternalServerError, "Failed to load chatbot", err
+	}
+
+	return &chatMessageContext{
+		chatbot:   chatbot,
+		query:     query,
+		sessionID: req.SessionID,
+	}, 0, "", nil
 }
 
 // @Summary Create a new chatbot

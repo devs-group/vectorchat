@@ -50,7 +50,7 @@
             'rounded-lg px-3 py-2 text-sm shadow-sm border',
             message.isUser
               ? 'bg-background border-border ml-auto'
-              : 'bg-primary/5 border-primary/20 mr-auto',
+              : 'bg-primary/5 border-primary/20 mr-auto flex flex-col gap-2',
           ]"
           style="max-width: 78%"
         >
@@ -68,19 +68,17 @@
               message.timestamp
             }}</span>
           </div>
-          <div class="whitespace-pre-wrap text-left">
-            {{ message.content }}
+          <div class="whitespace-pre-wrap text-left flex items-start gap-2">
+            <IconSpinnerArc
+              v-if="!message.isUser && message.isStreaming"
+              class="h-4 w-4 text-primary animate-spin"
+            />
+            <span>
+              {{ message.content }}
+            </span>
           </div>
         </div>
 
-        <!-- Typing indicator -->
-        <div
-          v-if="isSendingMessage"
-          class="mr-auto flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-sm border border-primary/20"
-        >
-          <IconSpinnerArc class="h-4 w-4 animate-spin text-primary" />
-          <span class="text-xs text-primary">AI is typing…</span>
-        </div>
       </div>
     </div>
 
@@ -117,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, onMounted, watch, nextTick, onBeforeUnmount } from "vue";
 
 import IconMessageSquare from "@/components/icons/IconMessageSquare.vue";
 import IconSend from "@/components/icons/IconSend.vue";
@@ -132,13 +130,14 @@ interface Message {
   content: string;
   isUser: boolean;
   timestamp: string;
+  isStreaming?: boolean;
 }
 
 const props = defineProps<Props>();
 
 // API service
 const apiService = useApiService();
-const { showError, showInfo } = useErrorHandler();
+const { showError } = useErrorHandler();
 
 // Chat data
 const chatbot = ref<ChatbotResponse | null>(null);
@@ -148,6 +147,8 @@ const sessionId = ref<string | null>(null);
 
 // Loading state
 const messagesContainer = ref<HTMLDivElement | null>(null);
+const isSendingMessage = ref(false);
+let cancelStream: (() => void) | null = null;
 
 const scrollToBottom = async () => {
   await nextTick();
@@ -156,13 +157,6 @@ const scrollToBottom = async () => {
     el.scrollTop = el.scrollHeight;
   }
 };
-
-const {
-  data: responseData,
-  execute: executeSendMessage,
-  isLoading: isSendingMessage,
-  error: sendMessageError,
-} = apiService.sendChatMessage();
 
 // Send a message
 const sendMessage = async () => {
@@ -178,56 +172,87 @@ const sendMessage = async () => {
   newMessage.value = "";
   await scrollToBottom();
 
-  try {
-    await executeSendMessage({
-      chatID: props.chatbot?.id ?? "",
-      query: userMessage,
-      sessionId: sessionId.value,
-    });
-
-    if (sendMessageError.value) {
-      return;
-    }
-
-    if (responseData.value && typeof responseData.value === "object") {
-      const apiResponse = responseData.value as {
-        response: string;
-        session_id: string;
-      };
-
-      messages.value.push({
-        content: apiResponse.response,
-        isUser: false,
-        timestamp: new Date().toLocaleTimeString(),
-      });
-
-      if (!sessionId.value) {
-        sessionId.value = apiResponse.session_id;
-      }
-    }
-  } catch (error) {
-    console.error("Error sending message:", error);
+  if (!props.chatbot?.id) {
+    const message = "Chatbot configuration is missing. Please refresh the page.";
+    showError(message);
     messages.value.push({
-      content:
-        "Sorry, there was an error processing your message. Please try again.",
+      content: message,
       isUser: false,
       timestamp: new Date().toLocaleTimeString(),
     });
-  } finally {
-    scrollToBottom();
+    await scrollToBottom();
+    return;
   }
+
+  const assistantMessage: Message = {
+    content: "",
+    isUser: false,
+    timestamp: new Date().toLocaleTimeString(),
+    isStreaming: true,
+  };
+
+  messages.value.push(assistantMessage);
+  await scrollToBottom();
+  isSendingMessage.value = true;
+
+  cancelStream = apiService.streamChatMessage(
+    {
+      chatID: props.chatbot.id,
+      query: userMessage,
+      sessionId: sessionId.value,
+    },
+    {
+      onChunk: async (chunk) => {
+        assistantMessage.content += chunk;
+        messages.value = [...messages.value];
+        await scrollToBottom();
+      },
+      onDone: async ({ content, sessionId: newSessionId }) => {
+        assistantMessage.content = content;
+        if (newSessionId) {
+          sessionId.value = newSessionId;
+        }
+        assistantMessage.isStreaming = false;
+        messages.value = [...messages.value];
+        isSendingMessage.value = false;
+        cancelStream = null;
+        await scrollToBottom();
+      },
+      onError: async ({ message }) => {
+        assistantMessage.content = message;
+        assistantMessage.isStreaming = false;
+        messages.value = [...messages.value];
+        showError(message);
+        isSendingMessage.value = false;
+        cancelStream = null;
+        await scrollToBottom();
+      },
+    },
+  );
 };
 
 // Reset chat data
 const resetChat = () => {
+  if (cancelStream) {
+    cancelStream();
+    cancelStream = null;
+  }
   messages.value = [];
   newMessage.value = "";
   sessionId.value = null;
+  isSendingMessage.value = false;
 };
 
 // Initialize on mount
 onMounted(async () => {
   scrollToBottom();
+});
+
+onBeforeUnmount(() => {
+  if (cancelStream) {
+    cancelStream();
+    cancelStream = null;
+  }
 });
 
 // Expose methods for parent component
