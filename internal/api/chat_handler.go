@@ -102,7 +102,11 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 
 	response, err := h.ChatService.ProcessFileUpload(c.Context(), chatID, file)
 	if err != nil {
-		return ErrorResponse(c, "Failed to upload file", err)
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
+			status = http.StatusBadRequest
+		}
+		return ErrorResponse(c, "Failed to upload file", err, status)
 	}
 
 	return c.JSON(response)

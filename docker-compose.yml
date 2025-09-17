@@ -28,6 +28,7 @@ services:
       - PG_CONNECTION_STRING=postgres://postgres:postgres@postgres:5432/vectordb?sslmode=disable
       - OPENAI_API_KEY
       - CRAWLER_API_URL=http://crawl4ai:11235
+      - MARKITDOWN_API_URL=http://markitdown:8000
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,6 +77,16 @@ services:
       - ./pgadmin4/pgpass:/pgadmin4/pgpass
     depends_on:
       - postgres
+    networks:
+      - vectorchat-network
+
+  markitdown:
+    build:
+      context: .
+      dockerfile: services/markitdown_api/Dockerfile
+    container_name: vectorchat-markitdown
+    ports:
+      - "8000:8000"
     networks:
       - vectorchat-network
 

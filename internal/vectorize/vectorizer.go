@@ -1,20 +1,20 @@
 package vectorize
 
 import (
-    "bytes"
-    "context"
-    "encoding/json"
-    "fmt"
-    "io"
-    "io/ioutil"
-    "net/http"
-    "os"
-    "path/filepath"
-    "strings"
-    "time"
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
-    "github.com/ledongthuc/pdf"
-    "github.com/tmc/langchaingo/embeddings"
+	"github.com/ledongthuc/pdf"
+	"github.com/tmc/langchaingo/embeddings"
 )
 
 // Vectorizer is an interface for creating vector embeddings from text
@@ -30,12 +30,12 @@ type OpenAIVectorizer struct {
 
 // NewOpenAIVectorizer creates a new OpenAI vectorizer
 func NewOpenAIVectorizer(apiKey string) *OpenAIVectorizer {
-    // Create a custom OpenAI embedder since the function isn't available
-    client := &openAIEmbedder{
-        apiKey: apiKey,
-        model:  "text-embedding-3-small",
-        http:   &http.Client{Timeout: 60 * time.Second},
-    }
+	// Create a custom OpenAI embedder since the function isn't available
+	client := &openAIEmbedder{
+		apiKey: apiKey,
+		model:  "text-embedding-3-small",
+		http:   &http.Client{Timeout: 60 * time.Second},
+	}
 
 	return &OpenAIVectorizer{
 		client: client,
@@ -44,88 +44,93 @@ func NewOpenAIVectorizer(apiKey string) *OpenAIVectorizer {
 
 // openAIEmbedder implements the embeddings.Embedder interface
 type openAIEmbedder struct {
-    apiKey string
-    model  string
-    http   *http.Client
+	apiKey string
+	model  string
+	http   *http.Client
 }
 
 // EmbedDocuments implements the embeddings.Embedder interface
-func (e *openAIEmbedder) EmbedDocuments(ctx context.Context, texts []string) ([][]float64, error) {
-    if len(texts) == 0 {
-        return [][]float64{}, nil
-    }
+func (e *openAIEmbedder) EmbedDocuments(ctx context.Context, texts []string) ([][]float32, error) {
+	if len(texts) == 0 {
+		return [][]float32{}, nil
+	}
 
-    type embedReq struct {
-        Model string   `json:"model"`
-        Input []string `json:"input"`
-    }
-    type embedRes struct {
-        Data []struct {
-            Embedding []float64 `json:"embedding"`
-        } `json:"data"`
-        Error *struct {
-            Message string `json:"message"`
-        } `json:"error"`
-    }
+	type embedReq struct {
+		Model string   `json:"model"`
+		Input []string `json:"input"`
+	}
+	type embedRes struct {
+		Data []struct {
+			Embedding []float64 `json:"embedding"`
+		} `json:"data"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
 
-    const endpoint = "https://api.openai.com/v1/embeddings"
-    const batchSize = 100
-    out := make([][]float64, 0, len(texts))
+	const endpoint = "https://api.openai.com/v1/embeddings"
+	const batchSize = 100
+	out := make([][]float32, 0, len(texts))
 
-    for start := 0; start < len(texts); start += batchSize {
-        end := start + batchSize
-        if end > len(texts) {
-            end = len(texts)
-        }
-        payload := embedReq{Model: e.model, Input: texts[start:end]}
-        body, err := json.Marshal(payload)
-        if err != nil {
-            return nil, fmt.Errorf("failed to marshal embeddings request: %w", err)
-        }
+	for start := 0; start < len(texts); start += batchSize {
+		end := start + batchSize
+		if end > len(texts) {
+			end = len(texts)
+		}
+		payload := embedReq{Model: e.model, Input: texts[start:end]}
+		body, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal embeddings request: %w", err)
+		}
 
-        req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-        if err != nil {
-            return nil, fmt.Errorf("failed to create embeddings request: %w", err)
-        }
-        req.Header.Set("Authorization", "Bearer "+e.apiKey)
-        req.Header.Set("Content-Type", "application/json")
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create embeddings request: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+e.apiKey)
+		req.Header.Set("Content-Type", "application/json")
 
-        client := e.http
-        if client == nil {
-            client = http.DefaultClient
-        }
-        resp, err := client.Do(req)
-        if err != nil {
-            return nil, fmt.Errorf("embeddings request error: %w", err)
-        }
-        respBytes, err := io.ReadAll(resp.Body)
-        resp.Body.Close()
-        if err != nil {
-            return nil, fmt.Errorf("failed to read embeddings response: %w", err)
-        }
-        if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-            return nil, fmt.Errorf("embeddings API error: status %d, body: %s", resp.StatusCode, string(respBytes))
-        }
-        var parsed embedRes
-        if err := json.Unmarshal(respBytes, &parsed); err != nil {
-            return nil, fmt.Errorf("failed to parse embeddings response: %w", err)
-        }
-        if parsed.Error != nil {
-            return nil, fmt.Errorf("embeddings API error: %s", parsed.Error.Message)
-        }
-        if len(parsed.Data) != end-start {
-            return nil, fmt.Errorf("embeddings count mismatch: got %d, want %d", len(parsed.Data), end-start)
-        }
-        for _, d := range parsed.Data {
-            out = append(out, d.Embedding)
-        }
-    }
+		client := e.http
+		if client == nil {
+			client = http.DefaultClient
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("embeddings request error: %w", err)
+		}
+		respBytes, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read embeddings response: %w", err)
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, fmt.Errorf("embeddings API error: status %d, body: %s", resp.StatusCode, string(respBytes))
+		}
+		var parsed embedRes
+		if err := json.Unmarshal(respBytes, &parsed); err != nil {
+			return nil, fmt.Errorf("failed to parse embeddings response: %w", err)
+		}
+		if parsed.Error != nil {
+			return nil, fmt.Errorf("embeddings API error: %s", parsed.Error.Message)
+		}
+		if len(parsed.Data) != end-start {
+			return nil, fmt.Errorf("embeddings count mismatch: got %d, want %d", len(parsed.Data), end-start)
+		}
+		for _, d := range parsed.Data {
+			// Convert float64 to float32
+			float32Embedding := make([]float32, len(d.Embedding))
+			for i, v := range d.Embedding {
+				float32Embedding[i] = float32(v)
+			}
+			out = append(out, float32Embedding)
+		}
+	}
 
-    return out, nil
+	return out, nil
 }
 
 // EmbedQuery implements the embeddings.Embedder interface
-func (e *openAIEmbedder) EmbedQuery(ctx context.Context, text string) ([]float64, error) {
+func (e *openAIEmbedder) EmbedQuery(ctx context.Context, text string) ([]float32, error) {
 	embeddings, err := e.EmbedDocuments(ctx, []string{text})
 	if err != nil {
 		return nil, err
@@ -144,12 +149,8 @@ func (v *OpenAIVectorizer) VectorizeText(ctx context.Context, text string) ([]fl
 		return nil, fmt.Errorf("no embeddings returned")
 	}
 
-	// Convert float64 embeddings to float32 for pgvector compatibility
-	float32Embeddings := make([]float32, len(embeddings[0]))
-	for i, v := range embeddings[0] {
-		float32Embeddings[i] = float32(v)
-	}
-	return float32Embeddings, nil
+	// embeddings are already float32 now
+	return embeddings[0], nil
 }
 
 // ExtractTextFromPDF extracts all text from a PDF file

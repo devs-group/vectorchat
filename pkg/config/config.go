@@ -11,4 +11,5 @@ type AppConfig struct {
 	MigrationsPath string `env:"MIGRATIONS_PATH" envRequired:"true"`
 	FrontendURL    string `env:"FRONTEND_URL" envRequired:"true"`
 	CrawlerAPIURL  string `env:"CRAWLER_API_URL" envDefault:"http://localhost:11235"`
+	MarkitdownURL  string `env:"MARKITDOWN_API_URL" envDefault:"http://localhost:8000"`
 }

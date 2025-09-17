@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"log/slog"
 	"mime/multipart"
 	"net"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -25,6 +23,7 @@ import (
 	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/vectorize"
+	"github.com/yourusername/vectorchat/pkg/docprocessor"
 	"github.com/yourusername/vectorchat/pkg/models"
 )
 
@@ -42,6 +41,7 @@ type ChatService struct {
 	uploadsDir      string
 	webCrawler      crawler.WebCrawler
 	crawlerDisabled atomic.Bool
+	docProcessor    *docprocessor.Processor
 }
 
 // NewChatService creates a new chat service
@@ -53,10 +53,14 @@ func NewChatService(
 	revisionRepo *db.RevisionRepository,
 	vectorizer vectorize.Vectorizer,
 	webCrawler crawler.WebCrawler,
+	markitdown *docprocessor.MarkitdownClient,
 	openaiKey string,
 	db *db.Database,
 	uploadsDir string,
 ) *ChatService {
+	// Create document processor with markitdown client
+	processor := docprocessor.NewProcessor(markitdown)
+
 	return &ChatService{
 		CommonService: NewCommonService(),
 		chatbotRepo:   chatbotRepo,
@@ -69,6 +73,7 @@ func NewChatService(
 		openaiKey:     openaiKey,
 		db:            db,
 		uploadsDir:    uploadsDir,
+		docProcessor:  processor,
 	}
 }
 
@@ -392,7 +397,7 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 		}
 		filePath := filepath.Join(s.uploadsDir, storedFilename)
 
-		if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		if err := s.docProcessor.DeleteFile(filePath); err != nil {
 			// Log the error but don't fail the entire operation if file doesn't exist
 			log.Printf("Warning: Failed to delete physical file %s: %v", filePath, err)
 		}
@@ -520,8 +525,8 @@ func (s *ChatService) ValidateAndParseQuery(req *models.ChatMessageRequest, form
 }
 
 // AddFile adds a file to the vector database
-// AddFileSource indexes a stored file for a chatbot by chunking/vectorizing content
-func (s *ChatService) AddFileSource(ctx context.Context, chatbotID uuid.UUID, originalFilename, storedPath string) (*db.File, error) {
+// AddFileSource indexes the converted markdown for a chatbot by chunking/vectorizing content
+func (s *ChatService) AddFileSource(ctx context.Context, chatbotID uuid.UUID, originalFilename string, originalSize int64, markdown string, docID string, ingestedAt time.Time) (*db.File, error) {
 	fileID := uuid.New()
 
 	// Start transaction
@@ -532,35 +537,42 @@ func (s *ChatService) AddFileSource(ctx context.Context, chatbotID uuid.UUID, or
 	defer tx.Rollback()
 
 	// Insert file metadata with the original filename (cleaner for clients)
-	// Determine actual stored file size on disk for accounting
-	var sizeBytes int64
-	if fi, err := os.Stat(storedPath); err == nil {
-		sizeBytes = fi.Size()
-	}
-
 	file := &db.File{
 		ID:         fileID,
 		ChatbotID:  chatbotID,
 		Filename:   filepath.Base(originalFilename),
-		SizeBytes:  sizeBytes,
-		UploadedAt: time.Now(),
+		SizeBytes:  originalSize,
+		UploadedAt: ingestedAt,
 	}
 
 	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
 		return nil, apperrors.Wrap(err, "failed to insert file metadata")
 	}
 
-	// Process file based on extension
-	ext := strings.ToLower(filepath.Ext(storedPath))
-	// Use a stable base for document IDs
-	docIDBase := fmt.Sprintf("%s-%s", chatbotID, filepath.Base(originalFilename))
-	if ext == ".pdf" {
-		err = s.processPDFFile(ctx, tx, docIDBase, storedPath, chatbotID, &fileID)
-	} else {
-		err = s.processRegularFile(ctx, tx, docIDBase, storedPath, chatbotID, &fileID)
+	chunks := s.docProcessor.WrapMarkdownWithMetadata(markdown, docID, filepath.Base(originalFilename), fileID, ingestedAt)
+	if len(chunks) == 0 {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "file did not produce any indexable content")
 	}
-	if err != nil {
-		return nil, err
+
+	docIDBase := fmt.Sprintf("%s-%s", chatbotID, filepath.Base(originalFilename))
+	for idx, chunk := range chunks {
+		embedding, err := s.vectorizer.VectorizeText(ctx, chunk)
+		if err != nil {
+			return nil, apperrors.Wrapf(err, "failed to vectorize chunk %d", idx)
+		}
+
+		doc := &db.DocumentWithEmbedding{
+			ID:         fmt.Sprintf("%s-%d", docIDBase, idx),
+			Content:    []byte(chunk),
+			Embedding:  embedding,
+			ChatbotID:  chatbotID,
+			FileID:     &fileID,
+			ChunkIndex: intPtr(idx),
+		}
+
+		if err := s.documentRepo.StoreWithEmbeddingTx(ctx, tx, doc); err != nil {
+			return nil, apperrors.Wrapf(err, "failed to store chunk %d", idx)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -571,52 +583,34 @@ func (s *ChatService) AddFileSource(ctx context.Context, chatbotID uuid.UUID, or
 
 // SaveFile writes the uploaded file to disk and indexes it, similar to AddText
 func (s *ChatService) SaveFile(ctx context.Context, chatbotID uuid.UUID, fileHeader *multipart.FileHeader) (*db.File, int64, error) {
-	// Server-side file size limit (10 MB)
-	const maxFileBytes = 10 * 1024 * 1024
-	if fileHeader.Size > maxFileBytes {
-		return nil, 0, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "file exceeds maximum size (10MB)")
-	}
-
-	original := filepath.Base(fileHeader.Filename)
-	storedName := fmt.Sprintf("%s-%s", chatbotID, original)
-	storedPath := filepath.Join(s.uploadsDir, storedName)
-
-	// Save the file to disk
-	src, err := fileHeader.Open()
+	// Process the file using document processor
+	processedFile, err := s.docProcessor.ProcessFile(ctx, fileHeader)
 	if err != nil {
-		return nil, 0, apperrors.Wrap(err, "failed to open uploaded file")
+		return nil, 0, err
 	}
-	defer src.Close()
 
-	dst, err := os.Create(storedPath)
+	// Save file to disk
+	storedPath, err := s.docProcessor.SaveFileToDirectory(fileHeader, s.uploadsDir, chatbotID.String())
 	if err != nil {
-		return nil, 0, apperrors.Wrap(err, "failed to create file")
-	}
-	defer dst.Close()
-
-	if _, err := dst.ReadFrom(src); err != nil {
-		return nil, 0, apperrors.Wrap(err, "failed to save file")
+		return nil, 0, apperrors.Wrap(err, "failed to save file to disk")
 	}
 
-	// Index the stored file
-	file, err := s.AddFileSource(ctx, chatbotID, original, storedPath)
+	// Index the processed file
+	file, err := s.AddFileSource(ctx, chatbotID, processedFile.Filename, processedFile.OriginalSize, processedFile.Markdown, processedFile.Hash, processedFile.ProcessedAt)
 	if err != nil {
 		// Best effort cleanup of the stored file if indexing fails
-		_ = os.Remove(storedPath)
+		_ = s.docProcessor.DeleteFile(storedPath)
 		return nil, 0, apperrors.Wrap(err, "failed to index file")
 	}
-	return file, fileHeader.Size, nil
+	return file, processedFile.OriginalSize, nil
 }
 
 // AddText indexes plain text for a chatbot by chunking and vectorizing it
 func (s *ChatService) AddText(ctx context.Context, chatbotID uuid.UUID, text string) error {
-	if strings.TrimSpace(text) == "" {
-		return apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "text is required")
-	}
-	// Server-side limit to prevent excessive payloads
-	const maxTextLength = 200_000 // 200 KB
-	if len(text) > maxTextLength {
-		return apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "text exceeds maximum allowed length")
+	// Process text using document processor
+	processedText, err := s.docProcessor.ProcessText(text)
+	if err != nil {
+		return err
 	}
 
 	// Begin transaction
@@ -627,23 +621,19 @@ func (s *ChatService) AddText(ctx context.Context, chatbotID uuid.UUID, text str
 	defer tx.Rollback()
 
 	// Create synthetic file metadata to group this text upload
-	textFilename := fmt.Sprintf("text-%s.txt", time.Now().Format("20060102-150405"))
 	file := &db.File{
 		ID:         uuid.New(),
 		ChatbotID:  chatbotID,
-		Filename:   textFilename,
-		SizeBytes:  int64(len(text)),
-		UploadedAt: time.Now(),
+		Filename:   processedText.Filename,
+		SizeBytes:  processedText.OriginalSize,
+		UploadedAt: processedText.ProcessedAt,
 	}
 	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
 		return apperrors.Wrap(err, "failed to insert text metadata")
 	}
 
-	// Chunk text similar to PDF processing
-	const chunkSize = 1000
-	chunks := chunkText(text, chunkSize)
-
-	for i, chunk := range chunks {
+	// Process chunks from document processor
+	for i, chunk := range processedText.Chunks {
 		embedding, err := s.vectorizer.VectorizeText(ctx, chunk)
 		if err != nil {
 			return apperrors.Wrapf(err, "failed to vectorize text chunk %d", i)
@@ -713,7 +703,7 @@ func (s *ChatService) AddWebsite(ctx context.Context, chatbotID uuid.UUID, rootU
 		if strings.TrimSpace(p.Text) == "" {
 			continue
 		}
-		chunks := chunkText(p.Text, chunkSize)
+		chunks := s.docProcessor.ChunkText(p.Text, chunkSize)
 		for ci, chunk := range chunks {
 			totalBytes += int64(len(chunk))
 			emb, err := s.vectorizer.VectorizeText(ctx, chunk)
@@ -775,66 +765,6 @@ func (s *ChatService) crawlWebsite(ctx context.Context, rootURL string, opts cra
 // ParseURL is a helper to parse URL strings (minimal wrapper)
 func (s *ChatService) ParseURL(u string) (*url.URL, error) {
 	return url.Parse(u)
-}
-
-// processPDFFile processes a PDF file by extracting text and chunking it
-func (s *ChatService) processPDFFile(ctx context.Context, tx *db.Transaction, id, filePath string, chatbotID uuid.UUID, fileID *uuid.UUID) error {
-	// Extract text from PDF
-	pdfText, err := vectorize.ExtractTextFromPDF(filePath)
-	if err != nil {
-		return apperrors.Wrap(err, "failed to extract text from PDF")
-	}
-
-	// Chunk the text (e.g., 1000 chars per chunk)
-	const chunkSize = 1000
-	chunks := chunkText(pdfText, chunkSize)
-
-	for i, chunk := range chunks {
-		embedding, err := s.vectorizer.VectorizeText(ctx, chunk)
-		if err != nil {
-			return apperrors.Wrapf(err, "failed to vectorize PDF chunk %d", i)
-		}
-
-		doc := &db.DocumentWithEmbedding{
-			ID:         fmt.Sprintf("%s-%d", id, i),
-			Content:    []byte(chunk),
-			Embedding:  embedding,
-			ChatbotID:  chatbotID,
-			FileID:     fileID,
-			ChunkIndex: intPtr(i),
-		}
-
-		err = s.documentRepo.StoreWithEmbeddingTx(ctx, tx, doc)
-		if err != nil {
-			return apperrors.Wrapf(err, "failed to store PDF chunk %d", i)
-		}
-	}
-
-	return nil
-}
-
-// processRegularFile processes a regular file by vectorizing its content
-func (s *ChatService) processRegularFile(ctx context.Context, tx *db.Transaction, id, filePath string, chatbotID uuid.UUID, fileID *uuid.UUID) error {
-	embedding, err := s.vectorizer.VectorizeFile(ctx, filePath)
-	if err != nil {
-		return apperrors.Wrap(err, "failed to vectorize file")
-	}
-
-	content, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return apperrors.Wrap(err, "failed to read file")
-	}
-
-	doc := &db.DocumentWithEmbedding{
-		ID:         id,
-		Content:    content,
-		Embedding:  embedding,
-		ChatbotID:  chatbotID,
-		FileID:     fileID,
-		ChunkIndex: nil,
-	}
-
-	return s.documentRepo.StoreWithEmbeddingTx(ctx, tx, doc)
 }
 
 // GetFilesByChatbotID retrieves all files for a given chatbot
@@ -920,7 +850,7 @@ func (s *ChatService) DeleteFileSource(ctx context.Context, chatbotID uuid.UUID,
 	// Remove physical file from disk (best effort)
 	storedName := fmt.Sprintf("%s-%s", chatbotID, f.Filename)
 	filePath := filepath.Join(s.uploadsDir, storedName)
-	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+	if err := s.docProcessor.DeleteFile(filePath); err != nil {
 		log.Printf("Warning: Failed to delete file %s: %v", filePath, err)
 	}
 	return nil
@@ -1081,9 +1011,21 @@ func (s *ChatService) ChatWithChatbot(ctx context.Context, chatbot *db.Chatbot, 
 	)
 
 	// Generate response
-	completion, err := llm.Call(ctx, finalPrompt, llms.WithMaxTokens(chatbot.MaxTokens), llms.WithTemperature(chatbot.TemperatureParam))
+	completion := ""
+	response, err := llm.GenerateContent(ctx, []llms.MessageContent{
+		{
+			Role: llms.ChatMessageTypeHuman,
+			Parts: []llms.ContentPart{
+				llms.TextPart(finalPrompt),
+			},
+		},
+	}, llms.WithMaxTokens(chatbot.MaxTokens), llms.WithTemperature(chatbot.TemperatureParam))
 	if err != nil {
 		return "", "", apperrors.Wrap(err, "failed to generate completion")
+	}
+
+	for _, choice := range response.Choices {
+		completion += choice.Content
 	}
 
 	// Save assistant's message
@@ -1221,19 +1163,6 @@ func (s *ChatService) UpdateRevision(ctx context.Context, revisionID uuid.UUID, 
 // DeactivateRevision deactivates a revision (soft delete)
 func (s *ChatService) DeactivateRevision(ctx context.Context, revisionID uuid.UUID) error {
 	return s.revisionRepo.DeactivateRevision(ctx, revisionID)
-}
-
-// chunkText splits text into chunks of the given size
-func chunkText(text string, size int) []string {
-	var chunks []string
-	for start := 0; start < len(text); start += size {
-		end := start + size
-		if end > len(text) {
-			end = len(text)
-		}
-		chunks = append(chunks, text[start:end])
-	}
-	return chunks
 }
 
 // intPtr returns a pointer to the given int

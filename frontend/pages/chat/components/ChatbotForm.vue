@@ -121,17 +121,20 @@ const responseLengthLabel = computed(() => {
 
 const models = [
   {
-    id: "gpt-4",
-    name: "GPT-4",
-    hint: "Most capable, best for complex tasks",
-  },
-  {
-    id: "gpt-5-instant",
-    name: "GPT-5 Instant",
+    id: "gpt-5-nano",
+    name: "GPT-5 Fast",
     hint: "Latest generation, optimized for rapid responses",
   },
-  { id: "gpt-4o", name: "GPT-4o", hint: "Fast multimodal reasoning" },
-  { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", hint: "Great speed & value" },
+  {
+    id: "gpt-5-mini",
+    name: "GPT-5 Balanced",
+    hint: "Balanced speed, cost, and intelligence",
+  },
+  {
+    id: "gpt-5",
+    name: "GPT-5",
+    hint: "Difficult or long/higher-reasoning tasks",
+  },
 ];
 </script>
 

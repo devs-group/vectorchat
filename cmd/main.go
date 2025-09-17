@@ -28,6 +28,7 @@ import (
 	"github.com/yourusername/vectorchat/internal/vectorize"
 	"github.com/yourusername/vectorchat/pkg/config"
 	"github.com/yourusername/vectorchat/pkg/constants"
+	"github.com/yourusername/vectorchat/pkg/docprocessor"
 	stripe_sub "github.com/yourusername/vectorchat/pkg/stripe_sub"
 )
 
@@ -137,6 +138,11 @@ func runApplication(appCfg *config.AppConfig) error {
 		logger.Warn("failed to initialize crawl4ai client; falling back to built-in crawler", "error", err)
 	}
 
+	markitdownClient, err := docprocessor.NewMarkitdownClient(appCfg.MarkitdownURL)
+	if err != nil {
+		return fmt.Errorf("failed to configure markitdown client: %w", err)
+	}
+
 	// Initialize repositories
 	repos := db.NewRepositories(pool)
 
@@ -148,7 +154,7 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Initialize services
 	authService := services.NewAuthService(repos.User, repos.APIKey)
-	chatService := services.NewChatService(repos.Chat, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, webCrawler, openaiKey, pool, uploadsDir)
+	chatService := services.NewChatService(repos.Chat, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, webCrawler, markitdownClient, openaiKey, pool, uploadsDir)
 	apiKeyService := services.NewAPIKeyService(repos.APIKey)
 	commonService := services.NewCommonService()
 
