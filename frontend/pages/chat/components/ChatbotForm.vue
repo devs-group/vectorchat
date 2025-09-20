@@ -163,7 +163,7 @@ const models = [
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <Label for="name"
-                >Assistant Name <span class="text-destructive">*</span></Label
+                >Name <span class="text-destructive">*</span></Label
               >
               <Input
                 id="name"
@@ -175,7 +175,10 @@ const models = [
             </div>
 
             <div>
-              <Label for="modelName">AI Model</Label>
+              <Label for="modelName"
+                >AI Model <span class="text-destructive">*</span></Label
+              >
+
               <div class="mt-2">
                 <select
                   id="modelName"

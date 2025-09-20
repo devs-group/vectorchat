@@ -68,14 +68,17 @@
               message.timestamp
             }}</span>
           </div>
-          <div class="whitespace-pre-wrap text-left flex items-start gap-2">
+          <div class="text-left flex items-start gap-2">
             <IconSpinnerArc
               v-if="!message.isUser && message.isStreaming"
               class="h-4 w-4 text-primary animate-spin"
             />
-            <span>
-              {{ message.content }}
-            </span>
+            <div class="markdown-content">
+              <VueMarkdown
+                :source="message.content"
+                :options="markdownOptions"
+              />
+            </div>
           </div>
         </div>
 
@@ -120,6 +123,7 @@ import { ref, onMounted, watch, nextTick, onBeforeUnmount } from "vue";
 import IconMessageSquare from "@/components/icons/IconMessageSquare.vue";
 import IconSend from "@/components/icons/IconSend.vue";
 import IconSpinnerArc from "@/components/icons/IconSpinnerArc.vue";
+import VueMarkdown from "vue-markdown-render";
 import type { ChatbotResponse } from "~/types/api";
 
 interface Props {
@@ -157,6 +161,8 @@ const scrollToBottom = async () => {
     el.scrollTop = el.scrollHeight;
   }
 };
+
+const markdownOptions = { breaks: true, linkify: true };
 
 // Send a message
 const sendMessage = async () => {
@@ -268,3 +274,24 @@ watch(
   () => scrollToBottom(),
 );
 </script>
+
+<style scoped>
+.markdown-content {
+  width: 100%;
+  word-break: break-word;
+}
+
+.markdown-content :deep(p) {
+  margin: 0;
+}
+
+.markdown-content :deep(pre) {
+  margin: 0;
+  overflow-x: auto;
+}
+
+.markdown-content :deep(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+</style>

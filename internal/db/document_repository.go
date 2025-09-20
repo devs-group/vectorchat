@@ -129,7 +129,7 @@ func (r *DocumentRepository) FindSimilar(ctx context.Context, embedding []float3
 }
 
 // FindSimilarByChatbot finds documents similar to the given embedding for a specific chatbot
-func (r *DocumentRepository) FindSimilarByChatbot(ctx context.Context, embedding []float32, chatbotID string, limit int) ([]*DocumentWithEmbedding, error) {
+func (r *DocumentRepository) FindSimilarByChatbot(ctx context.Context, embedding []float32, chatbotID uuid.UUID, limit int) ([]*DocumentWithEmbedding, error) {
 	var docs []*Document
 	query := `
 		SELECT id, content, embedding, chatbot_id, file_id, chunk_index

@@ -978,7 +978,7 @@ func (s *ChatService) chatWithChatbot(
 	}
 
 	// Find relevant documents (RAG context)
-	docs, err := s.documentRepo.FindSimilarByChatbot(ctx, queryEmbedding, chatbotUUID.String(), 5)
+	docs, err := s.documentRepo.FindSimilarByChatbot(ctx, queryEmbedding, chatbotUUID, 5)
 	if err != nil {
 		return "", "", apperrors.Wrapf(apperrors.ErrDatabaseOperation, "find similar documents: %v", err)
 	}
