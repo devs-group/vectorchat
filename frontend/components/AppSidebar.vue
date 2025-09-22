@@ -13,7 +13,7 @@
         <div class="flex flex-col gap-0.5 group-data-[collapsible=icon]:hidden">
           <span class="text-sm font-semibold tracking-tight">VectorChat</span>
           <span class="text-xs font-normal text-muted-foreground"
-            >Control Center</span
+            >Dashboard</span
           >
         </div>
       </NuxtLink>

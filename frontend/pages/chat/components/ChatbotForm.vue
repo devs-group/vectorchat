@@ -114,9 +114,6 @@ const handleSubmit = () => {
 
 // Computed properties
 const submitButtonText = computed(() => {
-  if (props.isLoading) {
-    return props.mode === "edit" ? "Updating..." : "Creating...";
-  }
   return props.mode === "edit" ? "Update Chatbot" : "Create Chatbot";
 });
 
