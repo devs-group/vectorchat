@@ -25,6 +25,7 @@ export interface ChatbotCreateRequest {
   max_tokens: number;
   temperature_param: number;
   save_messages: boolean;
+  shared_knowledge_base_ids?: string[];
 }
 
 export interface ChatbotResponse extends ChatbotCreateRequest {
@@ -33,6 +34,7 @@ export interface ChatbotResponse extends ChatbotCreateRequest {
   is_enabled: boolean;
   created_at: string;
   updated_at: string;
+  shared_knowledge_base_ids: string[];
 }
 
 export type ListChatsResponse = {
@@ -116,6 +118,47 @@ export interface TextSource {
 
 export interface TextSourcesResponse {
   chat_id: string;
+  sources: TextSource[];
+}
+
+export interface SharedKnowledgeBase {
+  id: string;
+  owner_id: string;
+  name: string;
+  description?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SharedKnowledgeBaseCreateRequest {
+  name: string;
+  description?: string | null;
+}
+
+export interface SharedKnowledgeBaseUpdateRequest {
+  name?: string;
+  description?: string | null;
+}
+
+export interface SharedKnowledgeBaseListResponse {
+  knowledge_bases: SharedKnowledgeBase[];
+}
+
+export interface SharedKnowledgeBaseFileUploadResponse {
+  message: string;
+  knowledge_base_id: string;
+  file: string;
+  filename?: string;
+  size?: number;
+}
+
+export interface SharedKnowledgeBaseFilesResponse {
+  knowledge_base_id: string;
+  files: FileInfo[];
+}
+
+export interface SharedKnowledgeBaseTextSourcesResponse {
+  knowledge_base_id: string;
   sources: TextSource[];
 }
 

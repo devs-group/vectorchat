@@ -8,6 +8,7 @@ type Repositories struct {
 	File     *FileRepository
 	Message  *ChatMessageRepository
 	Revision *RevisionRepository
+	SharedKB *SharedKnowledgeBaseRepository
 }
 
 // NewRepositories creates all repository instances
@@ -20,5 +21,6 @@ func NewRepositories(db *Database) *Repositories {
 		File:     NewFileRepository(db),
 		Message:  NewChatMessageRepository(db),
 		Revision: NewRevisionRepository(db),
+		SharedKB: NewSharedKnowledgeBaseRepository(db),
 	}
 }

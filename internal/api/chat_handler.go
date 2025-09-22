@@ -21,7 +21,6 @@ import (
 
 type ChatHandler struct {
 	ChatService        *services.ChatService
-	UploadsDir         string
 	AuthMiddleware     *middleware.AuthMiddleware
 	OwershipMiddleware *middleware.OwnershipMiddleware
 	CommonService      *services.CommonService
@@ -31,14 +30,12 @@ type ChatHandler struct {
 func NewChatHandler(
 	authMiddleware *middleware.AuthMiddleware,
 	chatService *services.ChatService,
-	uploadsDir string,
 	ownershipMiddlware *middleware.OwnershipMiddleware,
 	commonService *services.CommonService,
 	subscriptionLimits *middleware.SubscriptionLimitsMiddleware,
 ) *ChatHandler {
 	return &ChatHandler{
 		ChatService:        chatService,
-		UploadsDir:         uploadsDir,
 		AuthMiddleware:     authMiddleware,
 		OwershipMiddleware: ownershipMiddlware,
 		CommonService:      commonService,

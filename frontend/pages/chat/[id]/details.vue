@@ -29,6 +29,7 @@
         mode="edit"
         :chatbot="chatbot"
         :is-loading="isUpdating"
+        :shared-knowledge-bases="sharedKnowledgeBases"
         @submit="handleUpdate"
       />
     </div>
@@ -39,7 +40,7 @@
       id="knowledgeSection"
       class="mt-8 pt-8 border-t border-border"
     >
-      <KnowledgeBase :chat-id="chatId" />
+      <KnowledgeBase :resource-id="chatId" scope="chatbot" />
     </div>
   </div>
 </template>
@@ -49,21 +50,21 @@ import { ref, computed, watch, onMounted, nextTick } from "vue";
 import ChatbotForm from "../components/ChatbotForm.vue";
 import KnowledgeBase from "./components/KnowledgeBase.vue";
 import { Switch } from "@/components/ui/switch";
-import type { ChatbotResponse } from "~/types/api";
-import { useRoute, useRouter } from "vue-router";
+import type {
+  ChatbotResponse,
+  SharedKnowledgeBaseListResponse,
+} from "~/types/api";
+import { useRoute } from "vue-router";
 import { useApiService } from "@/composables/useApiService";
 
 // Route & API
 const route = useRoute();
-const router = useRouter();
 const apiService = useApiService();
 const chatId = computed(() => route.params.id as string);
 
 // State
 const chatbot = ref<ChatbotResponse | null>(null);
 const isToggling = ref(false);
-const hasKnowledgeBase = ref(false);
-const knowledgeChecked = ref(false);
 
 // Refs
 const knowledgeSection = ref<HTMLElement | null>(null);
@@ -84,6 +85,16 @@ const {
   error: updateError,
   isLoading: isUpdating,
 } = apiService.updateChatbot();
+
+const { execute: loadSharedKnowledgeBases, data: sharedKnowledgeBasesData } =
+  apiService.listSharedKnowledgeBases();
+
+const sharedKnowledgeBases = computed(() => {
+  const response = sharedKnowledgeBasesData.value as
+    | SharedKnowledgeBaseListResponse
+    | undefined;
+  return response?.knowledge_bases ?? [];
+});
 
 // Fetch chatbot data
 const fetchChatbotData = async () => {
@@ -155,6 +166,7 @@ watch(
 // Initialize
 onMounted(() => {
   fetchChatbotData();
+  loadSharedKnowledgeBases();
 });
 
 // Expose scroll function for external use

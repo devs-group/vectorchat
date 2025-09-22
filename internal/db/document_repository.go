@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/pgvector/pgvector-go"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
@@ -19,13 +20,18 @@ func NewDocumentRepository(db *Database) *DocumentRepository {
 // Store stores a document with its vector embedding
 func (r *DocumentRepository) Store(ctx context.Context, doc *Document) error {
 	query := `
-		INSERT INTO documents (id, content, embedding, chatbot_id, file_id, chunk_index)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO documents (id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (id) DO UPDATE
-		SET content = $2, embedding = $3, chatbot_id = $4, file_id = $5, chunk_index = $6
+		SET content = $2,
+		    embedding = $3,
+		    chatbot_id = $4,
+		    shared_knowledge_base_id = $5,
+		    file_id = $6,
+		    chunk_index = $7
 	`
 
-	_, err := r.db.ExecContext(ctx, query, doc.ID, doc.Content, doc.Embedding, doc.ChatbotID, doc.FileID, doc.ChunkIndex)
+	_, err := r.db.ExecContext(ctx, query, doc.ID, doc.Content, doc.Embedding, doc.ChatbotID, doc.SharedKnowledgeBaseID, doc.FileID, doc.ChunkIndex)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to store document")
 	}
@@ -36,13 +42,18 @@ func (r *DocumentRepository) Store(ctx context.Context, doc *Document) error {
 // StoreWithEmbedding stores a document with embedding as float32 slice
 func (r *DocumentRepository) StoreWithEmbedding(ctx context.Context, doc *DocumentWithEmbedding) error {
 	query := `
-		INSERT INTO documents (id, content, embedding, chatbot_id, file_id, chunk_index)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO documents (id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (id) DO UPDATE
-		SET content = $2, embedding = $3, chatbot_id = $4, file_id = $5, chunk_index = $6
+		SET content = $2,
+		    embedding = $3,
+		    chatbot_id = $4,
+		    shared_knowledge_base_id = $5,
+		    file_id = $6,
+		    chunk_index = $7
 	`
 
-	_, err := r.db.ExecContext(ctx, query, doc.ID, doc.Content, pgvector.NewVector(doc.Embedding), doc.ChatbotID, doc.FileID, doc.ChunkIndex)
+	_, err := r.db.ExecContext(ctx, query, doc.ID, doc.Content, pgvector.NewVector(doc.Embedding), doc.ChatbotID, doc.SharedKnowledgeBaseID, doc.FileID, doc.ChunkIndex)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to store document with embedding")
 	}
@@ -53,13 +64,18 @@ func (r *DocumentRepository) StoreWithEmbedding(ctx context.Context, doc *Docume
 // StoreTx stores a document within a transaction
 func (r *DocumentRepository) StoreTx(ctx context.Context, tx *Transaction, doc *Document) error {
 	query := `
-		INSERT INTO documents (id, content, embedding, chatbot_id, file_id, chunk_index)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO documents (id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (id) DO UPDATE
-		SET content = $2, embedding = $3, chatbot_id = $4, file_id = $5, chunk_index = $6
+		SET content = $2,
+		    embedding = $3,
+		    chatbot_id = $4,
+		    shared_knowledge_base_id = $5,
+		    file_id = $6,
+		    chunk_index = $7
 	`
 
-	_, err := tx.ExecContext(ctx, query, doc.ID, doc.Content, doc.Embedding, doc.ChatbotID, doc.FileID, doc.ChunkIndex)
+	_, err := tx.ExecContext(ctx, query, doc.ID, doc.Content, doc.Embedding, doc.ChatbotID, doc.SharedKnowledgeBaseID, doc.FileID, doc.ChunkIndex)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to store document")
 	}
@@ -70,13 +86,18 @@ func (r *DocumentRepository) StoreTx(ctx context.Context, tx *Transaction, doc *
 // StoreWithEmbeddingTx stores a document with embedding within a transaction
 func (r *DocumentRepository) StoreWithEmbeddingTx(ctx context.Context, tx *Transaction, doc *DocumentWithEmbedding) error {
 	query := `
-		INSERT INTO documents (id, content, embedding, chatbot_id, file_id, chunk_index)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO documents (id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (id) DO UPDATE
-		SET content = $2, embedding = $3, chatbot_id = $4, file_id = $5, chunk_index = $6
+		SET content = $2,
+		    embedding = $3,
+		    chatbot_id = $4,
+		    shared_knowledge_base_id = $5,
+		    file_id = $6,
+		    chunk_index = $7
 	`
 
-	_, err := tx.ExecContext(ctx, query, doc.ID, doc.Content, pgvector.NewVector(doc.Embedding), doc.ChatbotID, doc.FileID, doc.ChunkIndex)
+	_, err := tx.ExecContext(ctx, query, doc.ID, doc.Content, pgvector.NewVector(doc.Embedding), doc.ChatbotID, doc.SharedKnowledgeBaseID, doc.FileID, doc.ChunkIndex)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to store document with embedding")
 	}
@@ -88,7 +109,7 @@ func (r *DocumentRepository) StoreWithEmbeddingTx(ctx context.Context, tx *Trans
 func (r *DocumentRepository) FindByID(ctx context.Context, id string) (*Document, error) {
 	var doc Document
 	query := `
-		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
+		SELECT id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index
 		FROM documents
 		WHERE id = $1
 	`
@@ -108,7 +129,7 @@ func (r *DocumentRepository) FindByID(ctx context.Context, id string) (*Document
 func (r *DocumentRepository) FindSimilar(ctx context.Context, embedding []float32, limit int) ([]*DocumentWithEmbedding, error) {
 	var docs []*Document
 	query := `
-		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
+		SELECT id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index
 		FROM documents
 		ORDER BY embedding <=> $1
 		LIMIT $2
@@ -132,7 +153,7 @@ func (r *DocumentRepository) FindSimilar(ctx context.Context, embedding []float3
 func (r *DocumentRepository) FindSimilarByChatbot(ctx context.Context, embedding []float32, chatbotID uuid.UUID, limit int) ([]*DocumentWithEmbedding, error) {
 	var docs []*Document
 	query := `
-		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
+		SELECT id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index
 		FROM documents
 		WHERE chatbot_id = $1
 		ORDER BY embedding <=> $2
@@ -153,11 +174,39 @@ func (r *DocumentRepository) FindSimilarByChatbot(ctx context.Context, embedding
 	return result, nil
 }
 
+// FindSimilarBySharedKnowledgeBases finds documents similar to the embedding across shared KBs
+func (r *DocumentRepository) FindSimilarBySharedKnowledgeBases(ctx context.Context, embedding []float32, kbIDs []uuid.UUID, limit int) ([]*DocumentWithEmbedding, error) {
+	if len(kbIDs) == 0 {
+		return []*DocumentWithEmbedding{}, nil
+	}
+
+	var docs []*Document
+	query := `
+		SELECT id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index
+		FROM documents
+		WHERE shared_knowledge_base_id = ANY($1)
+		ORDER BY embedding <=> $2
+		LIMIT $3
+	`
+
+	err := r.db.SelectContext(ctx, &docs, query, pq.Array(kbIDs), pgvector.NewVector(embedding), limit)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to find similar documents by shared knowledge bases")
+	}
+
+	result := make([]*DocumentWithEmbedding, len(docs))
+	for i, doc := range docs {
+		result[i] = doc.ToDocumentWithEmbedding()
+	}
+
+	return result, nil
+}
+
 // FindByChatbotID finds all documents for a chatbot
 func (r *DocumentRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*Document, error) {
 	var docs []*Document
 	query := `
-		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
+		SELECT id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index
 		FROM documents
 		WHERE chatbot_id = $1
 		ORDER BY id
@@ -171,11 +220,29 @@ func (r *DocumentRepository) FindByChatbotID(ctx context.Context, chatbotID uuid
 	return docs, nil
 }
 
+// FindBySharedKnowledgeBaseID finds all documents for a shared knowledge base
+func (r *DocumentRepository) FindBySharedKnowledgeBaseID(ctx context.Context, kbID uuid.UUID) ([]*Document, error) {
+	var docs []*Document
+	query := `
+		SELECT id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index
+		FROM documents
+		WHERE shared_knowledge_base_id = $1
+		ORDER BY id
+	`
+
+	err := r.db.SelectContext(ctx, &docs, query, kbID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to find documents by shared knowledge base ID")
+	}
+
+	return docs, nil
+}
+
 // FindByFileID finds all documents for a file
 func (r *DocumentRepository) FindByFileID(ctx context.Context, fileID uuid.UUID) ([]*Document, error) {
 	var docs []*Document
 	query := `
-		SELECT id, content, embedding, chatbot_id, file_id, chunk_index
+		SELECT id, content, embedding, chatbot_id, shared_knowledge_base_id, file_id, chunk_index
 		FROM documents
 		WHERE file_id = $1
 		ORDER BY chunk_index NULLS LAST, id
@@ -250,6 +317,30 @@ func (r *DocumentRepository) DeleteByChatbotIDTx(ctx context.Context, tx *Transa
 	_, err := tx.ExecContext(ctx, query, chatbotID)
 	if err != nil {
 		return apperrors.Wrap(err, "failed to delete documents by chatbot ID")
+	}
+
+	return nil
+}
+
+// DeleteBySharedKnowledgeBaseID deletes all documents associated with a shared KB
+func (r *DocumentRepository) DeleteBySharedKnowledgeBaseID(ctx context.Context, kbID uuid.UUID) error {
+	query := `DELETE FROM documents WHERE shared_knowledge_base_id = $1`
+
+	_, err := r.db.ExecContext(ctx, query, kbID)
+	if err != nil {
+		return apperrors.Wrap(err, "failed to delete documents by shared knowledge base ID")
+	}
+
+	return nil
+}
+
+// DeleteBySharedKnowledgeBaseIDTx deletes all documents associated with a shared KB within a transaction
+func (r *DocumentRepository) DeleteBySharedKnowledgeBaseIDTx(ctx context.Context, tx *Transaction, kbID uuid.UUID) error {
+	query := `DELETE FROM documents WHERE shared_knowledge_base_id = $1`
+
+	_, err := tx.ExecContext(ctx, query, kbID)
+	if err != nil {
+		return apperrors.Wrap(err, "failed to delete documents by shared knowledge base ID")
 	}
 
 	return nil

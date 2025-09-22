@@ -9,6 +9,13 @@ import type {
   RevisionsListResponse,
   RevisionResponse,
   UpdateRevisionRequest,
+  SharedKnowledgeBase,
+  SharedKnowledgeBaseCreateRequest,
+  SharedKnowledgeBaseUpdateRequest,
+  SharedKnowledgeBaseListResponse,
+  SharedKnowledgeBaseFileUploadResponse,
+  SharedKnowledgeBaseFilesResponse,
+  SharedKnowledgeBaseTextSourcesResponse,
 } from "~/types/api";
 
 /**
@@ -116,8 +123,9 @@ export function useApiService() {
         max_tokens: number;
         temperature_param: number;
         save_messages: boolean;
+        shared_knowledge_base_ids?: string[];
       }) => {
-        return await useApiFetch("/chat/chatbot", {
+        return await useApiFetch<{ chatbot: ChatbotResponse }>("/chat/chatbot", {
           method: "POST",
           body: data,
         });
@@ -280,6 +288,7 @@ export function useApiService() {
         temperature_param?: number;
         max_tokens?: number;
         save_messages?: boolean;
+        shared_knowledge_base_ids?: string[];
       }) => {
         return await useApiFetch<{ chatbot: ChatbotResponse }>(
           `/chat/chatbot/${chatbotData.id}`,
@@ -325,6 +334,181 @@ export function useApiService() {
       {
         showSuccessToast: true,
         successMessage: "Chatbot deleted successfully",
+      },
+    );
+  };
+
+  // Shared knowledge bases
+  const listSharedKnowledgeBases = () => {
+    return useApi(
+      async () => {
+        return await useApiFetch<SharedKnowledgeBaseListResponse>(
+          "/knowledge-bases",
+          {
+            method: "GET",
+          },
+        );
+      },
+      { showSuccessToast: false },
+    );
+  };
+
+  const createSharedKnowledgeBase = () => {
+    return useApi(
+      async (body: SharedKnowledgeBaseCreateRequest) => {
+        return await useApiFetch<SharedKnowledgeBase>("/knowledge-bases", {
+          method: "POST",
+          body,
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Knowledge base created",
+        errorMessage: "Failed to create knowledge base",
+      },
+    );
+  };
+
+  const getSharedKnowledgeBase = () => {
+    return useApi(
+      async (kbId: string) => {
+        return await useApiFetch<SharedKnowledgeBase>(`/knowledge-bases/${kbId}`, {
+          method: "GET",
+        });
+      },
+      { errorMessage: "Failed to fetch knowledge base" },
+    );
+  };
+
+  const updateSharedKnowledgeBase = () => {
+    return useApi(
+      async (data: { id: string; body: SharedKnowledgeBaseUpdateRequest }) => {
+        return await useApiFetch<SharedKnowledgeBase>(`/knowledge-bases/${data.id}`, {
+          method: "PUT",
+          body: data.body,
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Knowledge base updated",
+        errorMessage: "Failed to update knowledge base",
+      },
+    );
+  };
+
+  const deleteSharedKnowledgeBase = () => {
+    return useApi(
+      async (kbId: string) => {
+        return await useApiFetch(`/knowledge-bases/${kbId}`, {
+          method: "DELETE",
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Knowledge base deleted",
+        errorMessage: "Failed to delete knowledge base",
+      },
+    );
+  };
+
+  const uploadSharedKnowledgeBaseFile = async (
+    kbId: string,
+    file: File,
+  ): Promise<SharedKnowledgeBaseFileUploadResponse> => {
+    const config = useRuntimeConfig();
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return await $fetch(`/knowledge-bases/${kbId}/upload`, {
+      baseURL: config.public.apiBase as string,
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    });
+  };
+
+  const uploadSharedKnowledgeBaseText = () => {
+    return useApi(
+      async (data: { kbId: string; text: string }) => {
+        return await useApiFetch(`/knowledge-bases/${data.kbId}/text`, {
+          method: "POST",
+          body: { text: data.text },
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Text added successfully",
+      },
+    );
+  };
+
+  const uploadSharedKnowledgeBaseWebsite = () => {
+    return useApi(
+      async (data: { kbId: string; url: string }) => {
+        return await useApiFetch(`/knowledge-bases/${data.kbId}/website`, {
+          method: "POST",
+          body: { url: data.url },
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Website indexing started",
+      },
+    );
+  };
+
+  const listSharedKnowledgeBaseFiles = (kbId: string) => {
+    return useApi(
+      async () => {
+        return await useApiFetch<SharedKnowledgeBaseFilesResponse>(
+          `/knowledge-bases/${kbId}/files`,
+          {
+            method: "GET",
+          },
+        );
+      },
+      { errorMessage: "Failed to fetch files" },
+    );
+  };
+
+  const deleteSharedKnowledgeBaseFile = () => {
+    return useApi(
+      async (data: { kbId: string; filename: string }) => {
+        return await useApiFetch(`/knowledge-bases/${data.kbId}/files/${data.filename}`, {
+          method: "DELETE",
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "File deleted successfully",
+      },
+    );
+  };
+
+  const listSharedKnowledgeBaseTextSources = (kbId: string) => {
+    return useApi(
+      async () => {
+        return await useApiFetch<SharedKnowledgeBaseTextSourcesResponse>(
+          `/knowledge-bases/${kbId}/text`,
+          {
+            method: "GET",
+          },
+        );
+      },
+      { errorMessage: "Failed to fetch text sources" },
+    );
+  };
+
+  const deleteSharedKnowledgeBaseTextSource = () => {
+    return useApi(
+      async (data: { kbId: string; id: string }) => {
+        return await useApiFetch(`/knowledge-bases/${data.kbId}/text/${data.id}`, {
+          method: "DELETE",
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Text source deleted successfully",
       },
     );
   };
@@ -675,6 +859,20 @@ export function useApiService() {
     listChatFiles,
     listTextSources,
     deleteTextSource,
+
+    // Shared knowledge bases
+    listSharedKnowledgeBases,
+    createSharedKnowledgeBase,
+    getSharedKnowledgeBase,
+    updateSharedKnowledgeBase,
+    deleteSharedKnowledgeBase,
+    uploadSharedKnowledgeBaseFile,
+    uploadSharedKnowledgeBaseText,
+    uploadSharedKnowledgeBaseWebsite,
+    listSharedKnowledgeBaseFiles,
+    deleteSharedKnowledgeBaseFile,
+    listSharedKnowledgeBaseTextSources,
+    deleteSharedKnowledgeBaseTextSource,
 
     // Conversations
     listConversations,

@@ -1,15 +1,22 @@
 <template>
   <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-3xl font-bold tracking-tight">Chats</h1>
-      <Button
-        v-if="hasChats && !isLoadingChatbots"
-        @click="createNewChat"
-        class="transition-all hover:shadow-md"
-      >
-        <IconPlus class="mr-2 h-4 w-4" />
-        New Chat
-      </Button>
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Chats</h1>
+        <p class="text-sm text-muted-foreground">
+          Manage your AI chatbots and monitor conversations across all channels.
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <Button
+          v-if="hasChats && !isLoadingChatbots"
+          @click="createNewChat"
+          class="transition-all hover:shadow-md"
+        >
+          <IconPlus class="mr-2 h-4 w-4" />
+          New Chat
+        </Button>
+      </div>
     </div>
 
     <div v-if="isLoadingChatbots" class="flex justify-center py-8">
@@ -37,63 +44,79 @@
       </Button>
     </div>
 
-    <div v-else class="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-      <Card
+    <div v-else class="grid gap-6 md:grid-cols-2">
+      <AppResourceCard
         v-for="chat in data?.chatbots"
         :key="chat.id"
-        class="group relative overflow-hidden transition-all duration-200 hover:border-primary hover:shadow-md"
+        :title="chat.name"
+        :description="chat.description ?? undefined"
+        :to="`/chat/${chat.id}`"
+        link-aria-label="View chat"
+        icon-variant="indigo"
       >
-        <CardHeader class="gap-3 pb-0">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-2">
-              <CardTitle class="text-lg font-semibold truncate">
-                {{ chat.name }}
-              </CardTitle>
-              <span
-                v-if="!chat.is_enabled"
-                class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800"
-              >
-                Disabled
-              </span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="whitespace-nowrap text-xs text-muted-foreground">
-                {{ formatDate(chat.created_at) }}
-              </span>
+        <template #icon>
+          <IconMessageSquare class="h-5 w-5" />
+        </template>
+        <template #subtitle>
+          <span
+            v-if="!chat.is_enabled"
+            class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800"
+          >
+            Disabled
+          </span>
+        </template>
+        <template #meta>
+          <span class="text-xs text-muted-foreground">
+            Created {{ formatDate(chat.created_at) }}
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
               <Button
                 variant="ghost"
                 size="icon"
-                class="relative z-10 h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                @click.stop="showDeleteConfirmation(chat.id)"
+                class="relative z-10 ml-auto h-8 w-8"
+                @click.stop
+                @pointerdown.stop
+              >
+                <IconDotsVertical class="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              class="w-40"
+              @click.stop
+              @pointerdown.stop
+            >
+              <DropdownMenuItem
+                variant="destructive"
+                @select="() => showDeleteConfirmation(chat.id)"
               >
                 <IconTrash class="h-4 w-4" />
-              </Button>
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </template>
+        <template #content> </template>
+        <template #footer>
+          <div
+            class="flex w-full flex-wrap items-center gap-4 text-muted-foreground"
+          >
+            <div class="flex items-center gap-1">
+              <IconClock class="h-4 w-4" />
+              <span>Last updated: {{ formatDate(chat.updated_at) }}</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <IconFile class="h-4 w-4" />
+              <span>{{ chat.model_name }}</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <IconMessageSquare class="h-4 w-4" />
+              <span>{{ formatMessageCount(chat.ai_messages_amount) }}</span>
             </div>
           </div>
-          <CardDescription class="line-clamp-2 text-sm text-muted-foreground">
-            {{ chat.description }}
-          </CardDescription>
-        </CardHeader>
-        <CardFooter class="flex-col items-start gap-2 border-t pt-4 text-sm text-muted-foreground">
-          <div class="flex items-center gap-2">
-            <IconMessageSquare class="h-4 w-4" />
-            <span>{{ formatMessageCount(chat.ai_messages_amount) }}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <IconFile class="h-4 w-4" />
-            <span>{{ chat.model_name }}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <IconClock class="h-4 w-4" />
-            <span>Last updated: {{ formatDate(chat.updated_at) }}</span>
-          </div>
-        </CardFooter>
-        <NuxtLink
-          :to="`/chat/${chat.id}`"
-          class="absolute inset-0"
-          aria-label="View chat"
-        ></NuxtLink>
-      </Card>
+        </template>
+      </AppResourceCard>
     </div>
 
     <!-- Delete Confirmation Dialog -->
@@ -118,7 +141,6 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { toast } from "vue-sonner";
 import {
   Dialog,
   DialogContent,
@@ -127,15 +149,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import AppResourceCard from "@/components/AppResourceCard.vue";
 import {
-  Card,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import IconClock from "@/components/icons/IconClock.vue";
 import IconFile from "@/components/icons/IconFile.vue";
+import IconDotsVertical from "@/components/icons/IconDotsVertical.vue";
 import IconMessageSquare from "@/components/icons/IconMessageSquare.vue";
 import IconPlus from "@/components/icons/IconPlus.vue";
 import IconTrash from "@/components/icons/IconTrash.vue";

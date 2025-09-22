@@ -142,19 +142,16 @@ func runApplication(appCfg *config.AppConfig) error {
 	if err != nil {
 		return fmt.Errorf("failed to configure markitdown client: %w", err)
 	}
+	processor := docprocessor.NewProcessor(markitdownClient)
 
 	// Initialize repositories
 	repos := db.NewRepositories(pool)
 
-	// Create uploads directory if it doesn't exist
-	uploadsDir := "uploads"
-	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
-		return fmt.Errorf("failed to create uploads directory: %v", err)
-	}
-
 	// Initialize services
+	kbService := services.NewKnowledgeBaseService(repos.File, repos.Document, vectorizer, processor, webCrawler, pool)
+	sharedKBService := services.NewSharedKnowledgeBaseService(repos.SharedKB, repos.File, repos.Document, kbService)
 	authService := services.NewAuthService(repos.User, repos.APIKey)
-	chatService := services.NewChatService(repos.Chat, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, webCrawler, markitdownClient, openaiKey, pool, uploadsDir)
+	chatService := services.NewChatService(repos.Chat, repos.SharedKB, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, kbService, openaiKey, pool)
 	apiKeyService := services.NewAPIKeyService(repos.APIKey)
 	commonService := services.NewCommonService()
 
@@ -208,7 +205,8 @@ func runApplication(appCfg *config.AppConfig) error {
 	}))
 
 	// Initialize API handlers
-	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, uploadsDir, ownershipMiddleware, commonService, subscriptionLimits)
+	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, ownershipMiddleware, commonService, subscriptionLimits)
+	sharedKnowledgeBaseHandler := api.NewSharedKnowledgeBaseHandler(authMiddleware, sharedKBService)
 	oAuthHandler := api.NewOAuthHandler(oAuthConfig, authService, authMiddleware)
 	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService, commonService)
 	subsHandler := api.NewStripeSubHandler(authMiddleware, svc)
@@ -216,6 +214,7 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Register routes
 	chatbotHandler.RegisterRoutes(app)
+	sharedKnowledgeBaseHandler.RegisterRoutes(app)
 	oAuthHandler.RegisterRoutes(app)
 	apiKeyHandler.RegisterRoutes(app)
 	subsHandler.RegisterRoutes(app)

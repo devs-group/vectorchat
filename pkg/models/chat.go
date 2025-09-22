@@ -7,39 +7,42 @@ import (
 )
 
 type ChatbotCreateRequest struct {
-	Name               string  `json:"name" binding:"required" example:"Customer Support Bot"`
-	Description        string  `json:"description" binding:"required" example:"AI assistant for customer support"`
-	SystemInstructions string  `json:"system_instructions" binding:"required" example:"You are a helpful customer support assistant"`
-	ModelName          string  `json:"model_name" binding:"required" example:"gpt-3.5-turbo"`
-	TemperatureParam   float64 `json:"temperature_param" binding:"required,min=0,max=2" example:"0.7"`
-	MaxTokens          int     `json:"max_tokens" binding:"required,min=1" example:"1000"`
-	SaveMessages       *bool   `json:"save_messages,omitempty" example:"true"`
+	Name                   string      `json:"name" binding:"required" example:"Customer Support Bot"`
+	Description            string      `json:"description" binding:"required" example:"AI assistant for customer support"`
+	SystemInstructions     string      `json:"system_instructions" binding:"required" example:"You are a helpful customer support assistant"`
+	ModelName              string      `json:"model_name" binding:"required" example:"gpt-3.5-turbo"`
+	TemperatureParam       float64     `json:"temperature_param" binding:"required,min=0,max=2" example:"0.7"`
+	MaxTokens              int         `json:"max_tokens" binding:"required,min=1" example:"1000"`
+	SaveMessages           *bool       `json:"save_messages,omitempty" example:"true"`
+	SharedKnowledgeBaseIDs []uuid.UUID `json:"shared_knowledge_base_ids,omitempty"`
 }
 
 type ChatbotUpdateRequest struct {
-	Name               *string  `json:"name,omitempty" example:"Updated Bot Name"`
-	Description        *string  `json:"description,omitempty" example:"Updated description"`
-	SystemInstructions *string  `json:"system_instructions,omitempty" example:"Updated system instructions"`
-	ModelName          *string  `json:"model_name,omitempty" example:"gpt-4"`
-	TemperatureParam   *float64 `json:"temperature_param,omitempty" example:"0.8"`
-	MaxTokens          *int     `json:"max_tokens,omitempty" example:"1500"`
-	SaveMessages       *bool    `json:"save_messages,omitempty" example:"true"`
+	Name                   *string     `json:"name,omitempty" example:"Updated Bot Name"`
+	Description            *string     `json:"description,omitempty" example:"Updated description"`
+	SystemInstructions     *string     `json:"system_instructions,omitempty" example:"Updated system instructions"`
+	ModelName              *string     `json:"model_name,omitempty" example:"gpt-4"`
+	TemperatureParam       *float64    `json:"temperature_param,omitempty" example:"0.8"`
+	MaxTokens              *int        `json:"max_tokens,omitempty" example:"1500"`
+	SaveMessages           *bool       `json:"save_messages,omitempty" example:"true"`
+	SharedKnowledgeBaseIDs []uuid.UUID `json:"shared_knowledge_base_ids,omitempty"`
 }
 
 type ChatbotResponse struct {
-	ID                 uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	UserID             string    `json:"user_id" example:"user_123"`
-	Name               string    `json:"name" example:"Customer Support Bot"`
-	Description        string    `json:"description" example:"AI assistant for customer support"`
-	SystemInstructions string    `json:"system_instructions" example:"You are a helpful customer support assistant"`
-	ModelName          string    `json:"model_name" example:"gpt-3.5-turbo"`
-	TemperatureParam   float64   `json:"temperature_param" example:"0.7"`
-	MaxTokens          int       `json:"max_tokens" example:"1000"`
-	SaveMessages       bool      `json:"save_messages" example:"true"`
-	IsEnabled          bool      `json:"is_enabled" example:"true"`
-	CreatedAt          time.Time `json:"created_at" example:"2023-01-01T00:00:00Z"`
-	UpdatedAt          time.Time `json:"updated_at" example:"2023-01-01T00:00:00Z"`
-	AIMessagesAmount   int64     `json:"ai_messages_amount" example:"42"`
+	ID                     uuid.UUID   `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	UserID                 string      `json:"user_id" example:"user_123"`
+	Name                   string      `json:"name" example:"Customer Support Bot"`
+	Description            string      `json:"description" example:"AI assistant for customer support"`
+	SystemInstructions     string      `json:"system_instructions" example:"You are a helpful customer support assistant"`
+	ModelName              string      `json:"model_name" example:"gpt-3.5-turbo"`
+	TemperatureParam       float64     `json:"temperature_param" example:"0.7"`
+	MaxTokens              int         `json:"max_tokens" example:"1000"`
+	SaveMessages           bool        `json:"save_messages" example:"true"`
+	IsEnabled              bool        `json:"is_enabled" example:"true"`
+	CreatedAt              time.Time   `json:"created_at" example:"2023-01-01T00:00:00Z"`
+	UpdatedAt              time.Time   `json:"updated_at" example:"2023-01-01T00:00:00Z"`
+	AIMessagesAmount       int64       `json:"ai_messages_amount" example:"42"`
+	SharedKnowledgeBaseIDs []uuid.UUID `json:"shared_knowledge_base_ids"`
 }
 
 type ChatbotsListResponse struct {

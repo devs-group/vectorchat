@@ -1,23 +1,14 @@
 <template>
   <div class="max-w-3xl mx-auto">
-    <!-- Card container -->
-    <div class="rounded-2xl border border-border bg-card shadow-sm">
-      <!-- Header -->
-      <div class="px-6 py-5 border-b border-border/70">
-        <div class="flex items-start gap-3">
-          <div
-            class="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm"
-          >
-            <IconGrid class="h-5 w-5" />
-          </div>
-          <div>
-            <h2 class="text-lg font-medium">Knowledge Base</h2>
-            <p class="text-sm text-muted-foreground">
-              Add information sources for your assistant to reference
-            </p>
-          </div>
-        </div>
-      </div>
+    <ChatSectionCard
+      title="Knowledge Base"
+      subtitle="Add information sources for your assistant to reference"
+      color="green"
+      :padded="false"
+    >
+      <template #icon>
+        <IconGrid class="h-5 w-5" />
+      </template>
 
       <!-- Tabs -->
       <div class="px-6 pt-6">
@@ -249,10 +240,10 @@
               size="sm"
               class="h-8 w-8 p-0"
               @click="deleteFile(file.filename)"
-              :disabled="isDeletingFile"
+              :disabled="isDeletingFileState"
             >
               <IconSpinnerArc
-                v-if="isDeletingFile"
+                v-if="isDeletingFileState"
                 class="h-4 w-4 animate-spin"
               />
               <IconX v-else class="h-4 w-4" />
@@ -289,7 +280,7 @@
           </div>
         </div>
       </div>
-    </div>
+    </ChatSectionCard>
   </div>
 </template>
 
@@ -309,17 +300,24 @@ import IconAlertCircle from "@/components/icons/IconAlertCircle.vue";
 import IconUpload from "@/components/icons/IconUpload.vue";
 import IconSpinnerArc from "@/components/icons/IconSpinnerArc.vue";
 import IconX from "@/components/icons/IconX.vue";
+import ChatSectionCard from "@/components/chat/ChatSectionCard.vue";
 import { useGlobalState } from "@/composables/useGlobalState";
+import { useApiService } from "@/composables/useApiService";
+import { useErrorHandler } from "@/composables/useErrorHandler";
 
 interface Props {
-  chatId: string;
+  resourceId: string;
+  scope?: "chatbot" | "shared";
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  scope: "chatbot",
+});
 
 // API service
 const apiService = useApiService();
 const { showError, showSuccess } = useErrorHandler();
+const isSharedScope = computed(() => props.scope === "shared");
 
 // State
 const files = ref<ChatFile[]>([]);
@@ -439,13 +437,15 @@ const indexingTargetDisplay = computed(() => {
   return "your site";
 });
 
-// Fetch chat files
-const fetchChatFiles = async () => {
-  if (!props.chatId) return;
+// Fetch knowledge base items
+const fetchKnowledgeItems = async () => {
+  if (!props.resourceId) return;
   isLoadingFiles.value = true;
   try {
     const { data: filesData, execute: executeFetchFiles } =
-      apiService.listChatFiles(props.chatId);
+      isSharedScope.value
+        ? apiService.listSharedKnowledgeBaseFiles(props.resourceId)
+        : apiService.listChatFiles(props.resourceId);
     await executeFetchFiles();
     if (Array.isArray(filesData.value)) {
       files.value = (filesData.value as ChatFile[]) || [];
@@ -458,7 +458,9 @@ const fetchChatFiles = async () => {
     }
 
     const { data: textData, execute: executeFetchTexts } =
-      apiService.listTextSources(props.chatId);
+      isSharedScope.value
+        ? apiService.listSharedKnowledgeBaseTextSources(props.resourceId)
+        : apiService.listTextSources(props.resourceId);
     await executeFetchTexts();
     if (Array.isArray(textData.value)) {
       textSources.value = (textData.value as any[]) || [];
@@ -469,10 +471,12 @@ const fetchChatFiles = async () => {
     ) {
       textSources.value = (textData.value.sources as any[]) || [];
     }
-    // update global state for toggling the test chat box.
-    const { hasKnowledgeBaseData } = useGlobalState();
-    hasKnowledgeBaseData.value =
-      files.value.length > 0 || textSources.value.length > 0;
+    if (!isSharedScope.value) {
+      // update global state for toggling the test chat box only for chatbot scope.
+      const { hasKnowledgeBaseData } = useGlobalState();
+      hasKnowledgeBaseData.value =
+        files.value.length > 0 || textSources.value.length > 0;
+    }
   } catch (error) {
     console.error("Error fetching chat files:", error);
     showError(error, "Failed to load files");
@@ -493,9 +497,13 @@ const onFileSelected = async (event: Event) => {
   const file = input.files[0];
   isUploading.value = true;
   try {
-    await apiService.uploadFile(props.chatId, file);
+    if (isSharedScope.value) {
+      await apiService.uploadSharedKnowledgeBaseFile(props.resourceId, file);
+    } else {
+      await apiService.uploadFile(props.resourceId, file);
+    }
     showSuccess("File uploaded successfully");
-    await fetchChatFiles();
+    await fetchKnowledgeItems();
     input.value = "";
   } catch (error) {
     console.error("Error uploading file:", error);
@@ -513,9 +521,13 @@ const handleDrop = async (e: DragEvent) => {
   const file = dt.files[0];
   isUploading.value = true;
   try {
-    await apiService.uploadFile(props.chatId, file);
+    if (isSharedScope.value) {
+      await apiService.uploadSharedKnowledgeBaseFile(props.resourceId, file);
+    } else {
+      await apiService.uploadFile(props.resourceId, file);
+    }
     showSuccess("File uploaded successfully");
-    await fetchChatFiles();
+    await fetchKnowledgeItems();
   } catch (error) {
     console.error("Error uploading via drop:", error);
     showError(error);
@@ -529,13 +541,28 @@ const {
   isLoading: isDeletingFile,
   error: deleteFileError,
 } = apiService.deleteFile();
+const {
+  execute: executeDeleteSharedFile,
+  isLoading: isDeletingSharedFile,
+  error: deleteSharedFileError,
+} = apiService.deleteSharedKnowledgeBaseFile();
+const isDeletingFileState = computed(() =>
+  isSharedScope.value ? isDeletingSharedFile.value : isDeletingFile.value,
+);
 // Delete a file
 const deleteFile = async (filename: string) => {
-  await executeDeleteFile({ chatID: props.chatId, filename });
-  if (deleteFileError.value) {
-    return;
+  if (isSharedScope.value) {
+    await executeDeleteSharedFile({ kbId: props.resourceId, filename });
+    if (deleteSharedFileError.value) {
+      return;
+    }
+  } else {
+    await executeDeleteFile({ chatID: props.resourceId, filename });
+    if (deleteFileError.value) {
+      return;
+    }
   }
-  await fetchChatFiles();
+  await fetchKnowledgeItems();
 };
 
 // Format file size
@@ -553,38 +580,74 @@ const formatDate = (iso: string | Date) => {
 };
 
 const {
-  execute: uploadText,
-  error: uploadTextError,
-  isLoading: isUploadingText,
+  execute: uploadChatText,
+  error: uploadChatTextError,
+  isLoading: isUploadingChatText,
 } = apiService.uploadText();
+const {
+  execute: uploadSharedText,
+  error: uploadSharedTextError,
+  isLoading: isUploadingSharedText,
+} = apiService.uploadSharedKnowledgeBaseText();
+const isUploadingText = computed(() =>
+  isSharedScope.value ? isUploadingSharedText.value : isUploadingChatText.value,
+);
 
 // Add text source (calls backend)
 const addTextSource = async () => {
-  if (!props.chatId || !textSource.value.trim()) return;
-  await uploadText({ chatID: props.chatId, text: textSource.value.trim() });
-  if (uploadTextError.value) {
-    return;
+  if (!props.resourceId || !textSource.value.trim()) return;
+  if (isSharedScope.value) {
+    await uploadSharedText({ kbId: props.resourceId, text: textSource.value.trim() });
+    if (uploadSharedTextError.value) {
+      return;
+    }
+  } else {
+    await uploadChatText({ chatID: props.resourceId, text: textSource.value.trim() });
+    if (uploadChatTextError.value) {
+      return;
+    }
   }
   textSource.value = "";
-  await fetchChatFiles();
+  await fetchKnowledgeItems();
 };
 
 const { execute: executeDeleteText, error: deleteTextError } =
   apiService.deleteTextSource();
+const {
+  execute: executeDeleteSharedText,
+  error: deleteSharedTextError,
+} = apiService.deleteSharedKnowledgeBaseTextSource();
 // Delete a text source
 const deleteText = async (id: string) => {
-  await executeDeleteText({ chatID: props.chatId, id });
-  if (deleteTextError.value) {
-    return;
+  if (isSharedScope.value) {
+    await executeDeleteSharedText({ kbId: props.resourceId, id });
+    if (deleteSharedTextError.value) {
+      return;
+    }
+  } else {
+    await executeDeleteText({ chatID: props.resourceId, id });
+    if (deleteTextError.value) {
+      return;
+    }
   }
-  await fetchChatFiles();
+  await fetchKnowledgeItems();
 };
 
 const {
   execute: uploadWebsite,
   error: uploadWebsiteError,
-  isLoading: isIndexingWebsite,
+  isLoading: isIndexingChatWebsite,
 } = apiService.uploadWebsite();
+const {
+  execute: uploadSharedWebsite,
+  error: uploadSharedWebsiteError,
+  isLoading: isIndexingSharedWebsite,
+} = apiService.uploadSharedKnowledgeBaseWebsite();
+const isIndexingWebsite = computed(() =>
+  isSharedScope.value
+    ? isIndexingSharedWebsite.value
+    : isIndexingChatWebsite.value,
+);
 
 const previewWebsite = () => {
   if (!isWebsiteValid.value || typeof window === "undefined") {
@@ -596,34 +659,49 @@ const previewWebsite = () => {
 
 // Add website source
 const addWebsite = async () => {
-  if (!props.chatId || !isWebsiteValid.value) return;
+  if (!props.resourceId || !isWebsiteValid.value) return;
   const targetUrl = normalizedWebsiteUrl.value;
   indexingTarget.value = targetUrl;
-  await uploadWebsite({ chatID: props.chatId, url: targetUrl });
-  if (uploadWebsiteError.value) {
-    indexingTarget.value = "";
-    return;
+  if (isSharedScope.value) {
+    await uploadSharedWebsite({ kbId: props.resourceId, url: targetUrl });
+    if (uploadSharedWebsiteError.value) {
+      indexingTarget.value = "";
+      return;
+    }
+  } else {
+    await uploadWebsite({ chatID: props.resourceId, url: targetUrl });
+    if (uploadWebsiteError.value) {
+      indexingTarget.value = "";
+      return;
+    }
   }
   websiteInput.value = "";
   indexingTarget.value = "";
-  await fetchChatFiles();
+  await fetchKnowledgeItems();
 };
 
-// Watch for chatId changes
+// Watch for resource changes
 watch(
-  () => props.chatId,
-  async (newChatId) => {
-    if (newChatId) await fetchChatFiles();
+  () => props.resourceId,
+  async (newId) => {
+    if (newId) await fetchKnowledgeItems();
+  },
+);
+
+watch(
+  () => props.scope,
+  async () => {
+    if (props.resourceId) await fetchKnowledgeItems();
   },
 );
 
 // Initialize on mount
 onMounted(async () => {
-  if (props.chatId) await fetchChatFiles();
+  if (props.resourceId) await fetchKnowledgeItems();
 });
 
 // Expose methods and reactive state for parent component
-defineExpose({ fetchChatFiles, files, textSources });
+defineExpose({ fetchKnowledgeItems, files, textSources });
 
 // Summary: items and total usage
 const itemsCount = computed(

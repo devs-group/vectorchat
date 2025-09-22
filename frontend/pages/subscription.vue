@@ -1,7 +1,12 @@
 <template>
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-3xl font-bold tracking-tight">Subscription</h1>
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Subscription</h1>
+        <p class="text-sm text-muted-foreground">
+          Manage your plan and update billing settings.
+        </p>
+      </div>
     </div>
 
     <!-- Skeleton loader for subscription section -->

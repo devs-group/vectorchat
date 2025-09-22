@@ -2,99 +2,90 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"log/slog"
 	"mime/multipart"
-	"net"
-	"net/url"
-	"path/filepath"
 	"strings"
-	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
-	"github.com/yourusername/vectorchat/internal/crawler"
 	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/vectorize"
-	"github.com/yourusername/vectorchat/pkg/docprocessor"
 	"github.com/yourusername/vectorchat/pkg/models"
 )
 
 // ChatService handles chat interactions with context from vector database
 type ChatService struct {
 	*CommonService
-	chatbotRepo     *db.ChatbotRepository
-	documentRepo    *db.DocumentRepository
-	fileRepo        *db.FileRepository
-	messageRepo     *db.ChatMessageRepository
-	revisionRepo    *db.RevisionRepository
-	vectorizer      vectorize.Vectorizer
-	openaiKey       string
-	db              *db.Database
-	uploadsDir      string
-	webCrawler      crawler.WebCrawler
-	crawlerDisabled atomic.Bool
-	docProcessor    *docprocessor.Processor
+	chatbotRepo  *db.ChatbotRepository
+	sharedKBRepo *db.SharedKnowledgeBaseRepository
+	documentRepo *db.DocumentRepository
+	fileRepo     *db.FileRepository
+	messageRepo  *db.ChatMessageRepository
+	revisionRepo *db.RevisionRepository
+	vectorizer   vectorize.Vectorizer
+	openaiKey    string
+	db           *db.Database
+	kbService    *KnowledgeBaseService
 }
 
 // NewChatService creates a new chat service
 func NewChatService(
 	chatbotRepo *db.ChatbotRepository,
+	sharedKBRepo *db.SharedKnowledgeBaseRepository,
 	documentRepo *db.DocumentRepository,
 	fileRepo *db.FileRepository,
 	messageRepo *db.ChatMessageRepository,
 	revisionRepo *db.RevisionRepository,
 	vectorizer vectorize.Vectorizer,
-	webCrawler crawler.WebCrawler,
-	markitdown *docprocessor.MarkitdownClient,
+	knowledgeService *KnowledgeBaseService,
 	openaiKey string,
-	db *db.Database,
-	uploadsDir string,
+	database *db.Database,
 ) *ChatService {
-	// Create document processor with markitdown client
-	processor := docprocessor.NewProcessor(markitdown)
-
 	return &ChatService{
 		CommonService: NewCommonService(),
 		chatbotRepo:   chatbotRepo,
+		sharedKBRepo:  sharedKBRepo,
 		documentRepo:  documentRepo,
 		fileRepo:      fileRepo,
 		messageRepo:   messageRepo,
 		revisionRepo:  revisionRepo,
 		vectorizer:    vectorizer,
-		webCrawler:    webCrawler,
 		openaiKey:     openaiKey,
-		db:            db,
-		uploadsDir:    uploadsDir,
-		docProcessor:  processor,
+		db:            database,
+		kbService:     knowledgeService,
 	}
 }
 
 // ChatbotCreateRequest represents the request to create a new chatbot
 // Helper function to convert database Chatbot to models.ChatbotResponse
-func (s *ChatService) toChatbotResponse(chatbot *db.Chatbot, aiMessages int64) *models.ChatbotResponse {
-	return &models.ChatbotResponse{
-		ID:                 chatbot.ID,
-		UserID:             chatbot.UserID,
-		Name:               chatbot.Name,
-		Description:        chatbot.Description,
-		SystemInstructions: chatbot.SystemInstructions,
-		ModelName:          chatbot.ModelName,
-		TemperatureParam:   chatbot.TemperatureParam,
-		MaxTokens:          chatbot.MaxTokens,
-		SaveMessages:       chatbot.SaveMessages,
-		IsEnabled:          chatbot.IsEnabled,
-		CreatedAt:          chatbot.CreatedAt,
-		UpdatedAt:          chatbot.UpdatedAt,
-		AIMessagesAmount:   aiMessages,
+func (s *ChatService) toChatbotResponse(ctx context.Context, chatbot *db.Chatbot, aiMessages int64) (*models.ChatbotResponse, error) {
+	sharedIDs, err := s.sharedKBRepo.ListIDsByChatbot(ctx, chatbot.ID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to list shared knowledge bases for chatbot")
 	}
+
+	return &models.ChatbotResponse{
+		ID:                     chatbot.ID,
+		UserID:                 chatbot.UserID,
+		Name:                   chatbot.Name,
+		Description:            chatbot.Description,
+		SystemInstructions:     chatbot.SystemInstructions,
+		ModelName:              chatbot.ModelName,
+		TemperatureParam:       chatbot.TemperatureParam,
+		MaxTokens:              chatbot.MaxTokens,
+		SaveMessages:           chatbot.SaveMessages,
+		IsEnabled:              chatbot.IsEnabled,
+		CreatedAt:              chatbot.CreatedAt,
+		UpdatedAt:              chatbot.UpdatedAt,
+		AIMessagesAmount:       aiMessages,
+		SharedKnowledgeBaseIDs: sharedIDs,
+	}, nil
 }
 
 // ValidateAndCreateChatbot validates the request and creates a new chatbot
@@ -130,7 +121,15 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 		return nil, err
 	}
 
-	return s.toChatbotResponse(chatbot, 0), nil
+	if err := s.replaceChatbotSharedKnowledgeBases(ctx, chatbot.ID, userID, req.SharedKnowledgeBaseIDs); err != nil {
+		return nil, err
+	}
+
+	resp, err := s.toChatbotResponse(ctx, chatbot, 0)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 // CreateChatbot creates a new chatbot with default settings
@@ -224,7 +223,11 @@ func (s *ChatService) ListChatbotsFormatted(ctx context.Context, userID string) 
 	}
 
 	for _, chatbot := range chatbots {
-		formattedChatbots = append(formattedChatbots, *s.toChatbotResponse(chatbot, counts[chatbot.ID]))
+		resp, err := s.toChatbotResponse(ctx, chatbot, counts[chatbot.ID])
+		if err != nil {
+			return nil, err
+		}
+		formattedChatbots = append(formattedChatbots, *resp)
 	}
 
 	return &models.ChatbotsListResponse{
@@ -238,13 +241,22 @@ func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatID, user
 	if err != nil {
 		return nil, err
 	}
+	if req.SharedKnowledgeBaseIDs != nil {
+		if err := s.replaceChatbotSharedKnowledgeBases(ctx, chatbot.ID, userID, req.SharedKnowledgeBaseIDs); err != nil {
+			return nil, err
+		}
+	}
 
 	count, err := s.messageRepo.CountAssistantMessagesByChatbotID(ctx, chatbot.ID)
 	if err != nil {
 		return nil, apperrors.Wrap(err, "failed to count assistant messages")
 	}
 
-	return s.toChatbotResponse(chatbot, count), nil
+	resp, err := s.toChatbotResponse(ctx, chatbot, count)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 // UpdateChatbotAll updates all chatbot fields in a single operation
@@ -312,6 +324,34 @@ func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID st
 	return chatbot, nil
 }
 
+func (s *ChatService) replaceChatbotSharedKnowledgeBases(ctx context.Context, chatbotID uuid.UUID, ownerID string, kbIDs []uuid.UUID) error {
+	if kbIDs == nil {
+		return nil
+	}
+
+	ids := dedupeUUIDs(kbIDs)
+	if len(ids) == 0 {
+		return s.sharedKBRepo.ReplaceChatbotLinks(ctx, chatbotID, []uuid.UUID{})
+	}
+
+	owners, err := s.sharedKBRepo.ListOwnersByKnowledgeBaseIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	for _, id := range ids {
+		owner, ok := owners[id]
+		if !ok {
+			return apperrors.ErrSharedKnowledgeBaseNotFound
+		}
+		if owner != ownerID {
+			return apperrors.ErrUnauthorizedKnowledgeBaseAccess
+		}
+	}
+
+	return s.sharedKBRepo.ReplaceChatbotLinks(ctx, chatbotID, ids)
+}
+
 // ToggleChatbotEnabled toggles the enabled state of a chatbot
 func (s *ChatService) ToggleChatbotEnabled(ctx context.Context, chatbotID, userID string, isEnabled bool) (*db.Chatbot, error) {
 	// Validate inputs
@@ -351,12 +391,6 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 
 	chatbotUUID := uuid.MustParse(chatbotID)
 
-	// Get all files before deleting them from database (for physical file cleanup)
-	files, err := s.fileRepo.FindByChatbotID(ctx, chatbotUUID)
-	if err != nil {
-		return apperrors.Wrap(err, "failed to get chatbot files for cleanup")
-	}
-
 	// Start transaction
 	tx, err := s.db.BeginTx(ctx)
 	if err != nil {
@@ -386,21 +420,6 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 	err = tx.Commit()
 	if err != nil {
 		return apperrors.Wrap(err, "failed to commit transaction")
-	}
-
-	// Delete physical files from uploads directory
-	for _, file := range files {
-		storedFilename := file.Filename
-		// Ensure we use the stored form "<chatbotID>-<original>" exactly once
-		if !strings.HasPrefix(storedFilename, chatbotUUID.String()+"-") {
-			storedFilename = fmt.Sprintf("%s-%s", chatbotUUID, storedFilename)
-		}
-		filePath := filepath.Join(s.uploadsDir, storedFilename)
-
-		if err := s.docProcessor.DeleteFile(filePath); err != nil {
-			// Log the error but don't fail the entire operation if file doesn't exist
-			log.Printf("Warning: Failed to delete physical file %s: %v", filePath, err)
-		}
 	}
 
 	return nil
@@ -442,12 +461,17 @@ func (s *ChatService) GetChatbotFormatted(ctx context.Context, chatID, userID st
 		return nil, apperrors.Wrap(err, "failed to count assistant messages")
 	}
 
-	return s.toChatbotResponse(chatbot, count), nil
+	resp, err := s.toChatbotResponse(ctx, chatbot, count)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 // ProcessFileUpload validates and stores a new file, similar to ProcessTextUpload
 func (s *ChatService) ProcessFileUpload(ctx context.Context, chatbotID uuid.UUID, fileHeader *multipart.FileHeader) (*models.FileUploadResponse, error) {
-	f, size, err := s.SaveFile(ctx, chatbotID, fileHeader)
+	target := KnowledgeBaseTarget{ChatbotID: &chatbotID}
+	file, err := s.kbService.IngestFile(ctx, target, fileHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -456,9 +480,9 @@ func (s *ChatService) ProcessFileUpload(ctx context.Context, chatbotID uuid.UUID
 		Message:   "File processed successfully",
 		ChatID:    chatbotID,
 		ChatbotID: chatbotID,
-		File:      f.Filename,
-		Filename:  f.Filename,
-		Size:      size,
+		File:      file.Filename,
+		Filename:  file.Filename,
+		Size:      file.SizeBytes,
 	}, nil
 }
 
@@ -525,246 +549,12 @@ func (s *ChatService) ValidateAndParseQuery(req *models.ChatMessageRequest, form
 }
 
 // AddFile adds a file to the vector database
-// AddFileSource indexes the converted markdown for a chatbot by chunking/vectorizing content
-func (s *ChatService) AddFileSource(ctx context.Context, chatbotID uuid.UUID, originalFilename string, originalSize int64, markdown string, docID string, ingestedAt time.Time) (*db.File, error) {
-	fileID := uuid.New()
-
-	// Start transaction
-	tx, err := s.db.BeginTx(ctx)
-	if err != nil {
-		return nil, apperrors.Wrap(err, "failed to start transaction")
-	}
-	defer tx.Rollback()
-
-	// Insert file metadata with the original filename (cleaner for clients)
-	file := &db.File{
-		ID:         fileID,
-		ChatbotID:  chatbotID,
-		Filename:   filepath.Base(originalFilename),
-		SizeBytes:  originalSize,
-		UploadedAt: ingestedAt,
-	}
-
-	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
-		return nil, apperrors.Wrap(err, "failed to insert file metadata")
-	}
-
-	chunks := s.docProcessor.WrapMarkdownWithMetadata(markdown, docID, filepath.Base(originalFilename), fileID, ingestedAt)
-	if len(chunks) == 0 {
-		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "file did not produce any indexable content")
-	}
-
-	docIDBase := fmt.Sprintf("%s-%s", chatbotID, filepath.Base(originalFilename))
-	for idx, chunk := range chunks {
-		embedding, err := s.vectorizer.VectorizeText(ctx, chunk)
-		if err != nil {
-			return nil, apperrors.Wrapf(err, "failed to vectorize chunk %d", idx)
-		}
-
-		doc := &db.DocumentWithEmbedding{
-			ID:         fmt.Sprintf("%s-%d", docIDBase, idx),
-			Content:    []byte(chunk),
-			Embedding:  embedding,
-			ChatbotID:  chatbotID,
-			FileID:     &fileID,
-			ChunkIndex: intPtr(idx),
-		}
-
-		if err := s.documentRepo.StoreWithEmbeddingTx(ctx, tx, doc); err != nil {
-			return nil, apperrors.Wrapf(err, "failed to store chunk %d", idx)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, apperrors.Wrap(err, "failed to commit transaction")
-	}
-	return file, nil
-}
-
-// SaveFile writes the uploaded file to disk and indexes it, similar to AddText
-func (s *ChatService) SaveFile(ctx context.Context, chatbotID uuid.UUID, fileHeader *multipart.FileHeader) (*db.File, int64, error) {
-	// Process the file using document processor
-	processedFile, err := s.docProcessor.ProcessFile(ctx, fileHeader)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	// Save file to disk
-	storedPath, err := s.docProcessor.SaveFileToDirectory(fileHeader, s.uploadsDir, chatbotID.String())
-	if err != nil {
-		return nil, 0, apperrors.Wrap(err, "failed to save file to disk")
-	}
-
-	// Index the processed file
-	file, err := s.AddFileSource(ctx, chatbotID, processedFile.Filename, processedFile.OriginalSize, processedFile.Markdown, processedFile.Hash, processedFile.ProcessedAt)
-	if err != nil {
-		// Best effort cleanup of the stored file if indexing fails
-		_ = s.docProcessor.DeleteFile(storedPath)
-		return nil, 0, apperrors.Wrap(err, "failed to index file")
-	}
-	return file, processedFile.OriginalSize, nil
-}
-
-// AddText indexes plain text for a chatbot by chunking and vectorizing it
-func (s *ChatService) AddText(ctx context.Context, chatbotID uuid.UUID, text string) error {
-	// Process text using document processor
-	processedText, err := s.docProcessor.ProcessText(text)
-	if err != nil {
-		return err
-	}
-
-	// Begin transaction
-	tx, err := s.db.BeginTx(ctx)
-	if err != nil {
-		return apperrors.Wrap(err, "failed to start transaction")
-	}
-	defer tx.Rollback()
-
-	// Create synthetic file metadata to group this text upload
-	file := &db.File{
-		ID:         uuid.New(),
-		ChatbotID:  chatbotID,
-		Filename:   processedText.Filename,
-		SizeBytes:  processedText.OriginalSize,
-		UploadedAt: processedText.ProcessedAt,
-	}
-	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
-		return apperrors.Wrap(err, "failed to insert text metadata")
-	}
-
-	// Process chunks from document processor
-	for i, chunk := range processedText.Chunks {
-		embedding, err := s.vectorizer.VectorizeText(ctx, chunk)
-		if err != nil {
-			return apperrors.Wrapf(err, "failed to vectorize text chunk %d", i)
-		}
-
-		doc := &db.DocumentWithEmbedding{
-			ID:         fmt.Sprintf("%s-text-%d-%s", chatbotID, i, uuid.New()),
-			Content:    []byte(chunk),
-			Embedding:  embedding,
-			ChatbotID:  chatbotID,
-			FileID:     &file.ID, // link chunks to text source
-			ChunkIndex: intPtr(i),
-		}
-
-		if err := s.documentRepo.StoreWithEmbeddingTx(ctx, tx, doc); err != nil {
-			return apperrors.Wrapf(err, "failed to store text chunk %d", i)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return apperrors.Wrap(err, "failed to commit transaction")
-	}
-	return nil
-}
 
 // AddWebsite crawls a root URL (minimal BFS) and indexes extracted text as documents.
 func (s *ChatService) AddWebsite(ctx context.Context, chatbotID uuid.UUID, rootURL string) error {
-	if strings.TrimSpace(rootURL) == "" {
-		return apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "url is required")
-	}
-
-	// Create a synthetic file record to group this website source
-	// Filename format: website-<host>-<timestamp>
-	host := rootURL
-	if u, err := s.ParseURL(rootURL); err == nil {
-		host = u.Hostname()
-	}
-	fname := fmt.Sprintf("website-%s-%s", host, time.Now().Format("20060102-150405"))
-
-	tx, err := s.db.BeginTx(ctx)
-	if err != nil {
-		return apperrors.Wrap(err, "failed to start transaction")
-	}
-	defer tx.Rollback()
-
-	file := &db.File{
-		ID:         uuid.New(),
-		ChatbotID:  chatbotID,
-		Filename:   fname,
-		SizeBytes:  0,
-		UploadedAt: time.Now(),
-	}
-	if err := s.fileRepo.CreateTx(ctx, tx, file); err != nil {
-		return apperrors.Wrap(err, "failed to insert website source")
-	}
-
-	// Run a small crawl
-	pages, err := s.crawlWebsite(ctx, rootURL, crawler.Options{MaxPages: 25, MaxDepth: 2, Timeout: 40 * time.Second})
-	if err != nil {
-		return apperrors.Wrap(err, "failed to crawl website")
-	}
-
-	// Index each page's text and accumulate total ingested bytes
-	const chunkSize = 1000
-	var totalBytes int64
-	for pi, p := range pages {
-		if strings.TrimSpace(p.Text) == "" {
-			continue
-		}
-		chunks := s.docProcessor.ChunkText(p.Text, chunkSize)
-		for ci, chunk := range chunks {
-			totalBytes += int64(len(chunk))
-			emb, err := s.vectorizer.VectorizeText(ctx, chunk)
-			if err != nil {
-				return apperrors.Wrapf(err, "failed to vectorize page %d chunk %d", pi, ci)
-			}
-			doc := &db.DocumentWithEmbedding{
-				ID:         fmt.Sprintf("%s-web-%d-%d-%s", chatbotID, pi, ci, uuid.New().String()),
-				Content:    []byte(chunk),
-				Embedding:  emb,
-				ChatbotID:  chatbotID,
-				FileID:     &file.ID,
-				ChunkIndex: intPtr(ci),
-			}
-			if err := s.documentRepo.StoreWithEmbeddingTx(ctx, tx, doc); err != nil {
-				return apperrors.Wrapf(err, "failed to store page %d chunk %d", pi, ci)
-			}
-		}
-
-		// Update file size_bytes before committing
-		file.SizeBytes = totalBytes
-		if err := s.fileRepo.UpdateTx(ctx, tx, file); err != nil {
-			return apperrors.Wrap(err, "failed to update website source size")
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return apperrors.Wrap(err, "failed to commit website indexing")
-	}
-	return nil
-}
-
-// crawlWebsite obtains markdown for a root URL using crawl4ai when available and
-// falls back to the built-in crawler if the external service fails or yields no content.
-func (s *ChatService) crawlWebsite(ctx context.Context, rootURL string, opts crawler.Options) ([]crawler.Page, error) {
-	if s.webCrawler != nil && !s.crawlerDisabled.Load() {
-		pages, err := s.webCrawler.Crawl(ctx, rootURL, opts)
-		if err == nil && len(pages) > 0 {
-			return pages, nil
-		}
-		if err != nil {
-			disable := false
-			var opErr *net.OpError
-			if errors.As(err, &opErr) {
-				disable = errors.Is(opErr.Err, syscall.ECONNREFUSED)
-			}
-			if disable && s.crawlerDisabled.CompareAndSwap(false, true) {
-				slog.Info("crawl4ai unavailable; disabling external crawler", "url", rootURL, "error", err, "hint", "start crawl4ai or update CRAWLER_API_URL")
-			} else {
-				slog.Warn("crawl4ai crawl failed; using fallback crawler", "error", err, "url", rootURL)
-			}
-		} else {
-			slog.Warn("crawl4ai returned no pages; using fallback crawler", "url", rootURL)
-		}
-	}
-	return crawler.CrawlWebsite(ctx, rootURL, opts)
-}
-
-// ParseURL is a helper to parse URL strings (minimal wrapper)
-func (s *ChatService) ParseURL(u string) (*url.URL, error) {
-	return url.Parse(u)
+	target := KnowledgeBaseTarget{ChatbotID: &chatbotID}
+	_, err := s.kbService.IngestWebsite(ctx, target, rootURL)
+	return err
 }
 
 // GetFilesByChatbotID retrieves all files for a given chatbot
@@ -790,7 +580,7 @@ func (s *ChatService) DeleteTextSource(ctx context.Context, chatbotID uuid.UUID,
 	if err != nil {
 		return apperrors.Wrap(err, "failed to find text source")
 	}
-	if f.ChatbotID != chatbotID {
+	if f.ChatbotID == nil || *f.ChatbotID != chatbotID {
 		return apperrors.Wrap(apperrors.ErrUnauthorizedChatbotAccess, "text source does not belong to chatbot")
 	}
 	if !strings.HasPrefix(f.Filename, "text-") {
@@ -827,7 +617,7 @@ func (s *ChatService) DeleteFileSource(ctx context.Context, chatbotID uuid.UUID,
 	if err != nil {
 		return apperrors.Wrap(err, "failed to find file source")
 	}
-	if f.ChatbotID != chatbotID {
+	if f.ChatbotID == nil || *f.ChatbotID != chatbotID {
 		return apperrors.Wrap(apperrors.ErrUnauthorizedChatbotAccess, "file does not belong to chatbot")
 	}
 
@@ -847,12 +637,6 @@ func (s *ChatService) DeleteFileSource(ctx context.Context, chatbotID uuid.UUID,
 		return apperrors.Wrap(err, "failed to commit transaction")
 	}
 
-	// Remove physical file from disk (best effort)
-	storedName := fmt.Sprintf("%s-%s", chatbotID, f.Filename)
-	filePath := filepath.Join(s.uploadsDir, storedName)
-	if err := s.docProcessor.DeleteFile(filePath); err != nil {
-		log.Printf("Warning: Failed to delete file %s: %v", filePath, err)
-	}
 	return nil
 }
 
@@ -863,7 +647,9 @@ func (s *ChatService) DeleteDocumentByID(ctx context.Context, documentID string)
 
 // ProcessTextUpload validates and sends text to be indexed for a chatbot
 func (s *ChatService) ProcessTextUpload(ctx context.Context, chatbotID uuid.UUID, text string) error {
-	return s.AddText(ctx, chatbotID, text)
+	target := KnowledgeBaseTarget{ChatbotID: &chatbotID}
+	_, err := s.kbService.IngestText(ctx, target, text)
+	return err
 }
 
 // ParseChatID parses and validates a chat ID
@@ -983,6 +769,21 @@ func (s *ChatService) chatWithChatbot(
 		return "", "", apperrors.Wrapf(apperrors.ErrDatabaseOperation, "find similar documents: %v", err)
 	}
 
+	sharedIDs, err := s.sharedKBRepo.ListIDsByChatbot(ctx, chatbotUUID)
+	if err != nil {
+		return "", "", apperrors.Wrap(err, "failed to list shared knowledge base ids")
+	}
+
+	var sharedDocs []*db.DocumentWithEmbedding
+	if len(sharedIDs) > 0 {
+		sharedDocs, err = s.documentRepo.FindSimilarBySharedKnowledgeBases(ctx, queryEmbedding, sharedIDs, 5)
+		if err != nil {
+			return "", "", apperrors.Wrapf(apperrors.ErrDatabaseOperation, "find shared knowledge documents: %v", err)
+		}
+	}
+
+	combinedDocs := append(docs, sharedDocs...)
+
 	// Build RAG context string
 	var ragContextBuilder strings.Builder
 
@@ -995,10 +796,10 @@ func (s *ChatService) chatWithChatbot(
 		ragContextBuilder.WriteString("---------------------\n\n")
 	}
 
-	if len(docs) > 0 {
+	if len(combinedDocs) > 0 {
 		ragContextBuilder.WriteString("Context information is below.\n")
 		ragContextBuilder.WriteString("---------------------\n")
-		for _, doc := range docs {
+		for _, doc := range combinedDocs {
 			ragContextBuilder.WriteString(string(doc.Content) + "\n\n")
 		}
 		ragContextBuilder.WriteString("---------------------\n")
@@ -1299,6 +1100,23 @@ func (s *ChatService) DeactivateRevision(ctx context.Context, revisionID uuid.UU
 // intPtr returns a pointer to the given int
 func intPtr(i int) *int {
 	return &i
+}
+
+func dedupeUUIDs(ids []uuid.UUID) []uuid.UUID {
+	if len(ids) <= 1 {
+		return ids
+	}
+
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	result := make([]uuid.UUID, 0, len(ids))
+	for _, id := range ids {
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
+	}
+	return result
 }
 
 // GetConversationMessages returns all messages in a session for a chatbot, verifying ownership and session mapping

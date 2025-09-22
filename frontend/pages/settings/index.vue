@@ -1,7 +1,13 @@
 <template>
   <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-3xl font-bold tracking-tight">API Settings</h1>
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">API Settings</h1>
+        <p class="text-sm text-muted-foreground">
+          Manage your API keys for accessing the VectorChat API. Keep your keys
+          secure and never share them publicly.
+        </p>
+      </div>
       <Button @click="showCreateDialog = true">
         <IconPlus class="mr-2 h-4 w-4" />
         Create API Key
@@ -9,13 +15,6 @@
     </div>
 
     <div class="rounded-lg border">
-      <div class="p-6">
-        <h2 class="text-lg font-semibold">Your API Keys</h2>
-        <p class="text-sm text-muted-foreground">
-          Manage your API keys for accessing the VectorChat API. Keep your keys
-          secure and never share them publicly.
-        </p>
-      </div>
       <div class="relative w-full overflow-auto">
         <table class="w-full caption-bottom text-sm">
           <thead class="[&_tr]:border-b">
@@ -125,7 +124,9 @@
             <tr v-if="!apiKeys || apiKeys.api_keys?.length === 0">
               <td colspan="7" class="p-8 text-center text-muted-foreground">
                 <div v-if="isFetchingAPIKeys" class="flex justify-center">
-                  <IconSpinner class="animate-spin h-5 w-5 text-muted-foreground" />
+                  <IconSpinner
+                    class="animate-spin h-5 w-5 text-muted-foreground"
+                  />
                 </div>
                 <div v-else-if="fetchAPIKeysError">
                   Failed to load API keys. Please try again.

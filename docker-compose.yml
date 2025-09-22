@@ -17,6 +17,25 @@ services:
     depends_on:
       - app
 
+  vectorchat-light:
+    build:
+      context: ./vectorchat-light
+      dockerfile: Dockerfile
+      target: development
+    container_name: vectorchat-light
+    environment:
+      - API_BASE_URL=http://localhost:8080
+    ports:
+      - "3100:3000"
+    volumes:
+      - ./vectorchat-light:/app
+      - /app/node_modules
+      - /app/.nuxt
+    networks:
+      - vectorchat-network
+    depends_on:
+      - app
+
   app:
     build:
       context: .

@@ -1,10 +1,9 @@
 <template>
   <div class="min-h-screen bg-background">
-    <div class="container mx-auto p-4 md:p-6">
+    <div class="container">
+      <BackButton fallback="/chat" to="/chat" class="mb-6" />
       <!-- Desktop: Two column layout -->
-      <div
-        class="hidden md:flex md:gap-6 min-h-[calc(100vh-3rem)]"
-      >
+      <div class="hidden md:flex md:gap-6 min-h-[calc(100vh-3rem)]">
         <!-- Left column with tabs -->
         <div
           class="border rounded-lg bg-card overflow-hidden w-full md:max-w-3xl md:flex-shrink-0"
@@ -63,14 +62,6 @@
 
           <!-- Mobile Test Panel -->
           <div v-else class="border-x border-b rounded-b-lg bg-card p-4">
-            <div class="mb-4">
-              <button
-                @click="showMobileTest = false"
-                class="text-sm text-muted-foreground hover:text-foreground"
-              >
-                ← Back to tabs
-              </button>
-            </div>
             <TestPanel />
           </div>
         </div>
@@ -83,6 +74,7 @@
 import { ref, computed, watch } from "vue";
 import TestPanel from "./components/TestPanel.vue";
 import { PillTabs, PillTab } from "@/components/ui/pill-tabs";
+import BackButton from "@/components/BackButton.vue";
 
 definePageMeta({
   layout: "authenticated",

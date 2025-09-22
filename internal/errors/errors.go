@@ -34,13 +34,15 @@ var (
 	ErrUnauthorizedChatbotAccess = errors.New("unauthorized access to chatbot")
 
 	// Additional error definitions for repositories
-	ErrUserAlreadyExists    = errors.New("user already exists")
-	ErrAPIKeyAlreadyExists  = errors.New("API key already exists")
-	ErrChatbotAlreadyExists = errors.New("chatbot already exists")
-	ErrFileNotFound         = errors.New("file not found")
-	ErrFileAlreadyExists    = errors.New("file already exists")
-	ErrInvalidUserData      = errors.New("invalid user data")
-	ErrNotFound             = errors.New("not found")
+	ErrUserAlreadyExists               = errors.New("user already exists")
+	ErrAPIKeyAlreadyExists             = errors.New("API key already exists")
+	ErrChatbotAlreadyExists            = errors.New("chatbot already exists")
+	ErrFileNotFound                    = errors.New("file not found")
+	ErrFileAlreadyExists               = errors.New("file already exists")
+	ErrInvalidUserData                 = errors.New("invalid user data")
+	ErrNotFound                        = errors.New("not found")
+	ErrSharedKnowledgeBaseNotFound     = errors.New("shared knowledge base not found")
+	ErrUnauthorizedKnowledgeBaseAccess = errors.New("unauthorized access to shared knowledge base")
 )
 
 // WithDetails adds context details to an error

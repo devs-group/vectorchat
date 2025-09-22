@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 )
 
 type FileRepository struct {
-    db *Database
+	db *Database
 }
 
 func NewFileRepository(db *Database) *FileRepository {
@@ -25,9 +26,9 @@ func (r *FileRepository) Create(ctx context.Context, file *File) error {
 		file.UploadedAt = time.Now()
 	}
 
-    query := `
-		INSERT INTO files (id, chatbot_id, filename, size_bytes, uploaded_at)
-		VALUES (:id, :chatbot_id, :filename, :size_bytes, :uploaded_at)
+	query := `
+		INSERT INTO files (id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at)
+		VALUES (:id, :chatbot_id, :shared_knowledge_base_id, :filename, :size_bytes, :uploaded_at)
 	`
 
 	_, err := r.db.NamedExecContext(ctx, query, file)
@@ -35,8 +36,13 @@ func (r *FileRepository) Create(ctx context.Context, file *File) error {
 		if IsDuplicateKeyError(err) {
 			return apperrors.ErrFileAlreadyExists
 		}
-		if IsForeignKeyViolationError(err) {
-			return apperrors.ErrChatbotNotFound
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23503" {
+			switch pqErr.Constraint {
+			case "files_chatbot_id_fkey":
+				return apperrors.ErrChatbotNotFound
+			case "files_shared_knowledge_base_id_fkey":
+				return apperrors.ErrSharedKnowledgeBaseNotFound
+			}
 		}
 		return apperrors.Wrap(err, "failed to create file")
 	}
@@ -53,9 +59,9 @@ func (r *FileRepository) CreateTx(ctx context.Context, tx *Transaction, file *Fi
 		file.UploadedAt = time.Now()
 	}
 
-    query := `
-		INSERT INTO files (id, chatbot_id, filename, size_bytes, uploaded_at)
-		VALUES (:id, :chatbot_id, :filename, :size_bytes, :uploaded_at)
+	query := `
+		INSERT INTO files (id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at)
+		VALUES (:id, :chatbot_id, :shared_knowledge_base_id, :filename, :size_bytes, :uploaded_at)
 	`
 
 	_, err := tx.NamedExecContext(ctx, query, file)
@@ -63,8 +69,13 @@ func (r *FileRepository) CreateTx(ctx context.Context, tx *Transaction, file *Fi
 		if IsDuplicateKeyError(err) {
 			return apperrors.ErrFileAlreadyExists
 		}
-		if IsForeignKeyViolationError(err) {
-			return apperrors.ErrChatbotNotFound
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23503" {
+			switch pqErr.Constraint {
+			case "files_chatbot_id_fkey":
+				return apperrors.ErrChatbotNotFound
+			case "files_shared_knowledge_base_id_fkey":
+				return apperrors.ErrSharedKnowledgeBaseNotFound
+			}
 		}
 		return apperrors.Wrap(err, "failed to create file")
 	}
@@ -75,8 +86,8 @@ func (r *FileRepository) CreateTx(ctx context.Context, tx *Transaction, file *Fi
 // FindByID finds a file by ID
 func (r *FileRepository) FindByID(ctx context.Context, id uuid.UUID) (*File, error) {
 	var file File
-    query := `
-		SELECT id, chatbot_id, filename, size_bytes, uploaded_at
+	query := `
+		SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
 		FROM files
 		WHERE id = $1
 	`
@@ -94,9 +105,9 @@ func (r *FileRepository) FindByID(ctx context.Context, id uuid.UUID) (*File, err
 
 // FindByChatbotID finds all files for a chatbot
 func (r *FileRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
-    var files []*File
-    query := `
-        SELECT id, chatbot_id, filename, size_bytes, uploaded_at
+	var files []*File
+	query := `
+        SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
         FROM files
         WHERE chatbot_id = $1
         ORDER BY uploaded_at DESC
@@ -112,41 +123,137 @@ func (r *FileRepository) FindByChatbotID(ctx context.Context, chatbotID uuid.UUI
 
 // FindNonTextByChatbotID finds all non-text files for a chatbot
 func (r *FileRepository) FindNonTextByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
-    var files []*File
-    query := `
-        SELECT id, chatbot_id, filename, size_bytes, uploaded_at
+	var files []*File
+	query := `
+        SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
         FROM files
         WHERE chatbot_id = $1 AND filename NOT LIKE 'text-%'
         ORDER BY uploaded_at DESC
     `
 
-    err := r.db.SelectContext(ctx, &files, query, chatbotID)
-    if err != nil {
-        return nil, apperrors.Wrap(err, "failed to find non-text files by chatbot ID")
-    }
+	err := r.db.SelectContext(ctx, &files, query, chatbotID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to find non-text files by chatbot ID")
+	}
 
-    return files, nil
+	return files, nil
 }
 
 // FindByChatbotIDAndFilename finds a single file by chatbot and filename
 func (r *FileRepository) FindByChatbotIDAndFilename(ctx context.Context, chatbotID uuid.UUID, filename string) (*File, error) {
-    var file File
-    query := `
-        SELECT id, chatbot_id, filename, size_bytes, uploaded_at
+	var file File
+	query := `
+        SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
         FROM files
         WHERE chatbot_id = $1 AND filename = $2
         LIMIT 1
     `
 
-    err := r.db.GetContext(ctx, &file, query, chatbotID, filename)
-    if err != nil {
-        if IsNoRowsError(err) {
-            return nil, apperrors.ErrFileNotFound
-        }
-        return nil, apperrors.Wrap(err, "failed to find file by chatbot and filename")
-    }
+	err := r.db.GetContext(ctx, &file, query, chatbotID, filename)
+	if err != nil {
+		if IsNoRowsError(err) {
+			return nil, apperrors.ErrFileNotFound
+		}
+		return nil, apperrors.Wrap(err, "failed to find file by chatbot and filename")
+	}
 
-    return &file, nil
+	return &file, nil
+}
+
+// FindBySharedKnowledgeBaseID returns files attached to a shared knowledge base
+func (r *FileRepository) FindBySharedKnowledgeBaseID(ctx context.Context, kbID uuid.UUID) ([]*File, error) {
+	var files []*File
+	query := `
+		SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
+		FROM files
+		WHERE shared_knowledge_base_id = $1
+		ORDER BY uploaded_at DESC
+	`
+
+	err := r.db.SelectContext(ctx, &files, query, kbID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to find files by shared knowledge base ID")
+	}
+	return files, nil
+}
+
+// FindNonTextBySharedKnowledgeBaseID finds non-text files for a shared knowledge base
+func (r *FileRepository) FindNonTextBySharedKnowledgeBaseID(ctx context.Context, kbID uuid.UUID) ([]*File, error) {
+	var files []*File
+	query := `
+		SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
+		FROM files
+		WHERE shared_knowledge_base_id = $1 AND filename NOT LIKE 'text-%'
+		ORDER BY uploaded_at DESC
+	`
+
+	err := r.db.SelectContext(ctx, &files, query, kbID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to find files by shared knowledge base ID")
+	}
+
+	return files, nil
+}
+
+// FindBySharedKnowledgeBaseIDAndFilename finds a file within a shared KB by filename
+func (r *FileRepository) FindBySharedKnowledgeBaseIDAndFilename(ctx context.Context, kbID uuid.UUID, filename string) (*File, error) {
+	var file File
+	query := `
+		SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
+		FROM files
+		WHERE shared_knowledge_base_id = $1 AND filename = $2
+		LIMIT 1
+	`
+
+	err := r.db.GetContext(ctx, &file, query, kbID, filename)
+	if err != nil {
+		if IsNoRowsError(err) {
+			return nil, apperrors.ErrFileNotFound
+		}
+		return nil, apperrors.Wrap(err, "failed to find file by shared knowledge base and filename")
+	}
+
+	return &file, nil
+}
+
+// FindBySharedKnowledgeBaseIDs returns files for many shared KBs
+func (r *FileRepository) FindBySharedKnowledgeBaseIDs(ctx context.Context, kbIDs []uuid.UUID) ([]*File, error) {
+	if len(kbIDs) == 0 {
+		return []*File{}, nil
+	}
+
+	var files []*File
+	query := `
+		SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
+		FROM files
+		WHERE shared_knowledge_base_id = ANY($1)
+		ORDER BY uploaded_at DESC
+	`
+
+	err := r.db.SelectContext(ctx, &files, query, pq.Array(kbIDs))
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to find files by shared knowledge base IDs")
+	}
+
+	return files, nil
+}
+
+// FindTextBySharedKnowledgeBaseID returns text sources stored in a shared knowledge base
+func (r *FileRepository) FindTextBySharedKnowledgeBaseID(ctx context.Context, kbID uuid.UUID) ([]*File, error) {
+	var files []*File
+	query := `
+		SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
+		FROM files
+		WHERE shared_knowledge_base_id = $1 AND filename LIKE 'text-%'
+		ORDER BY uploaded_at DESC
+	`
+
+	err := r.db.SelectContext(ctx, &files, query, kbID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to find text sources by shared knowledge base ID")
+	}
+
+	return files, nil
 }
 
 // FindByChatbotIDWithPagination finds files for a chatbot with pagination
@@ -161,8 +268,8 @@ func (r *FileRepository) FindByChatbotIDWithPagination(ctx context.Context, chat
 
 	// Get paginated results
 	var files []*File
-    query := `
-		SELECT id, chatbot_id, filename, size_bytes, uploaded_at
+	query := `
+		SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
 		FROM files
 		WHERE chatbot_id = $1
 		ORDER BY uploaded_at DESC
@@ -179,25 +286,25 @@ func (r *FileRepository) FindByChatbotIDWithPagination(ctx context.Context, chat
 
 // FindTextByChatbotID finds text sources (files with filename starting with 'text-')
 func (r *FileRepository) FindTextByChatbotID(ctx context.Context, chatbotID uuid.UUID) ([]*File, error) {
-    var files []*File
-    query := `
-        SELECT id, chatbot_id, filename, size_bytes, uploaded_at
+	var files []*File
+	query := `
+        SELECT id, chatbot_id, shared_knowledge_base_id, filename, size_bytes, uploaded_at
         FROM files
         WHERE chatbot_id = $1 AND filename LIKE 'text-%'
         ORDER BY uploaded_at DESC
     `
 
-    err := r.db.SelectContext(ctx, &files, query, chatbotID)
-    if err != nil {
-        return nil, apperrors.Wrap(err, "failed to find text sources by chatbot ID")
-    }
+	err := r.db.SelectContext(ctx, &files, query, chatbotID)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to find text sources by chatbot ID")
+	}
 
-    return files, nil
+	return files, nil
 }
 
 // Update updates a file
 func (r *FileRepository) Update(ctx context.Context, file *File) error {
-    query := `
+	query := `
 		UPDATE files
 		SET filename = :filename, size_bytes = :size_bytes
 		WHERE id = :id
@@ -222,7 +329,7 @@ func (r *FileRepository) Update(ctx context.Context, file *File) error {
 
 // UpdateTx updates a file within a transaction
 func (r *FileRepository) UpdateTx(ctx context.Context, tx *Transaction, file *File) error {
-    query := `
+	query := `
 		UPDATE files
 		SET filename = :filename, size_bytes = :size_bytes
 		WHERE id = :id
@@ -311,6 +418,30 @@ func (r *FileRepository) DeleteByChatbotIDTx(ctx context.Context, tx *Transactio
 	return nil
 }
 
+// DeleteBySharedKnowledgeBaseID removes files bound to a shared knowledge base
+func (r *FileRepository) DeleteBySharedKnowledgeBaseID(ctx context.Context, kbID uuid.UUID) error {
+	query := `DELETE FROM files WHERE shared_knowledge_base_id = $1`
+
+	_, err := r.db.ExecContext(ctx, query, kbID)
+	if err != nil {
+		return apperrors.Wrap(err, "failed to delete files by shared knowledge base ID")
+	}
+
+	return nil
+}
+
+// DeleteBySharedKnowledgeBaseIDTx removes files bound to a shared knowledge base inside a transaction
+func (r *FileRepository) DeleteBySharedKnowledgeBaseIDTx(ctx context.Context, tx *Transaction, kbID uuid.UUID) error {
+	query := `DELETE FROM files WHERE shared_knowledge_base_id = $1`
+
+	_, err := tx.ExecContext(ctx, query, kbID)
+	if err != nil {
+		return apperrors.Wrap(err, "failed to delete files by shared knowledge base ID")
+	}
+
+	return nil
+}
+
 // Count returns the total number of files
 func (r *FileRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
@@ -332,6 +463,19 @@ func (r *FileRepository) CountByChatbotID(ctx context.Context, chatbotID uuid.UU
 	err := r.db.GetContext(ctx, &count, query, chatbotID)
 	if err != nil {
 		return 0, apperrors.Wrap(err, "failed to count files by chatbot ID")
+	}
+
+	return count, nil
+}
+
+// CountBySharedKnowledgeBaseID returns the number of files linked to a shared KB
+func (r *FileRepository) CountBySharedKnowledgeBaseID(ctx context.Context, kbID uuid.UUID) (int64, error) {
+	var count int64
+	query := `SELECT COUNT(*) FROM files WHERE shared_knowledge_base_id = $1`
+
+	err := r.db.GetContext(ctx, &count, query, kbID)
+	if err != nil {
+		return 0, apperrors.Wrap(err, "failed to count files by shared knowledge base ID")
 	}
 
 	return count, nil

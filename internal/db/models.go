@@ -63,40 +63,59 @@ type Chatbot struct {
 }
 
 type Document struct {
-	ID         string          `json:"id" db:"id"`
-	Content    []byte          `json:"content" db:"content"`
-	Embedding  pgvector.Vector `json:"embedding" db:"embedding"`
-	ChatbotID  uuid.UUID       `json:"chatbot_id" db:"chatbot_id"`
-	FileID     *uuid.UUID      `json:"file_id,omitempty" db:"file_id"`
-	ChunkIndex *int            `json:"chunk_index,omitempty" db:"chunk_index"`
+	ID                    string          `json:"id" db:"id"`
+	Content               []byte          `json:"content" db:"content"`
+	Embedding             pgvector.Vector `json:"embedding" db:"embedding"`
+	ChatbotID             *uuid.UUID      `json:"chatbot_id,omitempty" db:"chatbot_id"`
+	FileID                *uuid.UUID      `json:"file_id,omitempty" db:"file_id"`
+	ChunkIndex            *int            `json:"chunk_index,omitempty" db:"chunk_index"`
+	SharedKnowledgeBaseID *uuid.UUID      `json:"shared_knowledge_base_id,omitempty" db:"shared_knowledge_base_id"`
 }
 
 type DocumentWithEmbedding struct {
-	ID         string     `json:"id"`
-	Content    []byte     `json:"content"`
-	Embedding  []float32  `json:"embedding"`
-	ChatbotID  uuid.UUID  `json:"chatbot_id"`
-	FileID     *uuid.UUID `json:"file_id,omitempty"`
-	ChunkIndex *int       `json:"chunk_index,omitempty"`
+	ID                    string     `json:"id"`
+	Content               []byte     `json:"content"`
+	Embedding             []float32  `json:"embedding"`
+	ChatbotID             *uuid.UUID `json:"chatbot_id,omitempty"`
+	FileID                *uuid.UUID `json:"file_id,omitempty"`
+	ChunkIndex            *int       `json:"chunk_index,omitempty"`
+	SharedKnowledgeBaseID *uuid.UUID `json:"shared_knowledge_base_id,omitempty"`
 }
 
 func (d *Document) ToDocumentWithEmbedding() *DocumentWithEmbedding {
 	return &DocumentWithEmbedding{
-		ID:         d.ID,
-		Content:    d.Content,
-		Embedding:  d.Embedding.Slice(),
-		ChatbotID:  d.ChatbotID,
-		FileID:     d.FileID,
-		ChunkIndex: d.ChunkIndex,
+		ID:                    d.ID,
+		Content:               d.Content,
+		Embedding:             d.Embedding.Slice(),
+		ChatbotID:             d.ChatbotID,
+		FileID:                d.FileID,
+		ChunkIndex:            d.ChunkIndex,
+		SharedKnowledgeBaseID: d.SharedKnowledgeBaseID,
 	}
 }
 
 type File struct {
-	ID         uuid.UUID `json:"id" db:"id"`
-	ChatbotID  uuid.UUID `json:"chatbot_id" db:"chatbot_id"`
-	Filename   string    `json:"filename" db:"filename"`
-	SizeBytes  int64     `json:"size_bytes" db:"size_bytes"`
-	UploadedAt time.Time `json:"uploaded_at" db:"uploaded_at"`
+	ID                    uuid.UUID  `json:"id" db:"id"`
+	ChatbotID             *uuid.UUID `json:"chatbot_id,omitempty" db:"chatbot_id"`
+	Filename              string     `json:"filename" db:"filename"`
+	SizeBytes             int64      `json:"size_bytes" db:"size_bytes"`
+	UploadedAt            time.Time  `json:"uploaded_at" db:"uploaded_at"`
+	SharedKnowledgeBaseID *uuid.UUID `json:"shared_knowledge_base_id,omitempty" db:"shared_knowledge_base_id"`
+}
+
+type SharedKnowledgeBase struct {
+	ID          uuid.UUID `json:"id" db:"id"`
+	OwnerID     string    `json:"owner_id" db:"owner_id"`
+	Name        string    `json:"name" db:"name"`
+	Description *string   `json:"description" db:"description"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type ChatbotSharedKnowledgeBase struct {
+	ChatbotID             uuid.UUID `json:"chatbot_id" db:"chatbot_id"`
+	SharedKnowledgeBaseID uuid.UUID `json:"shared_knowledge_base_id" db:"shared_knowledge_base_id"`
+	CreatedAt             time.Time `json:"created_at" db:"created_at"`
 }
 
 type ChatMessage struct {
