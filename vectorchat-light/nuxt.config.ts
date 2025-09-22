@@ -1,15 +1,8 @@
-import tailwindcss from "@tailwindcss/vite";
-
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
-  modules: [
-    "@nuxt/fonts",
-    "@nuxt/scripts",
-    "shadcn-nuxt",
-    "@nuxtjs/tailwindcss",
-  ],
+  modules: ["@nuxt/fonts", "@nuxt/scripts", "shadcn-nuxt"],
   css: ["@/assets/css/tailwind.css"],
   components: [
     {
@@ -19,8 +12,11 @@ export default defineNuxtConfig({
       ignore: ["**/ui/**"],
     },
   ],
-  vite: {
-    plugins: [tailwindcss()],
+  postcss: {
+    plugins: {
+      "@tailwindcss/postcss": {},
+      autoprefixer: {},
+    },
   },
   shadcn: {
     prefix: "",
