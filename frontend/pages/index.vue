@@ -4,5 +4,5 @@
 
 <script setup lang="ts">
 // Redirect to /chat when accessing the root path
-await navigateTo('/chat', { replace: true })
+await navigateTo("/chat", { replace: true });
 </script>

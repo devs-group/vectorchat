@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@nuxt/fonts": "^0.11.2",
+    "@nuxt/image": "^1.11.0",
     "@nuxt/scripts": "^0.11.6",
     "@tailwindcss/postcss": "^4.1.13",
     "@vueuse/core": "^11.3.0",

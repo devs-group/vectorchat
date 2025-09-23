@@ -29,19 +29,19 @@ const navItems = [
       >
         <NuxtLink
           to="/"
-          class="inline-flex items-center gap-2 rounded-xl px-2 py-1 text-sm font-semibold text-slate-900/90 transition-colors hover:text-slate-900 dark:text-white"
+          class="w-1/5 inline-flex items-center gap-2 rounded-xl px-2 py-1 text-sm font-semibold text-slate-900/90 transition-colors hover:text-slate-900 dark:text-white"
         >
           <span class="text-black text-lg">VC</span>
           <span
-            class="text-xs uppercase tracking-wide text-black bg-gray py-1 px-2 border rounded-full"
+            class="text-xs uppercase tracking-wide text-black bg-white/40 py-1 px-2 rounded-full"
           >
             Light
           </span>
         </NuxtLink>
 
-        <NavigationMenu :viewport="false" class="hidden lg:flex">
+        <NavigationMenu :viewport="false" class="w-1/5 hidden lg:flex">
           <NavigationMenuList
-            class="gap-1 rounded-full bg-white/10 p-1 text-sm font-medium text-slate-600 dark:bg-slate-800/50 dark:text-slate-200"
+            class="gap-1 rounded-full bg-white/40 p-1 text-sm font-medium text-slate-600 dark:bg-slate-800/50 dark:text-slate-200"
           >
             <NavigationMenuItem v-for="item in navItems" :key="item.label">
               <NavigationMenuLink
@@ -106,7 +106,7 @@ const navItems = [
                     <SheetClose as-child>
                       <NavigationMenuLink
                         :href="item.href"
-                        class="w-full rounded-xl px-3 py-2 text-foreground/90 transition-colors hover:bg-muted/80 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        class="w-full rounded-xl px-3 py-2 text-foreground/90 transition-colors bg-muted/80 hover:bg-muted/80 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                       >
                         {{ item.label }}
                       </NavigationMenuLink>
