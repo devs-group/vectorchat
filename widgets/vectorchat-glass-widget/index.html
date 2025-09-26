@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VectorChat Neon Widget — Demo</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Inter,
+          Helvetica,
+          Arial;
+        background:
+          radial-gradient(
+            1200px 800px at -10% -10%,
+            #4f5dff22,
+            transparent 60%
+          ),
+          radial-gradient(1000px 700px at 110% 10%, #9d7bff22, transparent 60%),
+          #0b1026;
+        color: #e8ecff;
+      }
+      .container {
+        min-height: 100%;
+        display: grid;
+        place-items: center;
+        padding: 64px 16px 120px;
+      }
+      .card {
+        max-width: 720px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.06),
+          rgba(255, 255, 255, 0.04)
+        );
+        -webkit-backdrop-filter: blur(18px) saturate(140%);
+        backdrop-filter: blur(18px) saturate(140%);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 20px;
+        padding: 24px 28px;
+        box-shadow: 0 18px 60px rgba(15, 20, 60, 0.55);
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-weight: 600;
+      }
+      p {
+        opacity: 0.9;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h1>VectorChat Neon Widget</h1>
+        <p>
+          This page is just a demo canvas so you can see the widget blur and
+          glow over real content. Scroll a bit and type to test animations.
+          Resize the window to try the responsive behavior.
+        </p>
+        <p>
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque
+          habitant morbi tristique senectus et netus et malesuada fames ac
+          turpis egestas. Vestibulum tortor quam, feugiat vitae, ultricies eget,
+          tempor sit amet, ante.
+        </p>
+      </div>
+    </div>
+    <script src="/vectorchat-glas-widget.js"></script>
+  </body>
+</html>

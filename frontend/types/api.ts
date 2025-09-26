@@ -25,10 +25,12 @@ export interface ChatbotCreateRequest {
   max_tokens: number;
   temperature_param: number;
   save_messages: boolean;
+  is_enabled?: boolean;
   shared_knowledge_base_ids?: string[];
 }
 
-export interface ChatbotResponse extends ChatbotCreateRequest {
+export interface ChatbotResponse
+  extends Omit<ChatbotCreateRequest, "is_enabled"> {
   id: string;
   user_id: string;
   is_enabled: boolean;

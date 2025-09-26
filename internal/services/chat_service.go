@@ -116,7 +116,12 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 		saveMessages = *req.SaveMessages
 	}
 
-	chatbot, err := s.CreateChatbot(ctx, userID, req.Name, req.Description, req.SystemInstructions, modelName, temperature, maxTokens, saveMessages)
+	isEnabled := true
+	if req.IsEnabled != nil {
+		isEnabled = *req.IsEnabled
+	}
+
+	chatbot, err := s.CreateChatbot(ctx, userID, req.Name, req.Description, req.SystemInstructions, modelName, temperature, maxTokens, saveMessages, isEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +138,7 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 }
 
 // CreateChatbot creates a new chatbot with default settings
-func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions, modelName string, temperature float64, maxTokens int, saveMessages bool) (*db.Chatbot, error) {
+func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions, modelName string, temperature float64, maxTokens int, saveMessages bool, isEnabled bool) (*db.Chatbot, error) {
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
@@ -157,7 +162,7 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 		TemperatureParam:   temperature,
 		MaxTokens:          maxTokens,
 		SaveMessages:       saveMessages,
-		IsEnabled:          true,
+		IsEnabled:          isEnabled,
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}

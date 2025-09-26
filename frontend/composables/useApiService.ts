@@ -123,6 +123,7 @@ export function useApiService() {
         max_tokens: number;
         temperature_param: number;
         save_messages: boolean;
+        is_enabled?: boolean;
         shared_knowledge_base_ids?: string[];
       }) => {
         return await useApiFetch<{ chatbot: ChatbotResponse }>("/chat/chatbot", {

@@ -53,6 +53,7 @@ Key guidelines:
         max_tokens: 1000,
         temperature_param: 0.7,
         save_messages: true,
+        is_enabled: false,
         shared_knowledge_base_ids: [],
       }),
     });

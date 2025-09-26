@@ -31,14 +31,7 @@ onMounted(async () => {
     const config = useRuntimeConfig();
     const apiKey = config.vectorchatApiKey as string;
     const apiUrl = config.vectorchatUrl as string;
-    const response = await fetch(
-      `${apiUrl || "http://localhost:8080"}/chat/chatbot/${chatbotId}`,
-      {
-        headers: {
-          "X-API-Key": apiKey || "",
-        },
-      },
-    );
+    const response = await fetch(`/api/chatbot/${chatbotId}`);
 
     if (response.ok) {
       chatbotData.value = await response.json();
@@ -86,20 +79,17 @@ async function sendMessage() {
     const config = useRuntimeConfig();
     const apiKey = config.vectorchatApiKey as string;
     const apiUrl = config.vectorchatUrl as string;
-    const response = await fetch(
-      `${apiUrl || "http://localhost:8080"}/chat/${chatbotId}/message`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": apiKey || "",
-        },
-        body: JSON.stringify({
-          query: userMessage,
-          session_id: `preview-${Date.now()}`,
-        }),
+    const response = await fetch(`/api/chatbot/${chatbotId}/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": apiKey || "",
       },
-    );
+      body: JSON.stringify({
+        query: userMessage,
+        session_id: `preview-${Date.now()}`,
+      }),
+    });
 
     if (response.ok) {
       const data = await response.json();

@@ -168,10 +168,11 @@ async function handleSubmit() {
                   inputmode="url"
                   autocomplete="url"
                   placeholder="https://your-website.com"
+                  :disabled="isGenerating"
                   required
                   :aria-invalid="errorMessage.length > 0"
                   aria-describedby="url-feedback"
-                  class="relative w-full rounded-xl bg-white/70 px-4 py-3 text-base text-slate-900 shadow-sm transition-colors focus:outline-hidden focus-visible:ring-4 focus-visible:ring-[#4f46e5]/40 motion-reduce:transition-none"
+                  class="text-center relative w-full rounded-xl bg-white/70 px-4 py-3 text-base text-slate-900 shadow-sm transition-colors focus:outline-hidden focus-visible:ring-4 focus-visible:ring-[#4f46e5]/40 motion-reduce:transition-none"
                 />
               </div>
             </div>

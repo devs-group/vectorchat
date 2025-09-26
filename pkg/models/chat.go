@@ -14,6 +14,7 @@ type ChatbotCreateRequest struct {
 	TemperatureParam       float64     `json:"temperature_param" binding:"required,min=0,max=2" example:"0.7"`
 	MaxTokens              int         `json:"max_tokens" binding:"required,min=1" example:"1000"`
 	SaveMessages           *bool       `json:"save_messages,omitempty" example:"true"`
+	IsEnabled              *bool       `json:"is_enabled,omitempty" example:"false"`
 	SharedKnowledgeBaseIDs []uuid.UUID `json:"shared_knowledge_base_ids,omitempty"`
 }
 

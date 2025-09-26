@@ -211,6 +211,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService, commonService)
 	subsHandler := api.NewStripeSubHandler(authMiddleware, svc)
 	conversationHandler := api.NewConversationHandler(authMiddleware, chatService)
+	widgetHandler := api.NewWidgetHandler(authMiddleware)
 
 	// Register routes
 	chatbotHandler.RegisterRoutes(app)
@@ -219,6 +220,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	apiKeyHandler.RegisterRoutes(app)
 	subsHandler.RegisterRoutes(app)
 	conversationHandler.RegisterRoutes(app)
+	widgetHandler.RegisterRoutes(app)
 
 	// Add swagger route
 	app.Get("/swagger/*", swagger.HandlerDefault)

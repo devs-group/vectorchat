@@ -38,7 +38,7 @@ build_markitdown_staging:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
     - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/markitdown:staging
-    - docker build -t $CONTAINER_PATH -f services/markitdown_api/Dockerfile ./services/markitdown_api
+    - docker build -t $CONTAINER_PATH -f services/markitdown_api/Dockerfile .
     - docker push $CONTAINER_PATH
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'

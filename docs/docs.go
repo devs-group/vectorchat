@@ -2454,6 +2454,63 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/widgets/chats/{chatID}/{widget}": {
+            "get": {
+                "description": "Serves the JavaScript widget file for embedding in external applications",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/javascript"
+                ],
+                "tags": [
+                    "widget"
+                ],
+                "summary": "Get widget JavaScript file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chat/Chatbot ID",
+                        "name": "chatID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Widget filename (e.g., vectorchat-plex-widget.js)",
+                        "name": "widget",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "JavaScript widget content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -2608,6 +2665,10 @@ const docTemplate = `{
                 "description": {
                     "type": "string",
                     "example": "AI assistant for customer support"
+                },
+                "is_enabled": {
+                    "type": "boolean",
+                    "example": false
                 },
                 "max_tokens": {
                     "type": "integer",
