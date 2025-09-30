@@ -1,0 +1,93 @@
+- id: preflight
+  match:
+    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/.*"
+    methods:
+      - OPTIONS
+  authenticators:
+    - handler: noop
+  authorizer:
+    handler: allow
+  mutators:
+    - handler: noop
+  upstream:
+    url: http://app:8080
+
+- id: public-health
+  match:
+    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/health$"
+    methods:
+      - GET
+  authenticators:
+    - handler: noop
+  authorizer:
+    handler: allow
+  mutators:
+    - handler: noop
+  upstream:
+    url: http://app:8080
+
+- id: public-billing-plans
+  match:
+    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/billing/plans$"
+    methods:
+      - GET
+  authenticators:
+    - handler: noop
+  authorizer:
+    handler: allow
+  mutators:
+    - handler: noop
+  upstream:
+    url: http://app:8080
+
+- id: public-stripe-webhook
+  match:
+    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/stripe/webhook$"
+    methods:
+      - POST
+  authenticators:
+    - handler: noop
+  authorizer:
+    handler: allow
+  mutators:
+    - handler: noop
+  upstream:
+    url: http://app:8080
+
+- id: vectorchat-api-key
+  match:
+    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/.*"
+    methods:
+      - GET
+      - POST
+      - PUT
+      - PATCH
+      - DELETE
+    headers:
+      X-API-Key: .+
+  authenticators:
+    - handler: noop
+  authorizer:
+    handler: allow
+  mutators:
+    - handler: noop
+  upstream:
+    url: http://app:8080
+
+- id: vectorchat-api-authenticated
+  match:
+    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/.*"
+    methods:
+      - GET
+      - POST
+      - PUT
+      - PATCH
+      - DELETE
+  authenticators:
+    - handler: cookie_session
+  authorizer:
+    handler: allow
+  mutators:
+    - handler: header
+  upstream:
+    url: http://app:8080

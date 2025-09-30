@@ -8,11 +8,11 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/storage/postgres"
 	"github.com/gofiber/swagger"
 	"github.com/pressly/goose/v3"
 	"github.com/urfave/cli/v3"
@@ -155,16 +155,8 @@ func runApplication(appCfg *config.AppConfig) error {
 	apiKeyService := services.NewAPIKeyService(repos.APIKey)
 	commonService := services.NewCommonService()
 
-	// Initialize postgres storage with new config
-	sessionStore := postgres.New(postgres.Config{
-		ConnectionURI: pgConnStr,
-		Table:         "fiber_storage",
-		Reset:         false,
-		GCInterval:    10 * time.Second,
-	})
-
 	// Initialize auth middleware
-	authMiddleware := middleware.NewAuthMiddleware(sessionStore, authService, apiKeyService)
+	authMiddleware := middleware.NewAuthMiddleware(authService, apiKeyService)
 
 	// Initialize ownership middleware
 	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatService)
@@ -172,31 +164,26 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize subscription limits middleware
 	subscriptionLimits := middleware.NewSubscriptionLimitsMiddleware(svc, chatService)
 
-	// Build redirect URL based on SSL configuration
-	redirectURL := fmt.Sprintf("http://%s", appCfg.BaseURL)
-	if appCfg.IsSSL {
-		redirectURL = fmt.Sprintf("https://%s", appCfg.BaseURL)
-	}
-	// Initialize OAuth configuration
-	oAuthConfig := &api.OAuthConfig{
-		GitHubClientID:     appCfg.GithubID,
-		GitHubClientSecret: appCfg.GithubSecret,
-		RedirectURL:        redirectURL,
-		SessionStore:       sessionStore,
-	}
-
 	// Set up Fiber app
 	app := fiber.New(fiber.Config{
 		BodyLimit: 10 * 1024 * 1024, // 10MB limit for file uploads
 	})
 
 	// Configure CORS with more permissive settings
-	frontendURL := fmt.Sprintf("http://%s", appCfg.FrontendURL)
+	frontendOrigin := fmt.Sprintf("http://%s", appCfg.FrontendURL)
 	if appCfg.IsSSL {
-		frontendURL = fmt.Sprintf("https://%s", appCfg.FrontendURL)
+		frontendOrigin = fmt.Sprintf("https://%s", appCfg.FrontendURL)
+	}
+	lightOrigin := appCfg.LightFrontendURL
+	if lightOrigin != "" && !strings.HasPrefix(lightOrigin, "http") {
+		lightOrigin = fmt.Sprintf("http://%s", lightOrigin)
+	}
+	origins := frontendOrigin
+	if lightOrigin != "" && lightOrigin != frontendOrigin {
+		origins = fmt.Sprintf("%s,%s", origins, lightOrigin)
 	}
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     frontendURL,
+		AllowOrigins:     origins,
 		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-API-Key",
 		AllowCredentials: true,
@@ -207,7 +194,11 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize API handlers
 	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, ownershipMiddleware, commonService, subscriptionLimits)
 	sharedKnowledgeBaseHandler := api.NewSharedKnowledgeBaseHandler(authMiddleware, sharedKBService)
-	oAuthHandler := api.NewOAuthHandler(oAuthConfig, authService, authMiddleware)
+	authHandler := api.NewAuthHandler(authService, authMiddleware, api.AuthConfig{
+		KratosPublicURL: appCfg.KratosPublicURL,
+		KratosAdminURL:  appCfg.KratosAdminURL,
+		SessionCookie:   appCfg.SessionCookieName,
+	})
 	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService, commonService)
 	subsHandler := api.NewStripeSubHandler(authMiddleware, svc)
 	conversationHandler := api.NewConversationHandler(authMiddleware, chatService)
@@ -216,7 +207,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Register routes
 	chatbotHandler.RegisterRoutes(app)
 	sharedKnowledgeBaseHandler.RegisterRoutes(app)
-	oAuthHandler.RegisterRoutes(app)
+	authHandler.RegisterRoutes(app)
 	apiKeyHandler.RegisterRoutes(app)
 	subsHandler.RegisterRoutes(app)
 	conversationHandler.RegisterRoutes(app)

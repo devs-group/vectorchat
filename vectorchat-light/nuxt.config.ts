@@ -9,6 +9,10 @@ export default defineNuxtConfig({
     vectorchatApiKey: "", // env:NUXT_VECTORCHAT_API_KEY
     public: {
       vectorchatUrl: "", // env:NUXT_PUBLIC_VECTORCHAT_URL
+      frontendLoginUrl:
+        process.env.NUXT_PUBLIC_FRONTEND_LOGIN_URL || "http://localhost:3000/login",
+      kratosPublicUrl:
+        process.env.NUXT_PUBLIC_KRATOS_PUBLIC_URL || "http://localhost:4433",
     },
   },
   components: [

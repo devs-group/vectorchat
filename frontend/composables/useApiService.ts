@@ -79,11 +79,6 @@ export function useApiService() {
     );
   };
 
-  const loginWithGithub = () => {
-    // Open GitHub auth in browser window
-    window.location.href = `${useRuntimeConfig().public.apiBase}/auth/github`;
-  };
-
   const logout = () => {
     return useApi(
       async () => {
@@ -94,20 +89,6 @@ export function useApiService() {
       {
         showSuccessToast: true,
         successMessage: "Logged out successfully",
-      },
-    );
-  };
-
-  const githubAuthCallback = () => {
-    return useApi(
-      async (queryParams: string) => {
-        return await useApiFetch("/auth/github/callback?" + queryParams, {
-          method: "GET",
-        });
-      },
-      {
-        showSuccessToast: true,
-        successMessage: "Logged in successfully",
       },
     );
   };
@@ -840,9 +821,7 @@ export function useApiService() {
     generateApiKey,
     listApiKeys,
     revokeApiKey,
-    loginWithGithub,
     logout,
-    githubAuthCallback,
 
     // Chat
     createChatbot,

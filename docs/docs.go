@@ -179,94 +179,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/github": {
-            "get": {
-                "description": "Redirects to GitHub for OAuth authentication",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Initiate GitHub OAuth login",
-                "responses": {
-                    "302": {
-                        "description": "Redirect to GitHub OAuth",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/github/callback": {
-            "get": {
-                "description": "Handles the GitHub OAuth callback and sets session",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "GitHub OAuth callback",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "OAuth code",
-                        "name": "code",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "OAuth state",
-                        "name": "state",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "302": {
-                        "description": "Redirect to /",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/auth/logout": {
             "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Logs out the current user and clears the session",
+                "description": "Terminates the active Kratos session and clears the browser cookie",
                 "consumes": [
                     "application/json"
                 ],
@@ -301,18 +216,7 @@ const docTemplate = `{
         },
         "/auth/session": {
             "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    },
-                    {
-                        "CookieAuth": []
-                    }
-                ],
-                "description": "Returns information about the current authenticated session",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Returns information about the authenticated user bound to the request",
                 "produces": [
                     "application/json"
                 ],

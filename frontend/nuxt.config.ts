@@ -5,6 +5,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.API_BASE_URL || "https://hidden-wave.podseidon.io",
+      kratosPublicUrl: process.env.KRATOS_PUBLIC_URL || "http://localhost:4433",
     },
   },
   devtools: { enabled: true },

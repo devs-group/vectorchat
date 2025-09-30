@@ -23,19 +23,32 @@ A Go application that vectorizes text and files into PostgreSQL with pgvector, a
    cd vectorchat
    ```
 
-2. Create a `.env` file with your OpenAI API key:
+2. Create a `.env` file with the required secrets:
 
-   ```
+   ```env
    OPENAI_API_KEY=your_openai_api_key
+   GITHUB_CLIENT_ID=your_github_oauth_client_id
+   GITHUB_CLIENT_SECRET=your_github_oauth_client_secret
+   KRATOS_COOKIE_SECRET=at_least_32_random_bytes
+   KRATOS_CIPHER_SECRET=at_least_32_random_bytes
+   BASE_URL=localhost:8080
+   FRONTEND_URL=localhost:3000
+   LIGHT_FRONTEND_URL=localhost:3100
    ```
 
-3. Build and start the application:
+   > See `docs/authentication.md` for a full breakdown of the authentication stack and additional environment variables.
 
+3. Start the complete Docker stack:
+
+   ```bash
+   docker-compose up --build
    ```
-   make build
-   make run
-   ```
 
-4. The application will be available at http://localhost:8080
+4. Access the applications:
 
-5. To interact with pgadmin, access http://localhost:5050 and log in with the default password `admin` and the db password: `postgres`.
+   - Main dashboard: http://localhost:3000
+   - VectorChat Light: http://localhost:3100
+   - API gateway (Oathkeeper): http://localhost:8080
+   - Mailhog (dev email): http://localhost:8025
+
+5. To interact with pgAdmin, open http://localhost:5050 and log in with the default email `admin@example.com` and password `admin`. The database password remains `postgres`.

@@ -1,108 +1,96 @@
 package middleware
 
 import (
-	"log/slog"
+	"encoding/json"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/storage/postgres"
 	"github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/services"
 )
 
-// AuthMiddleware is a middleware for authentication
+// AuthMiddleware enforces that requests carry either a valid API key or a verified Kratos session.
 type AuthMiddleware struct {
-	sessionStore  *postgres.Storage
 	authService   *services.AuthService
 	APIKeyService *services.APIKeyService
 }
 
-// NewAuthMiddleware creates a new auth middleware
-func NewAuthMiddleware(sessionStore *postgres.Storage, authService *services.AuthService, apiKeyService *services.APIKeyService) *AuthMiddleware {
+// NewAuthMiddleware creates a new auth middleware.
+func NewAuthMiddleware(authService *services.AuthService, apiKeyService *services.APIKeyService) *AuthMiddleware {
 	return &AuthMiddleware{
-		sessionStore:  sessionStore,
 		authService:   authService,
 		APIKeyService: apiKeyService,
 	}
 }
 
-// RequireAuth requires authentication for a route
+// RequireAuth requires authentication for a route.
 func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
-	apiKey := c.Get("X-API-Key")
-	if apiKey != "" {
-		apiKeyRecord, err := m.authService.FindAPIKeyByPlaintext(c.Context(), apiKey, func(hashedKey string) (bool, error) {
-			isValid, err := m.APIKeyService.IsAPIKeyValid(hashedKey, apiKey)
-			if err != nil {
-				return false, errors.Wrap(err, "failed to verify api key")
-			}
-			if !isValid {
-				return false, errors.Wrap(err, "provided api key is invalid")
-			}
-			return true, nil
-		})
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-
-		if apiKeyRecord.ExpiresAt != nil && apiKeyRecord.ExpiresAt.Before(time.Now()) {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "API key expired",
-			})
-		}
-
-		if apiKeyRecord.RevokedAt != nil && apiKeyRecord.RevokedAt.Before(time.Now()) {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "API key revoked",
-			})
-		}
-
-		// Get user associated with API key
-		user, err := m.authService.FindUserByID(c.Context(), apiKeyRecord.UserID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal server error",
-			})
-		}
-		c.Locals("user", user)
-		return c.Next()
+	if apiKey := c.Get("X-API-Key"); apiKey != "" {
+		return m.authenticateWithAPIKey(c, apiKey)
 	}
 
-	// Check for session cookie
-	sessionID := c.Cookies("session_id")
-	if sessionID == "" {
+	identityID := c.Get("X-User-Id")
+	traitsHeader := c.Get("X-User-Traits")
+	if identityID == "" || traitsHeader == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Authentication required",
+			"error": "authentication required",
 		})
 	}
 
-	// Match the session key format from OAuthHandler
-	sessionKey := "session_" + sessionID
-	userIDBytes, err := m.sessionStore.Get(sessionKey)
-	if err != nil || userIDBytes == nil {
+	user, err := m.authService.SyncIdentity(c.Context(), identityID, traitsHeader)
+	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid or expired session",
+			"error": err.Error(),
 		})
 	}
 
-	// Get user
-	user, err := m.authService.FindUserByID(c.Context(), string(userIDBytes))
+	// Store hydrated user and traits for downstream handlers.
+	c.Locals("user", user)
+
+	var traits map[string]any
+	if err := json.Unmarshal([]byte(traitsHeader), &traits); err == nil {
+		c.Locals("identity_traits", traits)
+	}
+
+	return c.Next()
+}
+
+func (m *AuthMiddleware) authenticateWithAPIKey(c *fiber.Ctx, apiKey string) error {
+	apiKeyRecord, err := m.authService.FindAPIKeyByPlaintext(c.Context(), apiKey, func(hashedKey string) (bool, error) {
+		isValid, err := m.APIKeyService.IsAPIKeyValid(hashedKey, apiKey)
+		if err != nil {
+			return false, errors.Wrap(err, "failed to verify api key")
+		}
+		if !isValid {
+			return false, errors.Wrap(err, "provided api key is invalid")
+		}
+		return true, nil
+	})
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	if apiKeyRecord.ExpiresAt != nil && apiKeyRecord.ExpiresAt.Before(time.Now()) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "API key expired",
+		})
+	}
+
+	if apiKeyRecord.RevokedAt != nil && apiKeyRecord.RevokedAt.Before(time.Now()) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "API key revoked",
+		})
+	}
+
+	user, err := m.authService.FindUserByID(c.Context(), apiKeyRecord.UserID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal server error",
+			"error": "internal server error",
 		})
 	}
 
-	// Refresh session expiration
-	if err := m.sessionStore.Set(sessionKey, userIDBytes, 8*time.Hour); err != nil {
-		slog.Error("Failed to refresh session", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to set new session expiration",
-		})
-	}
-
-	// Set user in context
 	c.Locals("user", user)
 	return c.Next()
 }

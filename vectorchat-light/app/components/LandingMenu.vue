@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
+
 import { Menu } from "lucide-vue-next";
 
 import { Button } from "@/components/ui/button";
@@ -14,11 +16,35 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useKratosSession } from "@/composables/useKratosSession";
 
+const config = useRuntimeConfig();
 const navItems = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Integration", href: "#integration" },
 ];
+
+const loginHref = ref(config.public.frontendLoginUrl);
+const { session, loadSession } = useKratosSession();
+const isAuthenticated = computed(() => Boolean(session.value));
+const dashboardHref = computed(() => {
+  if (config.public.vectorchatUrl) {
+    return config.public.vectorchatUrl as string;
+  }
+  return loginHref.value;
+});
+
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  try {
+    const url = new URL(config.public.frontendLoginUrl);
+    url.searchParams.set("return_to", window.location.origin);
+    loginHref.value = url.toString();
+  } catch (error) {
+    console.warn("Failed to construct login URL", error);
+  }
+  loadSession();
+});
 </script>
 
 <template>
@@ -55,12 +81,20 @@ const navItems = [
         </NavigationMenu>
 
         <div class="hidden items-center gap-2 lg:flex">
-          <NuxtLink
-            to="#signin"
+          <a
+            v-if="!isAuthenticated"
+            :href="loginHref"
             class="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
           >
             Sign in
-          </NuxtLink>
+          </a>
+          <a
+            v-else
+            :href="dashboardHref"
+            class="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+          >
+            Open app
+          </a>
           <Button class="px-5 text-sm font-semibold">Start for free</Button>
         </div>
 
@@ -117,12 +151,20 @@ const navItems = [
 
               <div class="mt-auto flex flex-col gap-2">
                 <SheetClose as-child>
-                  <NuxtLink
-                    to="#signin"
+                  <a
+                    v-if="!isAuthenticated"
+                    :href="loginHref"
                     class="rounded-lg px-3 py-2 text-center text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
                   >
                     Sign in
-                  </NuxtLink>
+                  </a>
+                  <a
+                    v-else
+                    :href="dashboardHref"
+                    class="rounded-lg px-3 py-2 text-center text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  >
+                    Open app
+                  </a>
                 </SheetClose>
                 <SheetClose as-child>
                   <Button class="h-11 w-full text-sm font-semibold">

@@ -1,0 +1,53 @@
+log:
+  level: debug
+  format: json
+
+serve:
+  proxy:
+    port: 4456
+    host: 0.0.0.0
+  api:
+    port: 4457
+    host: 0.0.0.0
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://localhost:3000
+        - http://localhost:3100
+        - http://127.0.0.1:3000
+        - http://127.0.0.1:3100
+      allowed_headers:
+        - Authorization
+        - Content-Type
+        - Cookie
+        - X-Requested-With
+      allow_credentials: true
+
+access_rules:
+  repositories:
+    - file:///etc/config/oathkeeper/rules.yaml
+
+authenticators:
+  cookie_session:
+    enabled: true
+    config:
+      check_session_url: http://kratos:4433/sessions/whoami
+      subject_from: identity.id
+  noop:
+    enabled: true
+
+authorizers:
+  allow:
+    enabled: true
+  deny:
+    enabled: true
+
+mutators:
+  header:
+    enabled: true
+    config:
+      headers:
+        X-User-Id: "{{ print .Subject }}"
+        X-User-Traits: "{{ toJSON .Extra.identity.traits }}"
+  noop:
+    enabled: true

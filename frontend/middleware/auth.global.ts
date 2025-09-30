@@ -1,6 +1,12 @@
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  // Skip middleware for login and callback pages
-  if (to.path === "/login" || to.path === "/auth/github/callback") {
+  // Skip middleware for login page
+  console.log(to);
+  if (to.path === "/login") {
+    return;
+  }
+
+  // Skip middleware for error page
+  if (to.path === "/error") {
     return;
   }
 
