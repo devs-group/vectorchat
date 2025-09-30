@@ -8,15 +8,14 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/swagger"
 	"github.com/pressly/goose/v3"
 	"github.com/urfave/cli/v3"
 
+	fiberLogger "github.com/gofiber/fiber/v2/middleware/logger"
 	_ "github.com/lib/pq"                       // PostgreSQL driver
 	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
 	swaggerDocs "github.com/yourusername/vectorchat/docs"
@@ -169,27 +168,7 @@ func runApplication(appCfg *config.AppConfig) error {
 		BodyLimit: 10 * 1024 * 1024, // 10MB limit for file uploads
 	})
 
-	// Configure CORS with more permissive settings
-	frontendOrigin := fmt.Sprintf("http://%s", appCfg.FrontendURL)
-	if appCfg.IsSSL {
-		frontendOrigin = fmt.Sprintf("https://%s", appCfg.FrontendURL)
-	}
-	lightOrigin := appCfg.LightFrontendURL
-	if lightOrigin != "" && !strings.HasPrefix(lightOrigin, "http") {
-		lightOrigin = fmt.Sprintf("http://%s", lightOrigin)
-	}
-	origins := frontendOrigin
-	if lightOrigin != "" && lightOrigin != frontendOrigin {
-		origins = fmt.Sprintf("%s,%s", origins, lightOrigin)
-	}
-	app.Use(cors.New(cors.Config{
-		AllowOrigins:     origins,
-		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-API-Key",
-		AllowCredentials: true,
-		ExposeHeaders:    "Content-Length, Content-Type",
-		MaxAge:           86400, // 24 hours
-	}))
+	app.Use(fiberLogger.New())
 
 	// Initialize API handlers
 	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, ownershipMiddleware, commonService, subscriptionLimits)
