@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -30,6 +31,9 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 	}
 
 	identityID := c.Get("X-User-Id")
+
+	slog.Info("Authenticating user", "identity_id", identityID)
+
 	traitsHeader := c.Get("X-User-Traits")
 	if identityID == "" || traitsHeader == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

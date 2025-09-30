@@ -45,7 +45,7 @@ func NewAuthHandler(
 // RegisterRoutes registers auth endpoints.
 func (h *AuthHandler) RegisterRoutes(app *fiber.App) {
 	auth := app.Group("/auth")
-	auth.Get("/session", h.authMiddleware.RequireAuth, h.getSession)
+	auth.Get("/session", h.authMiddleware.RequireAuth, h.getSession) // TODO: Probably remove this since, we are checking session directly towards kratos.
 	auth.Post("/logout", h.authMiddleware.RequireAuth, h.postLogout)
 }
 

@@ -1,93 +1,57 @@
-- id: preflight
+# /etc/config/oathkeeper/rules.yaml  (matching_strategy: regexp)
+
+# 1) Public: /health
+- id: allow-health
+  upstream:
+    url: "http://app:8080"
   match:
-    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/.*"
-    methods:
-      - OPTIONS
+    url: <http|https>://<[^/]+>/health
+    methods: [GET, HEAD, OPTIONS]
   authenticators:
-    - handler: noop
+    - handler: anonymous
   authorizer:
     handler: allow
   mutators:
     - handler: noop
-  upstream:
-    url: http://app:8080
 
-- id: public-health
+# 2) Public: /billing/plans
+- id: allow-billing-plans
+  upstream:
+    url: "http://app:8080"
   match:
-    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/health$"
-    methods:
-      - GET
+    url: <http|https>://<[^/]+>/billing/plans
+    methods: [GET, HEAD, OPTIONS]
   authenticators:
-    - handler: noop
+    - handler: anonymous
   authorizer:
     handler: allow
   mutators:
     - handler: noop
-  upstream:
-    url: http://app:8080
 
-- id: public-billing-plans
+# 3) Public: /stripe/webhook
+- id: allow-stripe-webhook
+  upstream:
+    url: "http://app:8080"
   match:
-    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/billing/plans$"
-    methods:
-      - GET
+    url: <http|https>://<[^/]+>/stripe/webhook
+    methods: [POST, HEAD, OPTIONS]
   authenticators:
-    - handler: noop
+    - handler: anonymous
   authorizer:
     handler: allow
   mutators:
     - handler: noop
-  upstream:
-    url: http://app:8080
 
-- id: public-stripe-webhook
-  match:
-    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/stripe/webhook$"
-    methods:
-      - POST
-  authenticators:
-    - handler: noop
-  authorizer:
-    handler: allow
-  mutators:
-    - handler: noop
+# 4) Everything else: must be authenticated via Kratos session cookie
+- id: require-auth
   upstream:
-    url: http://app:8080
-
-- id: vectorchat-api-key
+    url: "http://app:8080"
   match:
-    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/.*"
-    methods:
-      - GET
-      - POST
-      - PUT
-      - PATCH
-      - DELETE
-    headers:
-      X-API-Key: .+
-  authenticators:
-    - handler: noop
-  authorizer:
-    handler: allow
-  mutators:
-    - handler: noop
-  upstream:
-    url: http://app:8080
-
-- id: vectorchat-api-authenticated
-  match:
-    url: "^(http|https)://((localhost|127\\.0\\.0\\.1)(:8080)?|oathkeeper:4456)/.*"
-    methods:
-      - GET
-      - POST
-      - PUT
-      - PATCH
-      - DELETE
+    url: <http|https>://<[^/]+>/<.*>
+    methods: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
   authenticators:
     - handler: cookie_session
   authorizer:
     handler: allow
   mutators:
     - handler: header
-  upstream:
-    url: http://app:8080
