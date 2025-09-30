@@ -110,6 +110,7 @@ session:
   lifespan: 720h
   cookie:
     name: vectorauth_session
+    domain: localhost
     path: /
     same_site: Lax
     persistent: true

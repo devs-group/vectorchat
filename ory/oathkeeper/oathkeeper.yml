@@ -9,6 +9,28 @@ serve:
   proxy:
     port: 4456
     host: 0.0.0.0
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://localhost:3000
+        - http://localhost:3100
+        - http://127.0.0.1:3000
+        - http://127.0.0.1:3100
+      allowed_methods:
+        - POST
+        - GET
+        - PUT
+        - PATCH
+        - DELETE
+      allowed_headers:
+        - Authorization
+        - Content-Type
+        - Cookie
+        - X-Requested-With
+      exposed_headers:
+        - Content-Type
+      allow_credentials: true
+      debug: true
   api:
     port: 4457
     host: 0.0.0.0
@@ -36,9 +58,22 @@ authenticators:
     enabled: true
     config:
       check_session_url: http://kratos:4433/sessions/whoami
-      subject_from: identity.id
+      # IMPORTANT: keep the whoami path, don't replace it with the incoming request path
+      preserve_path: true
+      # keep using GET for the check
+      force_method: GET
+      # forward only if this cookie is present (your custom Kratos cookie name)
       only:
         - vectorauth_session
+      # optional but explicit; defaults already include Cookie
+      forward_http_headers:
+        - Cookie
+      # optional; Kratos returns JSON anyway
+      additional_headers:
+        Accept: application/json
+      # map subject / extra for your mutator
+      subject_from: identity.id
+      extra_from: "@this"
   noop:
     enabled: true
   anonymous:
@@ -56,6 +91,13 @@ mutators:
     config:
       headers:
         X-User-Id: "{{ print .Subject }}"
-        X-User-Traits: "{{ toJSON .Extra.identity.traits }}"
+        X-User-Traits: "{{ toJson .Extra.identity.traits }}"
   noop:
     enabled: true
+
+errors:
+  handlers:
+    json:
+      enabled: true
+      config:
+        verbose: true

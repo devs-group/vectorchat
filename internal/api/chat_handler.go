@@ -45,7 +45,7 @@ func NewChatHandler(
 
 func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	// Health check endpoint (no auth required)
-	app.Get("/health", h.GET_HealthCheck)
+	app.Get("/public/health", h.GET_HealthCheck)
 
 	chat := app.Group("/chat", h.AuthMiddleware.RequireAuth)
 

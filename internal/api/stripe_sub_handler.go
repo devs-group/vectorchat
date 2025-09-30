@@ -20,10 +20,10 @@ func NewStripeSubHandler(auth *middleware.AuthMiddleware, svc *sub.Service) *Str
 
 func (h *StripeSubHandler) RegisterRoutes(app *fiber.App) {
 	// Public webhook (Stripe calls it)
-	app.Post("/stripe/webhook", adaptor.HTTPHandlerFunc(h.Service.WebhookHandler()))
+	app.Post("/public/stripe/webhook", adaptor.HTTPHandlerFunc(h.Service.WebhookHandler()))
 
 	// Public plans
-	app.Get("/billing/plans", adaptor.HTTPHandlerFunc(h.Service.PlansHandler()))
+	app.Get("/public/billing/plans", adaptor.HTTPHandlerFunc(h.Service.PlansHandler()))
 
 	// Authenticated billing routes
 	grp := app.Group("/billing", h.AuthMiddleware.RequireAuth)

@@ -1,11 +1,9 @@
-# /etc/config/oathkeeper/rules.yaml  (matching_strategy: regexp)
-
 # 1) Public: /health
 - id: allow-health
   upstream:
     url: "http://app:8080"
   match:
-    url: <http|https>://<[^/]+>/health
+    url: <http|https>://<[^/]+>/public/health
     methods: [GET, HEAD, OPTIONS]
   authenticators:
     - handler: anonymous
@@ -19,7 +17,7 @@
   upstream:
     url: "http://app:8080"
   match:
-    url: <http|https>://<[^/]+>/billing/plans
+    url: <http|https>://<[^/]+>/public/billing/plans
     methods: [GET, HEAD, OPTIONS]
   authenticators:
     - handler: anonymous
@@ -33,7 +31,7 @@
   upstream:
     url: "http://app:8080"
   match:
-    url: <http|https>://<[^/]+>/stripe/webhook
+    url: <http|https>://<[^/]+>/public/stripe/webhook
     methods: [POST, HEAD, OPTIONS]
   authenticators:
     - handler: anonymous
@@ -42,12 +40,12 @@
   mutators:
     - handler: noop
 
-# 4) Everything else: must be authenticated via Kratos session cookie
-- id: require-auth
+# 4) Everything else: must be authenticated (MUST BE LAST!)
+- id: auth
   upstream:
     url: "http://app:8080"
   match:
-    url: <http|https>://<[^/]+>/<.*>
+    url: <http|https>://<[^/]+>/<(?!public/)><.*>
     methods: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
   authenticators:
     - handler: cookie_session

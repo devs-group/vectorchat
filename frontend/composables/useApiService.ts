@@ -107,10 +107,13 @@ export function useApiService() {
         is_enabled?: boolean;
         shared_knowledge_base_ids?: string[];
       }) => {
-        return await useApiFetch<{ chatbot: ChatbotResponse }>("/chat/chatbot", {
-          method: "POST",
-          body: data,
-        });
+        return await useApiFetch<{ chatbot: ChatbotResponse }>(
+          "/chat/chatbot",
+          {
+            method: "POST",
+            body: data,
+          },
+        );
       },
       {
         showSuccessToast: true,
@@ -354,9 +357,12 @@ export function useApiService() {
   const getSharedKnowledgeBase = () => {
     return useApi(
       async (kbId: string) => {
-        return await useApiFetch<SharedKnowledgeBase>(`/knowledge-bases/${kbId}`, {
-          method: "GET",
-        });
+        return await useApiFetch<SharedKnowledgeBase>(
+          `/knowledge-bases/${kbId}`,
+          {
+            method: "GET",
+          },
+        );
       },
       { errorMessage: "Failed to fetch knowledge base" },
     );
@@ -365,10 +371,13 @@ export function useApiService() {
   const updateSharedKnowledgeBase = () => {
     return useApi(
       async (data: { id: string; body: SharedKnowledgeBaseUpdateRequest }) => {
-        return await useApiFetch<SharedKnowledgeBase>(`/knowledge-bases/${data.id}`, {
-          method: "PUT",
-          body: data.body,
-        });
+        return await useApiFetch<SharedKnowledgeBase>(
+          `/knowledge-bases/${data.id}`,
+          {
+            method: "PUT",
+            body: data.body,
+          },
+        );
       },
       {
         showSuccessToast: true,
@@ -456,9 +465,12 @@ export function useApiService() {
   const deleteSharedKnowledgeBaseFile = () => {
     return useApi(
       async (data: { kbId: string; filename: string }) => {
-        return await useApiFetch(`/knowledge-bases/${data.kbId}/files/${data.filename}`, {
-          method: "DELETE",
-        });
+        return await useApiFetch(
+          `/knowledge-bases/${data.kbId}/files/${data.filename}`,
+          {
+            method: "DELETE",
+          },
+        );
       },
       {
         showSuccessToast: true,
@@ -484,9 +496,12 @@ export function useApiService() {
   const deleteSharedKnowledgeBaseTextSource = () => {
     return useApi(
       async (data: { kbId: string; id: string }) => {
-        return await useApiFetch(`/knowledge-bases/${data.kbId}/text/${data.id}`, {
-          method: "DELETE",
-        });
+        return await useApiFetch(
+          `/knowledge-bases/${data.kbId}/text/${data.id}`,
+          {
+            method: "DELETE",
+          },
+        );
       },
       {
         showSuccessToast: true,
@@ -522,7 +537,10 @@ export function useApiService() {
     },
     handlers: {
       onChunk?: (chunk: string) => void | Promise<void>;
-      onDone?: (payload: { content: string; sessionId?: string }) => void | Promise<void>;
+      onDone?: (payload: {
+        content: string;
+        sessionId?: string;
+      }) => void | Promise<void>;
       onError?: (payload: { message: string }) => void | Promise<void>;
     },
   ) => {
@@ -602,7 +620,9 @@ export function useApiService() {
 
         if (!response.body) {
           if (handlers.onError) {
-            await handlers.onError({ message: "Stream response body is empty" });
+            await handlers.onError({
+              message: "Stream response body is empty",
+            });
           }
           return;
         }
@@ -637,7 +657,9 @@ export function useApiService() {
         }
         console.error("Stream error", error);
         if (handlers.onError) {
-          await handlers.onError({ message: error?.message ?? "Stream connection failed" });
+          await handlers.onError({
+            message: error?.message ?? "Stream connection failed",
+          });
         }
       }
     })();
@@ -762,7 +784,9 @@ export function useApiService() {
   const listPlans = () => {
     return useApi(
       async () => {
-        return await useApiFetch<Plan[]>("/billing/plans", { method: "GET" });
+        return await useApiFetch<Plan[]>("/public/billing/plans", {
+          method: "GET",
+        });
       },
       { errorMessage: "Failed to fetch plans" },
     );

@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: vectorchat-frontend
     environment:
-      - API_BASE_URL=http://localhost:8080
+      - API_BASE_URL=http://localhost:4456
       - KRATOS_PUBLIC_URL=http://localhost:4433
     ports:
       - "3000:3000"
@@ -25,7 +25,7 @@ services:
       target: development
     container_name: vectorchat-light
     environment:
-      - API_BASE_URL=http://localhost:8080
+      - API_BASE_URL=http://localhost:4456
       - NUXT_PUBLIC_KRATOS_PUBLIC_URL=http://localhost:4433
       - NUXT_PUBLIC_FRONTEND_LOGIN_URL=http://localhost:3000/login
     ports:
@@ -70,7 +70,7 @@ services:
       - .env
 
   oathkeeper:
-    image: oryd/oathkeeper:v0.38.22
+    image: oryd/oathkeeper:v0.40.9
     container_name: vectorchat-oathkeeper
     command:
       - serve
@@ -80,7 +80,7 @@ services:
       - kratos
       - app
     ports:
-      - "8080:4456"
+      - "4456:4456"
     volumes:
       - ./ory/oathkeeper:/etc/config/oathkeeper:ro
     environment:
@@ -178,8 +178,6 @@ services:
       - LOG_LEVEL=trace
       - GITHUB_CLIENT_ID=${GITHUB_ID}
       - GITHUB_CLIENT_SECRET=${GITHUB_SECRET}
-      - KRATOS_COOKIE_SECRET=${KRATOS_COOKIE_SECRET:-please-change-me}
-      - KRATOS_CIPHER_SECRET=${KRATOS_CIPHER_SECRET:-please-change-me-too}
     depends_on:
       kratos-migrate:
         condition: service_completed_successfully
