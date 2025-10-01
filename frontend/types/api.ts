@@ -9,12 +9,11 @@ export interface User {
 
 export interface APIKey {
   id: string;
-  key: string;
-  name: string;
+  client_id: string;
+  name?: string | null;
   user_id: string;
   created_at: string;
-  expires_at: string;
-  revoked_at: string | null;
+  expires_at?: string | null;
 }
 
 export interface ChatbotCreateRequest {
@@ -76,10 +75,12 @@ export interface SessionResponse {
   user: User;
 }
 
-export interface APIKeyResponse {
-  api_key: APIKey;
+export interface APIKeyCreateResponse {
+  client_id: string;
+  client_secret: string;
+  name?: string | null;
+  expires_at?: string | null;
   message: string;
-  plain_key: string;
 }
 
 export interface GenerateAPIKeyRequest {

@@ -24,7 +24,7 @@
               <th
                 class="h-12 px-4 text-left align-middle font-medium text-muted-foreground"
               >
-                Key
+                Client ID
               </th>
               <th
                 class="h-12 px-4 text-left align-middle font-medium text-muted-foreground"
@@ -40,11 +40,6 @@
                 class="h-12 px-4 text-left align-middle font-medium text-muted-foreground"
               >
                 Expires
-              </th>
-              <th
-                class="h-12 px-4 text-left align-middle font-medium text-muted-foreground"
-              >
-                Status
               </th>
               <th
                 class="h-12 px-4 text-right align-middle font-medium text-muted-foreground"
@@ -65,29 +60,17 @@
                   <code
                     class="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm"
                   >
-                    {{ key.key }}
+                    {{ key.client_id }}
                   </code>
                 </div>
               </td>
-              <td class="p-4 align-middle">{{ key.name }}</td>
+              <td class="p-4 align-middle">{{ key.name ?? "—" }}</td>
               <td class="p-4 align-middle">{{ formatDate(key.created_at) }}</td>
               <td class="p-4 align-middle">
                 {{ key.expires_at ? formatDate(key.expires_at) : "Never" }}
               </td>
-              <td class="p-4 align-middle">
-                <span
-                  :class="[
-                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                    key.revoked_at
-                      ? 'bg-destructive/10 text-destructive'
-                      : 'bg-green-100 text-green-800',
-                  ]"
-                >
-                  {{ key.revoked_at ? "Revoked" : "Active" }}
-                </span>
-              </td>
               <td class="p-4 align-middle text-right">
-                <Dialog v-if="!key.revoked_at">
+                <Dialog>
                   <DialogTrigger as-child>
                     <Button
                       variant="ghost"
@@ -99,10 +82,10 @@
                   </DialogTrigger>
                   <DialogContent class="sm:max-w-md">
                     <DialogHeader>
-                      <DialogTitle>Revoke API Key</DialogTitle>
+                      <DialogTitle>Revoke OAuth Client</DialogTitle>
                       <DialogDescription>
-                        Are you sure you want to revoke this API key? This
-                        action cannot be undone.
+                        Are you sure you want to revoke this client credentials
+                        pair? This action cannot be undone.
                       </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -114,7 +97,7 @@
                         @click="confirmRevokeKey(key)"
                         :loading="isRevokingApiKey && revokingKeyId === key.id"
                       >
-                        Revoke Key
+                        Revoke Client
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -122,7 +105,7 @@
               </td>
             </tr>
             <tr v-if="!apiKeys || apiKeys.api_keys?.length === 0">
-              <td colspan="7" class="p-8 text-center text-muted-foreground">
+              <td colspan="5" class="p-8 text-center text-muted-foreground">
                 <div v-if="isFetchingAPIKeys" class="flex justify-center">
                   <IconSpinner
                     class="animate-spin h-5 w-5 text-muted-foreground"
@@ -179,14 +162,14 @@
     <!-- API Key Generated Dialog -->
     <ApiKeyGeneratedDialog
       v-model:open="showGeneratedDialog"
-      :api-key="generatedApiKey"
+      :credentials="generatedCredentials"
       @close="handleCloseGeneratedDialog"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted } from "vue";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -198,13 +181,15 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Pagination } from "@/components/ui/pagination";
 import IconKey from "@/components/icons/IconKey.vue";
 import IconPlus from "@/components/icons/IconPlus.vue";
 import IconSpinner from "@/components/icons/IconSpinner.vue";
-import type { APIKeyResponse, APIKeysResponse } from "~/types/api";
+import type {
+  APIKey,
+  APIKeyCreateResponse,
+  APIKeysResponse,
+} from "~/types/api";
 import CreateApiKeyDialog from "./components/CreateApiKeyDialog.vue";
 import ApiKeyGeneratedDialog from "./components/ApiKeyGeneratedDialog.vue";
 
@@ -212,20 +197,15 @@ definePageMeta({
   layout: "authenticated",
 });
 
-interface APIKey {
-  id: string;
-  key: string;
-  name: string;
-  created_at: string;
-  expires_at: string;
-  revoked_at: string | null;
-  user_id: string;
-}
-
 const apiService = useApiService();
 const showCreateDialog = ref(false);
 const showGeneratedDialog = ref(false);
-const generatedApiKey = ref("");
+const generatedCredentials = ref<{
+  clientId: string;
+  clientSecret: string;
+  name?: string | null;
+  expiresAt?: string | null;
+} | null>(null);
 const revokingKeyId = ref<string | null>(null);
 
 // Pagination state
@@ -244,7 +224,7 @@ const {
   data: newKey,
   isLoading: isGeneratingAPIKey,
   error: generateApiKeyError,
-} = apiService.generateApiKey<APIKeyResponse>();
+} = apiService.generateApiKey<APIKeyCreateResponse>();
 const {
   execute: revokeApiKey,
   isLoading: isRevokingApiKey,
@@ -258,17 +238,6 @@ const formatDate = (dateString: string) => {
     day: "numeric",
     year: "numeric",
   });
-};
-
-// Computed properties
-const getDisplayRange = () => {
-  if (!apiKeys.value || !apiKeys.value.pagination) return "";
-
-  const { page, limit, total } = apiKeys.value.pagination;
-  const start = (page - 1) * limit + 1;
-  const end = Math.min(page * limit, total);
-
-  return `${start}-${end}`;
 };
 
 // Pagination handlers
@@ -295,8 +264,13 @@ const handleGenerateKey = async (data: {
   try {
     await generateApiKey(data);
 
-    if (newKey.value?.plain_key) {
-      generatedApiKey.value = newKey.value?.plain_key;
+    if (newKey.value?.client_secret && newKey.value?.client_id) {
+      generatedCredentials.value = {
+        clientId: newKey.value.client_id,
+        clientSecret: newKey.value.client_secret,
+        name: newKey.value.name ?? null,
+        expiresAt: newKey.value.expires_at ?? null,
+      };
       showCreateDialog.value = false;
       showGeneratedDialog.value = true;
 
@@ -312,14 +286,19 @@ const handleGenerateKey = async (data: {
 
 // Handle close of generated dialog
 const handleCloseGeneratedDialog = () => {
-  generatedApiKey.value = "";
+  generatedCredentials.value = null;
   showGeneratedDialog.value = false;
 };
 
 // Confirm revoke key
 const confirmRevokeKey = async (key: APIKey) => {
-  await revokeApiKey(key.id);
-  await loadAPIKeys();
+  try {
+    revokingKeyId.value = key.id;
+    await revokeApiKey(key.id);
+    await loadAPIKeys();
+  } finally {
+    revokingKeyId.value = null;
+  }
 };
 
 // Fetch API keys on mount

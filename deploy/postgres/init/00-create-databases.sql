@@ -1,1 +1,2 @@
 CREATE DATABASE vectorauth;
+CREATE DATABASE hydra;

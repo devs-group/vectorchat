@@ -55,6 +55,7 @@ services:
       - KRATOS_ADMIN_URL=http://kratos:4434
       - SESSION_COOKIE_NAME=vectorauth_session
       - LIGHT_FRONTEND_URL=http://localhost:3100
+      - HYDRA_ADMIN_URL=http://hydra:4445
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,12 +80,54 @@ services:
     depends_on:
       - kratos
       - app
+      - hydra
     ports:
       - "4456:4456"
     volumes:
       - ./ory/oathkeeper:/etc/config/oathkeeper:ro
     environment:
       - LOG_LEVEL=debug
+    networks:
+      - vectorchat-network
+
+  hydra-migrate:
+    image: oryd/hydra:v2.2.0
+    container_name: vectorchat-hydra-migrate
+    command:
+      - migrate
+      - sql
+      - -e
+      - --yes
+    environment:
+      - DSN=postgres://postgres:postgres@postgres:5432/hydra?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vectorchat-network
+    restart: "no"
+
+  hydra:
+    image: oryd/hydra:v2.2.0
+    container_name: vectorchat-hydra
+    command:
+      - serve
+      - all
+      - --dev
+    environment:
+      - DSN=postgres://postgres:postgres@postgres:5432/hydra?sslmode=disable
+      - LOG_LEVEL=debug
+      - SECRETS_SYSTEM=this_is_not_secure_change_me
+      - URLS_SELF_ISSUER=http://hydra:4444/
+      - URLS_LOGIN=http://127.0.0.1:3000/login
+      - URLS_CONSENT=http://127.0.0.1:3000/consent
+      - URLS_LOGOUT=http://127.0.0.1:3000/logout
+    ports:
+      - "4444:4444"
+      - "4445:4445"
+    depends_on:
+      hydra-migrate:
+        condition: service_completed_successfully
     networks:
       - vectorchat-network
 

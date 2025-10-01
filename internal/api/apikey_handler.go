@@ -38,8 +38,8 @@ func (h *APIKeyHandler) RegisterRoutes(app *fiber.App) {
 	auth.Delete("/apikey/:id", h.authMiddleware.RequireAuth, h.DELETE_RevokeAPIKey)
 }
 
-// @Summary Generate API key
-// @Description Generates a new API key for the authenticated user
+// @Summary Provision OAuth client
+// @Description Creates a new machine-to-machine OAuth client via Ory Hydra for the authenticated user
 // @Tags apiKey
 // @Accept json
 // @Produce json
@@ -64,26 +64,22 @@ func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Invalid request parameters", err, http.StatusBadRequest)
 	}
 
-	apiKeyResponse, plainTextKey, err := h.apiKeyService.CreateAPIKey(c.Context(), user.ID, name, expiresAt)
+	apiKeyResponse, clientSecret, err := h.apiKeyService.CreateAPIKey(c.Context(), user.ID, name, expiresAt)
 	if err != nil {
 		return ErrorResponse(c, "failed to create API key", err)
 	}
 
 	return c.JSON(models.APIKeyCreateResponse{
-		APIKey: models.APIKeyResponse{
-			ID:        apiKeyResponse.ID,
-			UserID:    apiKeyResponse.UserID,
-			Name:      apiKeyResponse.Name,
-			CreatedAt: apiKeyResponse.CreatedAt,
-			ExpiresAt: apiKeyResponse.ExpiresAt,
-		},
-		PlainKey: plainTextKey,
-		Message:  "API key created successfully. Save this key as it won't be shown again.",
+		ClientID:     apiKeyResponse.ClientID,
+		ClientSecret: clientSecret,
+		Name:         apiKeyResponse.Name,
+		ExpiresAt:    apiKeyResponse.ExpiresAt,
+		Message:      "OAuth client created successfully. Save the secret as it won't be shown again.",
 	})
 }
 
-// @Summary List API keys
-// @Description Lists API keys for the authenticated user with pagination support
+// @Summary List OAuth clients
+// @Description Lists OAuth clients created by the authenticated user with pagination support
 // @Tags apiKey
 // @Accept json
 // @Produce json
@@ -103,33 +99,11 @@ func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 		return ErrorResponse(c, "failed to get API keys", err)
 	}
 
-	var keys []*models.APIKeyResponse
-	for _, k := range response.APIKeys {
-		keys = append(keys, &models.APIKeyResponse{
-			ID:        k.ID,
-			UserID:    k.UserID,
-			Name:      k.Name,
-			CreatedAt: k.CreatedAt,
-			ExpiresAt: k.ExpiresAt,
-			RevokedAt: k.RevokedAt,
-		})
-	}
-
-	return c.JSON(models.APIKeysListResponse{
-		APIKeys: keys,
-		Pagination: &models.PaginationMetadata{
-			Page:       response.Pagination.Page,
-			Limit:      response.Pagination.Limit,
-			Total:      response.Pagination.Total,
-			TotalPages: response.Pagination.TotalPages,
-			HasNext:    response.Pagination.HasNext,
-			HasPrev:    response.Pagination.HasPrev,
-		},
-	})
+	return c.JSON(response)
 }
 
-// @Summary Revoke API key
-// @Description Revokes an API key for the authenticated user
+// @Summary Revoke OAuth client
+// @Description Revokes an OAuth client for the authenticated user
 // @Tags apiKey
 // @Accept json
 // @Produce json

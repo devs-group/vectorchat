@@ -99,8 +99,6 @@ const githubNode = computed(() => {
 });
 
 const redirectToKratos = () => {
-  if (process.server) return;
-
   const kratosUrl = new URL(
     `${config.public.kratosPublicUrl}/self-service/login/browser`,
   );

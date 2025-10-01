@@ -2,96 +2,74 @@ package middleware
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/yourusername/vectorchat/internal/errors"
+	"github.com/yourusername/vectorchat/internal/db"
+	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/internal/services"
 )
 
-// AuthMiddleware enforces that requests carry either a valid API key or a verified Kratos session.
+// AuthMiddleware trusts Oathkeeper to authenticate requests and forwards user context downstream.
 type AuthMiddleware struct {
-	authService   *services.AuthService
-	APIKeyService *services.APIKeyService
+	authService *services.AuthService
 }
 
-// NewAuthMiddleware creates a new auth middleware.
-func NewAuthMiddleware(authService *services.AuthService, apiKeyService *services.APIKeyService) *AuthMiddleware {
-	return &AuthMiddleware{
-		authService:   authService,
-		APIKeyService: apiKeyService,
-	}
+// NewAuthMiddleware creates a new auth middleware instance.
+func NewAuthMiddleware(authService *services.AuthService) *AuthMiddleware {
+	return &AuthMiddleware{authService: authService}
 }
 
-// RequireAuth requires authentication for a route.
+// RequireAuth validates the Oathkeeper headers and ensures a user context is available.
 func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
-	if apiKey := c.Get("X-API-Key"); apiKey != "" {
-		return m.authenticateWithAPIKey(c, apiKey)
+	userID := c.Get("X-User-ID")
+	if userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "authentication required",
+		})
 	}
-
-	identityID := c.Get("X-User-Id")
 
 	traitsHeader := c.Get("X-User-Traits")
-	if identityID == "" || traitsHeader == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "authentication required" + traitsHeader,
-		})
-	}
 
-	user, err := m.authService.SyncIdentity(c.Context(), identityID, traitsHeader)
+	var user *db.User
+	var err error
+
+	if traitsHeader != "" {
+		user, err = m.hydrateFromTraits(c, userID, traitsHeader)
+	} else {
+		user, err = m.hydrateFromStore(c, userID)
+	}
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	// Store hydrated user and traits for downstream handlers.
 	c.Locals("user", user)
-
-	var traits map[string]any
-	if err := json.Unmarshal([]byte(traitsHeader), &traits); err == nil {
-		c.Locals("identity_traits", traits)
+	if traitsHeader != "" {
+		traits := make(map[string]any)
+		if err := json.Unmarshal([]byte(traitsHeader), &traits); err == nil {
+			c.Locals("identity_traits", traits)
+		}
 	}
 
 	return c.Next()
 }
 
-func (m *AuthMiddleware) authenticateWithAPIKey(c *fiber.Ctx, apiKey string) error {
-	apiKeyRecord, err := m.authService.FindAPIKeyByPlaintext(c.Context(), apiKey, func(hashedKey string) (bool, error) {
-		isValid, err := m.APIKeyService.IsAPIKeyValid(hashedKey, apiKey)
-		if err != nil {
-			return false, errors.Wrap(err, "failed to verify api key")
-		}
-		if !isValid {
-			return false, errors.Wrap(err, "provided api key is invalid")
-		}
-		return true, nil
-	})
+func (m *AuthMiddleware) hydrateFromTraits(c *fiber.Ctx, userID, traitsHeader string) (*db.User, error) {
+	user, err := m.authService.SyncIdentity(c.Context(), userID, traitsHeader)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return nil, err
 	}
+	return user, nil
+}
 
-	if apiKeyRecord.ExpiresAt != nil && apiKeyRecord.ExpiresAt.Before(time.Now()) {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "API key expired",
-		})
-	}
-
-	if apiKeyRecord.RevokedAt != nil && apiKeyRecord.RevokedAt.Before(time.Now()) {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "API key revoked",
-		})
-	}
-
-	user, err := m.authService.FindUserByID(c.Context(), apiKeyRecord.UserID)
+func (m *AuthMiddleware) hydrateFromStore(c *fiber.Ctx, userID string) (*db.User, error) {
+	user, err := m.authService.FindUserByID(c.Context(), userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "internal server error",
-		})
+		if apperrors.Is(err, apperrors.ErrUserNotFound) {
+			return nil, apperrors.ErrUserNotFound
+		}
+		return nil, apperrors.Wrap(err, "failed to load user")
 	}
-
-	c.Locals("user", user)
-	return c.Next()
+	return user, nil
 }

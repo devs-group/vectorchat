@@ -149,13 +149,14 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize services
 	kbService := services.NewKnowledgeBaseService(repos.File, repos.Document, vectorizer, processor, webCrawler, pool)
 	sharedKBService := services.NewSharedKnowledgeBaseService(repos.SharedKB, repos.File, repos.Document, kbService)
-	authService := services.NewAuthService(repos.User, repos.APIKey)
+	hydraService := services.NewHydraService(appCfg.HydraAdminURL)
+	authService := services.NewAuthService(repos.User)
 	chatService := services.NewChatService(repos.Chat, repos.SharedKB, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, kbService, openaiKey, pool)
-	apiKeyService := services.NewAPIKeyService(repos.APIKey)
+	apiKeyService := services.NewAPIKeyService(hydraService)
 	commonService := services.NewCommonService()
 
 	// Initialize auth middleware
-	authMiddleware := middleware.NewAuthMiddleware(authService, apiKeyService)
+	authMiddleware := middleware.NewAuthMiddleware(authService)
 
 	// Initialize ownership middleware
 	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatService)

@@ -2,20 +2,20 @@
   <Dialog v-model:open="isOpen">
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
-        <DialogTitle>Generate New API Key</DialogTitle>
+        <DialogTitle>Create Client Credentials</DialogTitle>
         <DialogDescription>
-          Generate a new API key to access the VectorChat API. Keep your keys
-          secure and never share them publicly.
+          Provision a new OAuth client for machine-to-machine access. The
+          client secret is only shown once—store it securely.
         </DialogDescription>
       </DialogHeader>
 
       <div class="flex flex-col gap-4 py-4">
         <div class="flex flex-col gap-2">
-          <Label for="name">Key Name</Label>
+          <Label for="name">Client Name</Label>
           <Input
             id="name"
             v-model="keyName"
-            placeholder="Enter a name for your API key"
+            placeholder="Enter a name for this client"
           />
         </div>
 
@@ -41,7 +41,7 @@
           :loading="isLoading"
           :disabled="!keyName.trim()"
         >
-          Generate Key
+          Create Client
         </Button>
       </DialogFooter>
     </DialogContent>

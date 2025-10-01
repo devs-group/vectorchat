@@ -13,16 +13,14 @@ import (
 // AuthService handles user authentication and user-related operations backed by Ory Kratos.
 type AuthService struct {
 	*CommonService
-	userRepo   *db.UserRepository
-	apiKeyRepo *db.APIKeyRepository
+	userRepo *db.UserRepository
 }
 
 // NewAuthService creates a new auth service instance.
-func NewAuthService(userRepo *db.UserRepository, apiKeyRepo *db.APIKeyRepository) *AuthService {
+func NewAuthService(userRepo *db.UserRepository) *AuthService {
 	return &AuthService{
 		CommonService: NewCommonService(),
 		userRepo:      userRepo,
-		apiKeyRepo:    apiKeyRepo,
 	}
 }
 
@@ -56,11 +54,6 @@ func (s *AuthService) CreateUser(ctx context.Context, id, name, email, provider 
 	}
 
 	return user, nil
-}
-
-// FindAPIKeyByPlaintext finds an API key by comparing against stored hashes.
-func (s *AuthService) FindAPIKeyByPlaintext(ctx context.Context, plainTextKey string, compareFunc func(hashedKey string) (bool, error)) (*db.APIKey, error) {
-	return s.apiKeyRepo.FindByHashComparison(ctx, compareFunc)
 }
 
 // SyncIdentity merges an Ory Kratos identity into the local user store.

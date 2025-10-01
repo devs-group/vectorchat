@@ -48,6 +48,7 @@
     url: <http|https>://<[^/]+>/<(?!public/)><.*>
     methods: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
   authenticators:
+    - handler: oauth2_introspection
     - handler: cookie_session
   authorizer:
     handler: allow

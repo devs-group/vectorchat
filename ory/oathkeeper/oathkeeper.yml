@@ -62,22 +62,23 @@ authenticators:
     enabled: true
     config:
       check_session_url: http://kratos:4433/sessions/whoami
-      # IMPORTANT: keep the whoami path, don't replace it with the incoming request path
       preserve_path: true
-      # keep using GET for the check
       force_method: GET
-      # forward only if this cookie is present (your custom Kratos cookie name)
       only:
         - vectorauth_session
-      # optional but explicit; defaults already include Cookie
       forward_http_headers:
         - Cookie
-      # optional; Kratos returns JSON anyway
       additional_headers:
         Accept: application/json
-      # map subject / extra for your mutator
       subject_from: identity.id
       extra_from: "@this"
+  oauth2_introspection:
+    enabled: true
+    config:
+      introspection_url: http://hydra:4445/oauth2/introspect
+      cache:
+        enabled: true
+        ttl: 30s
   noop:
     enabled: true
   anonymous:
@@ -94,8 +95,8 @@ mutators:
     enabled: true
     config:
       headers:
-        X-User-Id: "{{ print .Subject }}"
-        X-User-Traits: "{{ toJson .Extra.identity.traits }}"
+        X-User-ID: "{{ print .Subject }}"
+        X-User-Traits: "{{ with (index .Extra \"identity\") }}{{ toJson (index . \"traits\") }}{{ end }}"
   noop:
     enabled: true
 

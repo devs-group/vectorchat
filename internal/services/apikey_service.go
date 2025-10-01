@@ -2,70 +2,32 @@ package services
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"math"
+	"sort"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
-	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
 	"github.com/yourusername/vectorchat/pkg/models"
-	"golang.org/x/crypto/bcrypt"
 )
 
+// APIKeyService now acts as a thin adapter over Hydra's OAuth client APIs.
 type APIKeyService struct {
 	*CommonService
-	repo *db.APIKeyRepository
+	hydra *HydraService
 }
 
-func NewAPIKeyService(repo *db.APIKeyRepository) *APIKeyService {
+// NewAPIKeyService creates a new API key service instance backed by Hydra.
+func NewAPIKeyService(hydra *HydraService) *APIKeyService {
 	return &APIKeyService{
 		CommonService: NewCommonService(),
-		repo:          repo,
+		hydra:         hydra,
 	}
 }
 
-// CreateNewAPIKey generates a new plain text API key and its bcrypt hash.
-// It returns the plain text key (show ONCE to the user) and the hash (store in DB).
-func (s *APIKeyService) CreateNewAPIKey(name string, expiresAt *time.Time) (plainTextKey string, hashedKey string, err error) {
-	b := make([]byte, 32)
-	if _, err = rand.Read(b); err != nil {
-		err = errors.Wrap(err, "failed to generate random bytes")
-		return
-	}
-
-	plainTextKey = "vc_" + base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
-	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(plainTextKey), bcrypt.DefaultCost)
-	if err != nil {
-		err = errors.Wrap(err, "failed to generate hashed key")
-		plainTextKey = ""
-		return
-	}
-	hashedKey = string(hashedBytes)
-
-	return // Return plainTextKey, hashedKey, nil
-}
-
-// IsAPIKeyValid compares a provided plain text key against a stored bcrypt hash.
-func (s *APIKeyService) IsAPIKeyValid(storedHashedKey, providedPlainTextKey string) (bool, error) {
-	err := bcrypt.CompareHashAndPassword([]byte(storedHashedKey), []byte(providedPlainTextKey))
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-		return false, nil
-	}
-	return false, errors.Wrap(err, "failed to compare api key hash")
-}
-
-// ParseAPIKeyRequest parses and validates an API key creation request
+// ParseAPIKeyRequest parses and validates an API key creation request.
 func (s *APIKeyService) ParseAPIKeyRequest(req *models.APIKeyCreateRequest) (string, *time.Time, error) {
 	name := req.Name
 	var expiresAt *time.Time
 
-	// Parse expiration date if provided
 	if req.ExpiresAt != nil && *req.ExpiresAt != "" {
 		parsedTime, err := time.Parse(time.RFC3339, *req.ExpiresAt)
 		if err != nil {
@@ -77,73 +39,138 @@ func (s *APIKeyService) ParseAPIKeyRequest(req *models.APIKeyCreateRequest) (str
 	return name, expiresAt, nil
 }
 
-// CreateAPIKey creates a new API key
-func (s *APIKeyService) CreateAPIKey(ctx context.Context, userID, name string, expiresAt *time.Time) (*db.APIKeyResponse, string, error) {
-	// Generate the API key
-	plainTextKey, hashedKey, err := s.CreateNewAPIKey(name, expiresAt)
+// CreateAPIKey provisions a new OAuth client through Hydra and returns its credentials.
+func (s *APIKeyService) CreateAPIKey(ctx context.Context, userID, name string, expiresAt *time.Time) (*models.APIKeyResponse, string, error) {
+	client, err := s.hydra.CreateMachineToMachineClient(ctx, name, userID, expiresAt)
 	if err != nil {
-		return nil, "", apperrors.Wrap(err, "failed to generate API key")
+		return nil, "", apperrors.Wrap(err, "failed to create oauth client")
 	}
 
-	// Create the API key record
-	apiKey := &db.APIKey{
-		ID:        uuid.New().String(),
-		UserID:    userID,
-		Key:       hashedKey,
-		Name:      &name,
-		CreatedAt: time.Now(),
-		ExpiresAt: expiresAt,
-	}
-
-	err = s.repo.Create(ctx, apiKey)
-	if err != nil {
-		return nil, "", apperrors.Wrap(err, "failed to create API key")
-	}
-
-	return apiKey.ToResponse(), plainTextKey, nil
+	response := toAPIKeyResponse(client)
+	return response, client.ClientSecret, nil
 }
 
-// GetAPIKeysWithPagination gets API keys for a user with pagination support
+// GetAPIKeysWithPagination lists OAuth clients for the user using in-memory pagination.
 func (s *APIKeyService) GetAPIKeysWithPagination(ctx context.Context, userID string, page, limit, offset int) (*models.APIKeysListResponse, error) {
-	apiKeys, total, err := s.repo.FindByUserIDWithPagination(ctx, userID, offset, limit)
+	clients, err := s.hydra.ListClientsForUser(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.Wrap(err, "failed to list oauth clients")
 	}
 
-	responses := make([]*models.APIKeyResponse, len(apiKeys))
-	for i, apiKey := range apiKeys {
-		responses[i] = &models.APIKeyResponse{
-			ID:        apiKey.ToResponse().ID,
-			UserID:    apiKey.ToResponse().UserID,
-			Name:      apiKey.ToResponse().Name,
-			CreatedAt: apiKey.ToResponse().CreatedAt,
-			ExpiresAt: apiKey.ToResponse().ExpiresAt,
-			RevokedAt: apiKey.ToResponse().RevokedAt,
-		}
+	responses := make([]*models.APIKeyResponse, 0, len(clients))
+	for i := range clients {
+		client := clients[i]
+		res := toAPIKeyResponse(&client)
+		responses = append(responses, res)
 	}
 
-	// Calculate pagination metadata
-	totalPages := int(math.Ceil(float64(total) / float64(limit)))
-	hasNext := page < totalPages
-	hasPrev := page > 1
+	sort.Slice(responses, func(i, j int) bool {
+		return responses[i].CreatedAt.After(responses[j].CreatedAt)
+	})
+
+	total := len(responses)
+	if limit <= 0 {
+		limit = 10
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	start := offset
+	if start > total {
+		start = total
+	}
+	end := start + limit
+	if end > total {
+		end = total
+	}
+	sliced := responses[start:end]
+
+	totalPages := total / limit
+	if total%limit != 0 {
+		totalPages++
+	}
 
 	return &models.APIKeysListResponse{
-		APIKeys: responses,
+		APIKeys: sliced,
 		Pagination: &models.PaginationMetadata{
 			Page:       page,
 			Limit:      limit,
-			Total:      total,
+			Total:      int64(total),
 			TotalPages: totalPages,
-			HasNext:    hasNext,
-			HasPrev:    hasPrev,
+			HasNext:    page < totalPages,
+			HasPrev:    page > 1,
 		},
 	}, nil
 }
 
-// RevokeAPIKey revokes an API key
-func (s *APIKeyService) RevokeAPIKey(ctx context.Context, id string, userID string) error {
-	if id == "" {
-		return apperrors.Wrap(apperrors.ErrAPIKeyNotFound, "API key ID is required")
+// RevokeAPIKey removes an OAuth client owned by the user.
+func (s *APIKeyService) RevokeAPIKey(ctx context.Context, clientID string, userID string) error {
+	if clientID == "" {
+		return apperrors.Wrap(apperrors.ErrAPIKeyNotFound, "api key id is required")
 	}
-	return s.repo.Revoke(ctx, id, userID)
+
+	clients, err := s.hydra.ListClientsForUser(ctx, userID)
+	if err != nil {
+		return apperrors.Wrap(err, "failed to verify client ownership")
+	}
+
+	allowed := false
+	for _, client := range clients {
+		if client.ClientID == clientID {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return apperrors.ErrAPIKeyNotFound
+	}
+
+	if err := s.hydra.DeleteClient(ctx, clientID); err != nil {
+		return apperrors.Wrap(err, "failed to revoke oauth client")
+	}
+
+	return nil
+}
+
+func toAPIKeyResponse(client *HydraOAuthClient) *models.APIKeyResponse {
+	var createdAt time.Time
+	if client.Metadata != nil && !client.Metadata.CreatedAt.IsZero() {
+		createdAt = client.Metadata.CreatedAt
+	} else if client.CreatedAt != nil && !client.CreatedAt.IsZero() {
+		createdAt = client.CreatedAt.UTC()
+	} else {
+		createdAt = time.Now().UTC()
+	}
+
+	var expiresAt *time.Time
+	if client.Metadata != nil && client.Metadata.ExpiresAt != nil {
+		expiresAt = client.Metadata.ExpiresAt
+	}
+
+	var name *string
+	if client.Metadata != nil && client.Metadata.Name != "" {
+		copyName := client.Metadata.Name
+		name = &copyName
+	} else if client.ClientName != "" {
+		copyName := client.ClientName
+		name = &copyName
+	}
+
+	userID := client.Owner
+	if userID == "" && client.Metadata != nil {
+		userID = client.Metadata.UserID
+	}
+
+	return &models.APIKeyResponse{
+		ID:        client.ClientID,
+		ClientID:  client.ClientID,
+		UserID:    userID,
+		Name:      name,
+		CreatedAt: createdAt,
+		ExpiresAt: expiresAt,
+	}
 }
