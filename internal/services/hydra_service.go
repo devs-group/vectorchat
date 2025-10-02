@@ -64,7 +64,7 @@ func (s *HydraService) CreateMachineToMachineClient(ctx context.Context, name, u
 	body := map[string]any{
 		"client_name":                name,
 		"grant_types":                []string{"client_credentials"},
-		"token_endpoint_auth_method": "client_secret_post",
+		"token_endpoint_auth_method": "client_secret_basic",
 		"owner":                      userID,
 		"metadata":                   metadata,
 	}
