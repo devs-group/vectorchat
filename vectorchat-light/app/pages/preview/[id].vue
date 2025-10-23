@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from "vue";
-import { useRoute, useRouter } from "#imports";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { useRoute, useRouter, useRuntimeConfig } from "#imports";
 import { Button } from "@/components/ui/button";
+import { useKratosSession } from "@/composables/useKratosSession";
 
 const route = useRoute();
 const router = useRouter();
+const config = useRuntimeConfig();
+const { session, loadSession } = useKratosSession();
+const loginHref = ref<string>(config.public.frontendLoginUrl || "#");
+const isCheckingSession = ref(true);
+const shouldShowLoginPrompt = ref(false);
+const isAuthenticated = computed(() => Boolean(session.value));
+const isInteractionDisabled = computed(
+  () => shouldShowLoginPrompt.value || isCheckingSession.value,
+);
 
 const chatbotId = route.params.id as string;
 const siteUrl = ref((route.query.siteUrl as string) || "");
@@ -21,37 +31,12 @@ const isSending = ref(false);
 const chatContainer = ref<HTMLElement>();
 const sessionId = ref(undefined);
 
-onMounted(async () => {
-  if (!chatbotId) {
-    router.push("/");
+async function sendMessage() {
+  if (isInteractionDisabled.value) {
+    shouldShowLoginPrompt.value = !isAuthenticated.value;
     return;
   }
 
-  try {
-    // Fetch chatbot details
-    const response = await fetch(`/api/chatbot/${chatbotId}`);
-
-    if (response.ok) {
-      chatbotData.value = await response.json();
-    } else {
-      throw new Error("Failed to load chatbot");
-    }
-  } catch (err) {
-    console.error("Error loading chatbot:", err);
-    error.value = "Failed to load chatbot. It may still be processing.";
-  } finally {
-    isLoading.value = false;
-  }
-
-  // Add welcome message
-  messages.value.push({
-    role: "assistant",
-    content: `Hello! I'm your AI assistant for ${siteUrl.value || "this website"}. I've been trained on the website's content and I'm here to help you find information, answer questions, and guide you through the site. What would you like to know?`,
-    timestamp: new Date(),
-  });
-});
-
-async function sendMessage() {
   if (!currentMessage.value.trim() || isSending.value) return;
 
   const userMessage = currentMessage.value.trim();
@@ -126,10 +111,131 @@ function formatTime(date: Date) {
 function goBack() {
   router.push("/");
 }
+
+const updateLoginHref = () => {
+  if (typeof window === "undefined" || !config.public.frontendLoginUrl) {
+    if (!loginHref.value) {
+      loginHref.value = "#";
+    }
+    return;
+  }
+
+  try {
+    const url = new URL(config.public.frontendLoginUrl);
+    url.searchParams.set("return_to", window.location.href);
+    loginHref.value = url.toString();
+  } catch (error) {
+    console.warn(
+      "Failed to construct login URL for preview login prompt",
+      error,
+    );
+    loginHref.value = config.public.frontendLoginUrl || "#";
+  }
+
+  if (!loginHref.value) {
+    loginHref.value = "#";
+  }
+};
+
+const refreshSession = async () => {
+  isCheckingSession.value = true;
+  try {
+    await loadSession();
+  } finally {
+    isCheckingSession.value = false;
+    shouldShowLoginPrompt.value = !session.value;
+  }
+};
+
+const handleFocus = async () => {
+  await refreshSession();
+};
+
+const handleVisibilityChange = async () => {
+  if (document.visibilityState === "visible") {
+    await refreshSession();
+  }
+};
+
+onMounted(async () => {
+  if (!chatbotId) {
+    router.push("/");
+    return;
+  }
+
+  if (typeof window !== "undefined") {
+    updateLoginHref();
+    await refreshSession();
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+  } else {
+    await refreshSession();
+  }
+
+  try {
+    const response = await fetch(`/api/chatbot/${chatbotId}`);
+
+    if (response.ok) {
+      chatbotData.value = await response.json();
+    } else {
+      throw new Error("Failed to load chatbot");
+    }
+  } catch (err) {
+    console.error("Error loading chatbot:", err);
+    error.value = "Failed to load chatbot. It may still be processing.";
+  } finally {
+    isLoading.value = false;
+  }
+
+  messages.value.push({
+    role: "assistant",
+    content: `Hello! I'm your AI assistant for ${siteUrl.value || "this website"}. I've been trained on the website's content and I'm here to help you find information, answer questions, and guide you through the site. What would you like to know?`,
+    timestamp: new Date(),
+  });
+});
+
+onBeforeUnmount(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("focus", handleFocus);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+});
 </script>
 
 <template>
   <div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <Teleport to="body">
+      <div
+        v-if="shouldShowLoginPrompt"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+      >
+        <div
+          class="w-full max-w-md rounded-3xl bg-white p-8 text-slate-900 shadow-2xl shadow-blue-500/10"
+        >
+          <div v-if="isCheckingSession" class="space-y-4 text-center">
+            <div
+              class="mx-auto flex size-12 items-center justify-center rounded-full border-4 border-blue-200 border-t-blue-500 animate-spin"
+            ></div>
+            <p class="text-sm text-slate-500">Checking your account...</p>
+          </div>
+          <div v-else class="space-y-6">
+            <div class="space-y-2 text-center sm:text-left">
+              <h2 class="text-2xl font-semibold text-slate-900">
+                Sign in to test your chatbot
+              </h2>
+              <p class="text-sm text-slate-600">
+                You need to be signed in to interact with the live preview.
+                We'll bring you right back here once you log in.
+              </p>
+            </div>
+            <div
+              class="flex flex-col gap-3 sm:flex-row sm:justify-end sm:text-left"
+            >
+              <Button as="a" :href="loginHref" class="w-full"> Sign in </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     <!-- Header -->
     <header class="bg-white shadow-sm border-b">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -288,13 +394,15 @@ function goBack() {
               v-model="currentMessage"
               type="text"
               placeholder="Ask me anything about the website..."
-              :disabled="isSending"
+              :disabled="isSending || isInteractionDisabled"
               class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
               @keydown.enter="sendMessage"
             />
             <Button
               type="submit"
-              :disabled="!currentMessage.trim() || isSending"
+              :disabled="
+                !currentMessage.trim() || isSending || isInteractionDisabled
+              "
               class="px-6 py-2"
             >
               <span v-if="!isSending">Send</span>
