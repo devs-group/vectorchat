@@ -19,6 +19,7 @@ const messages = ref<
 const currentMessage = ref("");
 const isSending = ref(false);
 const chatContainer = ref<HTMLElement>();
+const sessionId = ref(undefined);
 
 onMounted(async () => {
   if (!chatbotId) {
@@ -80,16 +81,17 @@ async function sendMessage() {
       },
       body: JSON.stringify({
         query: userMessage,
-        session_id: `preview-${Date.now()}`,
+        session_id: sessionId.value,
       }),
     });
 
     if (response.ok) {
       const data = await response.json();
+      sessionId.value = data.session_id;
       messages.value.push({
         role: "assistant",
         content:
-          data.message ||
+          data.response ||
           "I apologize, but I couldn't generate a response. Please try again.",
         timestamp: new Date(),
       });

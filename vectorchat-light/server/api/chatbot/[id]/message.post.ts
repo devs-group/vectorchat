@@ -1,9 +1,4 @@
-import {
-  createError,
-  defineEventHandler,
-  getRouterParam,
-  readBody,
-} from "h3";
+import { createError, defineEventHandler, getRouterParam, readBody } from "h3";
 import {
   getVectorchatAccessToken,
   getVectorchatBaseUrl,
@@ -28,6 +23,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  console.log(body);
   if (!body?.query) {
     throw createError({
       statusCode: 400,
@@ -38,20 +34,17 @@ export default defineEventHandler(async (event) => {
   try {
     const accessToken = await getVectorchatAccessToken(config);
     // Send message to VectorChat API
-    const response = await fetch(
-      `${apiUrl}/chat/${chatbotId}/message`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          query: body.query,
-          session_id: body.session_id || `preview-${Date.now()}`,
-        }),
+    const response = await fetch(`${apiUrl}/chat/${chatbotId}/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
       },
-    );
+      body: JSON.stringify({
+        query: body.query,
+        session_id: body.session_id,
+      }),
+    });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -60,6 +53,7 @@ export default defineEventHandler(async (event) => {
           statusMessage: "Chatbot not found",
         });
       }
+      console.log(await response.json());
       throw createError({
         statusCode: response.status,
         statusMessage: "Failed to send message",
