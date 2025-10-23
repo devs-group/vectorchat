@@ -1,4 +1,8 @@
 import { createError, defineEventHandler, readBody } from "h3";
+import {
+  getVectorchatAccessToken,
+  getVectorchatBaseUrl,
+} from "../utils/vectorchat-auth";
 
 type GenerateChatbotRequest = {
   siteUrl?: string;
@@ -11,15 +15,12 @@ type GenerateChatbotResponse = {
   message: string;
 };
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export default defineEventHandler(async (event) => {
   const body = await readBody<GenerateChatbotRequest | null>(event);
   const siteUrl = body?.siteUrl?.trim();
   const config = useRuntimeConfig();
 
-  const apiKey = config.vectorchatApiKey as string;
-  const apiUrl = config.vectorchatUrl as string;
+  const apiUrl = getVectorchatBaseUrl(config);
 
   if (!siteUrl) {
     throw createError({
@@ -28,13 +29,20 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  console.log(config);
+
   try {
+    const accessToken = await getVectorchatAccessToken(config);
+    const authHeader = {
+      Authorization: `Bearer ${accessToken}`,
+    };
+
     // Step 1: Create a new chatbot with website assistant system prompt
     const createChatbotResponse = await fetch(`${apiUrl}/chat/chatbot`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": apiKey,
+        ...authHeader,
       },
       body: JSON.stringify({
         name: `VC Lite Assistant: ${new URL(siteUrl).hostname}`,
@@ -59,8 +67,14 @@ Key guidelines:
     });
 
     if (!createChatbotResponse.ok) {
+      const errorBody = await safeParseJSON(createChatbotResponse);
+      console.error("[vectorchat-light] Create chatbot failed", {
+        status: createChatbotResponse.status,
+        statusText: createChatbotResponse.statusText,
+        errorBody,
+      });
       throw new Error(
-        `Failed to create chatbot: ${createChatbotResponse.statusText}`,
+        `Failed to create chatbot: ${createChatbotResponse.status} ${createChatbotResponse.statusText}`,
       );
     }
 
@@ -74,7 +88,7 @@ Key guidelines:
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": apiKey,
+          ...authHeader,
         },
         body: JSON.stringify({
           url: siteUrl,
@@ -88,7 +102,7 @@ Key guidelines:
         await fetch(`${apiUrl}/chat/chatbot/${actualChatbotId}`, {
           method: "DELETE",
           headers: {
-            "X-API-Key": apiKey,
+            ...authHeader,
           },
         });
       } catch (cleanupError) {
@@ -98,8 +112,14 @@ Key guidelines:
         );
       }
 
+      const errorBody = await safeParseJSON(websiteUploadResponse);
+      console.error("[vectorchat-light] Website upload failed", {
+        status: websiteUploadResponse.status,
+        statusText: websiteUploadResponse.statusText,
+        errorBody,
+      });
       throw new Error(
-        `Failed to upload website: ${websiteUploadResponse.statusText}`,
+        `Failed to upload website: ${websiteUploadResponse.status} ${websiteUploadResponse.statusText}`,
       );
     }
 
@@ -120,5 +140,13 @@ Key guidelines:
       statusMessage:
         error instanceof Error ? error.message : "Failed to create chatbot",
     });
+  }
+
+  async function safeParseJSON(response: Response) {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
   }
 });

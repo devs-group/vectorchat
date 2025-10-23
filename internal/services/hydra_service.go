@@ -37,15 +37,25 @@ type HydraOAuthClient struct {
 // HydraService wraps calls to the Hydra admin APIs.
 type HydraService struct {
 	adminURL   string
+	publicURL  string
 	httpClient *http.Client
 }
 
 // NewHydraService creates a new Hydra service using the provided admin URL.
-func NewHydraService(adminURL string) *HydraService {
+func NewHydraService(adminURL, publicURL string) *HydraService {
 	return &HydraService{
 		adminURL:   strings.TrimRight(adminURL, "/"),
+		publicURL:  strings.TrimRight(publicURL, "/"),
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
+}
+
+// HydraTokenResponse represents the subset of fields returned by Hydra's token endpoint.
+type HydraTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+	TokenType   string `json:"token_type"`
+	Scope       string `json:"scope,omitempty"`
 }
 
 // CreateMachineToMachineClient provisions a new client_credentials OAuth client tied to a user.
@@ -159,4 +169,91 @@ func (s *HydraService) DeleteClient(ctx context.Context, clientID string) error 
 	}
 
 	return nil
+}
+
+// GetClient returns details for a single OAuth client.
+func (s *HydraService) GetClient(ctx context.Context, clientID string) (*HydraOAuthClient, error) {
+	if clientID == "" {
+		return nil, apperrors.Wrap(apperrors.ErrAPIKeyNotFound, "client id is required to fetch oauth client")
+	}
+
+	endpoint := fmt.Sprintf("%s/admin/clients/%s", s.adminURL, url.PathEscape(clientID))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to create hydra get client request")
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to execute hydra get client request")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, apperrors.ErrAPIKeyNotFound
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		data, _ := io.ReadAll(resp.Body)
+		return nil, apperrors.Wrap(fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(data))), "failed to fetch oauth client")
+	}
+
+	var client HydraOAuthClient
+	if err := json.NewDecoder(resp.Body).Decode(&client); err != nil {
+		return nil, apperrors.Wrap(err, "failed to decode hydra get client response")
+	}
+
+	return &client, nil
+}
+
+// ExchangeClientCredentials requests an access token from Hydra's public endpoint using the client credentials flow.
+func (s *HydraService) ExchangeClientCredentials(ctx context.Context, clientID, clientSecret string) (*HydraTokenResponse, error) {
+	if clientID == "" || clientSecret == "" {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidAPIKey, "client credentials are required")
+	}
+	if s.publicURL == "" {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidAPIKey, "hydra public url is not configured")
+	}
+
+	form := url.Values{}
+	form.Set("grant_type", "client_credentials")
+
+	endpoint := fmt.Sprintf("%s/oauth2/token", s.publicURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to create hydra token request")
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetBasicAuth(clientID, clientSecret)
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to execute hydra token request")
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, apperrors.Wrap(err, "failed to read hydra token response")
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var tokenErr map[string]any
+		if decodeErr := json.Unmarshal(body, &tokenErr); decodeErr == nil {
+			if desc, ok := tokenErr["error_description"].(string); ok && desc != "" {
+				return nil, apperrors.Wrap(apperrors.ErrInvalidAPIKey, desc)
+			}
+			if errCode, ok := tokenErr["error"].(string); ok && errCode != "" {
+				return nil, apperrors.Wrap(apperrors.ErrInvalidAPIKey, errCode)
+			}
+		}
+		return nil, apperrors.Wrap(fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(body))), "hydra token request failed")
+	}
+
+	var token HydraTokenResponse
+	if err := json.Unmarshal(body, &token); err != nil {
+		return nil, apperrors.Wrap(err, "failed to decode hydra token response")
+	}
+
+	return &token, nil
 }

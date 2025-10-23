@@ -1,4 +1,13 @@
-import { createError, defineEventHandler, getRouterParam, readBody } from "h3";
+import {
+  createError,
+  defineEventHandler,
+  getRouterParam,
+  readBody,
+} from "h3";
+import {
+  getVectorchatAccessToken,
+  getVectorchatBaseUrl,
+} from "../../../utils/vectorchat-auth";
 
 type ChatMessageRequest = {
   query: string;
@@ -10,8 +19,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<ChatMessageRequest>(event);
   const config = useRuntimeConfig();
 
-  const apiKey = config.vectorchatApiKey as string;
-  const apiUrl = config.vectorchatUrl as string;
+  const apiUrl = getVectorchatBaseUrl(config);
 
   if (!chatbotId) {
     throw createError({
@@ -28,14 +36,15 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    const accessToken = await getVectorchatAccessToken(config);
     // Send message to VectorChat API
     const response = await fetch(
-      `${apiUrl || "http://localhost:8080"}/chat/${chatbotId}/message`,
+      `${apiUrl}/chat/${chatbotId}/message`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": apiKey || "",
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           query: body.query,

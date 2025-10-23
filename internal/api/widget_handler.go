@@ -7,12 +7,16 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/yourusername/vectorchat/internal/middleware"
+	"github.com/yourusername/vectorchat/pkg/models"
 )
 
 type WidgetHandler struct {
 	authMiddleware *middleware.AuthMiddleware
 	widgetsPath    string
 }
+
+// compile-time reference for Swagger annotations
+var _ models.APIResponse
 
 func NewWidgetHandler(authMiddleware *middleware.AuthMiddleware) *WidgetHandler {
 	return &WidgetHandler{

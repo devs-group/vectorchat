@@ -75,7 +75,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 // @Accept json
 // @Produce plain
 // @Success 200 {string} string "VectorChat API is running"
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /health [get]
 func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
 	return c.SendString("VectorChat API is running")
@@ -91,7 +91,7 @@ func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
 // @Success 200 {object} models.FileUploadResponse
 // @Failure 400 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/{chatID}/upload [post]
 func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
@@ -126,7 +126,7 @@ func (h *ChatHandler) POST_UploadFile(c *fiber.Ctx) error {
 // @Success 200 {object} models.MessageResponse
 // @Failure 400 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/{chatID}/text [post]
 func (h *ChatHandler) POST_UploadText(c *fiber.Ctx) error {
 	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
@@ -159,7 +159,7 @@ func (h *ChatHandler) POST_UploadText(c *fiber.Ctx) error {
 // @Success 200 {object} models.MessageResponse
 // @Failure 400 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/{chatID}/website [post]
 func (h *ChatHandler) POST_UploadWebsite(c *fiber.Ctx) error {
 	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
@@ -187,7 +187,7 @@ func (h *ChatHandler) POST_UploadWebsite(c *fiber.Ctx) error {
 // @Success 200 {object} models.TextSourcesResponse
 // @Failure 400 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/{chatID}/text [get]
 func (h *ChatHandler) GET_TextSources(c *fiber.Ctx) error {
 	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
@@ -224,7 +224,7 @@ func (h *ChatHandler) GET_TextSources(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/{chatID}/text/{id} [delete]
 func (h *ChatHandler) DELETE_TextSource(c *fiber.Ctx) error {
 	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
@@ -253,7 +253,7 @@ func (h *ChatHandler) DELETE_TextSource(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/{chatID}/files/{filename} [delete]
 func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
@@ -283,7 +283,7 @@ func (h *ChatHandler) DELETE_ChatFile(c *fiber.Ctx) error {
 // @Success 200 {object} models.ChatFilesResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/{chatID}/files [get]
 func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
@@ -307,7 +307,7 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 // @Success 200 {array} models.ChatbotsListResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/chatbots [get]
 func (h *ChatHandler) GET_ListChatbots(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -333,7 +333,7 @@ func (h *ChatHandler) GET_ListChatbots(c *fiber.Ctx) error {
 // @Success 200 {object} models.ChatResponse
 // @Failure 400 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/{chatID}/message [post]
 func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 	ctxData, status, msg, err := h.prepareChatMessageContext(c)
@@ -372,7 +372,7 @@ func (h *ChatHandler) POST_ChatMessage(c *fiber.Ctx) error {
 // @Success 200 {string} string "Streamed response"
 // @Failure 400 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/{chatID}/stream-message [post]
 func (h *ChatHandler) POST_StreamChatMessage(c *fiber.Ctx) error {
 	ctxData, status, msg, err := h.prepareChatMessageContext(c)
@@ -485,7 +485,7 @@ func (h *ChatHandler) prepareChatMessageContext(c *fiber.Ctx) (*chatMessageConte
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/chatbot [post]
 func (h *ChatHandler) POST_CreateChatbot(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -497,7 +497,6 @@ func (h *ChatHandler) POST_CreateChatbot(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
-
 	response, err := h.ChatService.ValidateAndCreateChatbot(c.Context(), user.ID, &req)
 	if err != nil {
 		return ErrorResponse(c, "Failed to create chatbot", err)
@@ -518,7 +517,7 @@ func (h *ChatHandler) POST_CreateChatbot(c *fiber.Ctx) error {
 // @Failure 403 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/chatbot/{chatbotID} [get]
 func (h *ChatHandler) GET_ChatbotByID(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -554,7 +553,7 @@ func (h *ChatHandler) GET_ChatbotByID(c *fiber.Ctx) error {
 // @Failure 403 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/chatbot/{chatbotID} [put]
 func (h *ChatHandler) PUT_UpdateChatbot(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -595,7 +594,7 @@ func (h *ChatHandler) PUT_UpdateChatbot(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/chatbot/{chatID}/toggle [patch]
 func (h *ChatHandler) PATCH_ToggleChatbot(c *fiber.Ctx) error {
 	chatID := c.Params("chatID")
@@ -635,7 +634,7 @@ func (h *ChatHandler) PATCH_ToggleChatbot(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /chat/chatbot/{chatID} [delete]
 func (h *ChatHandler) DELETE_Chatbot(c *fiber.Ctx) error {
 	user, err := GetUser(c)

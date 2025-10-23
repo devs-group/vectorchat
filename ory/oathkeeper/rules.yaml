@@ -40,7 +40,21 @@
   mutators:
     - handler: noop
 
-# 4) Everything else: must be authenticated (MUST BE LAST!)
+# 4) Public: /oauth/token
+- id: allow-oauth-token
+  upstream:
+    url: "http://app:8080"
+  match:
+    url: <http|https>://<[^/]+>/public/oauth/token
+    methods: [POST, OPTIONS]
+  authenticators:
+    - handler: anonymous
+  authorizer:
+    handler: allow
+  mutators:
+    - handler: noop
+
+# 5) Everything else: must be authenticated (MUST BE LAST!)
 - id: auth
   upstream:
     url: "http://app:8080"

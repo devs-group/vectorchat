@@ -19,10 +19,10 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Lists API keys for the authenticated user with pagination support",
+                "description": "Lists OAuth clients created by the authenticated user with pagination support",
                 "consumes": [
                     "application/json"
                 ],
@@ -32,7 +32,7 @@ const docTemplate = `{
                 "tags": [
                     "apiKey"
                 ],
-                "summary": "List API keys",
+                "summary": "List OAuth clients",
                 "parameters": [
                     {
                         "type": "integer",
@@ -51,25 +51,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.APIKeysListResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIKeysListResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -77,10 +77,10 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Generates a new API key for the authenticated user",
+                "description": "Creates a new machine-to-machine OAuth client via Ory Hydra for the authenticated user",
                 "consumes": [
                     "application/json"
                 ],
@@ -90,7 +90,7 @@ const docTemplate = `{
                 "tags": [
                     "apiKey"
                 ],
-                "summary": "Generate API key",
+                "summary": "Provision OAuth client",
                 "parameters": [
                     {
                         "description": "API Key Details",
@@ -98,7 +98,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.APIKeyCreateRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIKeyCreateRequest"
                         }
                     }
                 ],
@@ -106,19 +106,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.APIKeyCreateResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIKeyCreateResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -128,10 +128,10 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Revokes an API key for the authenticated user",
+                "description": "Revokes an OAuth client for the authenticated user",
                 "consumes": [
                     "application/json"
                 ],
@@ -141,7 +141,7 @@ const docTemplate = `{
                 "tags": [
                     "apiKey"
                 ],
-                "summary": "Revoke API key",
+                "summary": "Revoke OAuth client",
                 "parameters": [
                     {
                         "type": "string",
@@ -155,25 +155,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -196,19 +196,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -228,13 +228,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.SessionResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SessionResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -244,7 +244,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new chatbot with specified configuration",
@@ -265,7 +265,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.ChatbotCreateRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatbotCreateRequest"
                         }
                     }
                 ],
@@ -273,25 +273,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.ChatbotResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatbotResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -301,7 +301,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a chatbot by ID",
@@ -328,25 +328,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -356,7 +356,7 @@ const docTemplate = `{
             "patch": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Enable or disable a chatbot",
@@ -384,7 +384,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.ChatbotToggleRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatbotToggleRequest"
                         }
                     }
                 ],
@@ -392,25 +392,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.ChatbotResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatbotResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -420,7 +420,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get details of a specific chatbot by ID",
@@ -447,37 +447,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.ChatbotResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatbotResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -485,7 +485,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update chatbot configuration including name, description, system instructions, model settings",
@@ -513,7 +513,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.ChatbotUpdateRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatbotUpdateRequest"
                         }
                     }
                 ],
@@ -521,37 +521,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.ChatbotResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatbotResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -561,7 +561,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get a list of all chatbots owned by the current user",
@@ -581,20 +581,20 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.ChatbotsListResponse"
+                                "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatbotsListResponse"
                             }
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -604,7 +604,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "List all files in a chat session",
@@ -631,19 +631,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.ChatFilesResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatFilesResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -653,7 +653,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a file from a chat session",
@@ -687,25 +687,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -715,7 +715,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Send a message and get a response with context from uploaded files",
@@ -736,7 +736,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.ChatMessageRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatMessageRequest"
                         }
                     },
                     {
@@ -751,19 +751,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.ChatResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -773,7 +773,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Send a message and receive a streamed response with context from uploaded files",
@@ -794,7 +794,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.ChatMessageRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatMessageRequest"
                         }
                     },
                     {
@@ -815,13 +815,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -831,7 +831,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "List text sources indexed for a chat session",
@@ -858,19 +858,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.TextSourcesResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.TextSourcesResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -878,7 +878,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Upload plain text to be indexed for chat context",
@@ -906,7 +906,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.TextUploadRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.TextUploadRequest"
                         }
                     }
                 ],
@@ -914,19 +914,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -936,7 +936,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a text source and its associated chunks",
@@ -970,25 +970,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -998,7 +998,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Upload a file to be used for chat context",
@@ -1032,19 +1032,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.FileUploadResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.FileUploadResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1054,7 +1054,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Crawl a website from a root URL and index its text content",
@@ -1082,7 +1082,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.WebsiteUploadRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.WebsiteUploadRequest"
                         }
                     }
                 ],
@@ -1090,19 +1090,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1112,7 +1112,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Retrieves all conversations (sessions) with their messages for conversation review",
@@ -1153,25 +1153,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.ConversationsResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ConversationsResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1181,7 +1181,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Retrieves all messages for a specific conversation session",
@@ -1222,25 +1222,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1248,7 +1248,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Deletes all messages for a conversation session belonging to the chatbot",
@@ -1288,31 +1288,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1322,7 +1322,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Creates a new revision to correct or improve an AI answer",
@@ -1343,7 +1343,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.CreateRevisionRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.CreateRevisionRequest"
                         }
                     }
                 ],
@@ -1351,25 +1351,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.RevisionResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.RevisionResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1379,7 +1379,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Retrieves all answer revisions for a specific chatbot",
@@ -1413,25 +1413,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.RevisionsListResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.RevisionsListResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1441,7 +1441,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Updates an existing revision's content or status",
@@ -1469,7 +1469,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.UpdateRevisionRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.UpdateRevisionRequest"
                         }
                     }
                 ],
@@ -1477,31 +1477,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1509,7 +1509,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Marks a revision as inactive (soft delete)",
@@ -1536,31 +1536,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1570,7 +1570,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Check if the API is running",
@@ -1598,7 +1598,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Retrieve all shared knowledge bases owned by the authenticated user",
@@ -1616,19 +1616,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.SharedKnowledgeBaseListResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseListResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1636,7 +1636,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new shared knowledge base for the authenticated user",
@@ -1657,7 +1657,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.SharedKnowledgeBaseCreateRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseCreateRequest"
                         }
                     }
                 ],
@@ -1665,25 +1665,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.SharedKnowledgeBaseResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1693,7 +1693,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Fetch a shared knowledge base by ID for the authenticated user",
@@ -1720,37 +1720,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.SharedKnowledgeBaseResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1758,7 +1758,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update the details of a shared knowledge base owned by the authenticated user",
@@ -1786,7 +1786,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.SharedKnowledgeBaseUpdateRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseUpdateRequest"
                         }
                     }
                 ],
@@ -1794,31 +1794,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.SharedKnowledgeBaseResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1826,7 +1826,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a shared knowledge base owned by the authenticated user",
@@ -1859,31 +1859,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1893,7 +1893,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "List non-text files associated with the shared knowledge base",
@@ -1920,37 +1920,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.SharedKnowledgeBaseFilesResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseFilesResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -1960,7 +1960,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a specific file associated with the shared knowledge base",
@@ -1994,37 +1994,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -2034,7 +2034,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "List indexed text sources associated with the shared knowledge base",
@@ -2061,37 +2061,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.SharedKnowledgeBaseTextSourcesResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseTextSourcesResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -2099,7 +2099,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Upload plain text content to be indexed for the shared knowledge base",
@@ -2127,7 +2127,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.TextUploadRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.TextUploadRequest"
                         }
                     }
                 ],
@@ -2135,25 +2135,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -2163,7 +2163,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a text source previously indexed for the shared knowledge base",
@@ -2197,37 +2197,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -2237,7 +2237,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Upload a file to be processed into the shared knowledge base",
@@ -2271,25 +2271,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.SharedKnowledgeBaseFileUploadResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseFileUploadResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -2299,7 +2299,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Crawl and index a website into the shared knowledge base starting from the provided URL",
@@ -2327,7 +2327,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.WebsiteUploadRequest"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.WebsiteUploadRequest"
                         }
                     }
                 ],
@@ -2335,25 +2335,77 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/public/oauth/token": {
+            "post": {
+                "description": "Exchanges client credentials for an access token issued by Ory Hydra",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "apiKey"
+                ],
+                "summary": "Generate access token",
+                "parameters": [
+                    {
+                        "description": "Client credentials request",
+                        "name": "token",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.TokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.TokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -2398,19 +2450,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.APIResponse"
+                            "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIResponse"
                         }
                     }
                 }
@@ -2418,7 +2470,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "models.APIKeyCreateRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.APIKeyCreateRequest": {
             "type": "object",
             "required": [
                 "name"
@@ -2434,25 +2486,38 @@ const docTemplate = `{
                 }
             }
         },
-        "models.APIKeyCreateResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.APIKeyCreateResponse": {
             "type": "object",
             "properties": {
-                "api_key": {
-                    "$ref": "#/definitions/models.APIKeyResponse"
+                "client_id": {
+                    "type": "string",
+                    "example": "vc-client-123"
+                },
+                "client_secret": {
+                    "type": "string",
+                    "example": "client-secret-value"
+                },
+                "expires_at": {
+                    "type": "string",
+                    "example": "2024-12-31T23:59:59Z"
                 },
                 "message": {
                     "type": "string",
-                    "example": "API key created successfully. Save this key as it won't be shown again."
+                    "example": "OAuth client created successfully. Save the secret as it won't be shown again."
                 },
-                "plain_key": {
+                "name": {
                     "type": "string",
-                    "example": "vc_abcd1234efgh5678ijkl9012mnop3456"
+                    "example": "My integration"
                 }
             }
         },
-        "models.APIKeyResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.APIKeyResponse": {
             "type": "object",
             "properties": {
+                "client_id": {
+                    "type": "string",
+                    "example": "vc-client-123"
+                },
                 "created_at": {
                     "type": "string",
                     "example": "2023-01-01T00:00:00Z"
@@ -2469,31 +2534,27 @@ const docTemplate = `{
                     "type": "string",
                     "example": "My API Key"
                 },
-                "revoked_at": {
-                    "type": "string",
-                    "example": "2023-06-01T00:00:00Z"
-                },
                 "user_id": {
                     "type": "string",
                     "example": "user_123"
                 }
             }
         },
-        "models.APIKeysListResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.APIKeysListResponse": {
             "type": "object",
             "properties": {
                 "api_keys": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.APIKeyResponse"
+                        "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.APIKeyResponse"
                     }
                 },
                 "pagination": {
-                    "$ref": "#/definitions/models.PaginationMetadata"
+                    "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.PaginationMetadata"
                 }
             }
         },
-        "models.APIResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.APIResponse": {
             "type": "object",
             "properties": {
                 "data": {},
@@ -2507,7 +2568,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ChatFilesResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.ChatFilesResponse": {
             "type": "object",
             "properties": {
                 "chat_id": {
@@ -2517,12 +2578,12 @@ const docTemplate = `{
                 "files": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.FileInfo"
+                        "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.FileInfo"
                     }
                 }
             }
         },
-        "models.ChatMessageRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.ChatMessageRequest": {
             "type": "object",
             "required": [
                 "query"
@@ -2538,7 +2599,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ChatResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.ChatResponse": {
             "type": "object",
             "properties": {
                 "chat_id": {
@@ -2555,7 +2616,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ChatbotCreateRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.ChatbotCreateRequest": {
             "type": "object",
             "required": [
                 "description",
@@ -2609,7 +2670,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ChatbotResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.ChatbotResponse": {
             "type": "object",
             "properties": {
                 "ai_messages_amount": {
@@ -2672,7 +2733,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ChatbotToggleRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.ChatbotToggleRequest": {
             "type": "object",
             "required": [
                 "is_enabled"
@@ -2684,7 +2745,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ChatbotUpdateRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.ChatbotUpdateRequest": {
             "type": "object",
             "properties": {
                 "description": {
@@ -2723,18 +2784,18 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ChatbotsListResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.ChatbotsListResponse": {
             "type": "object",
             "properties": {
                 "chatbots": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.ChatbotResponse"
+                        "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ChatbotResponse"
                     }
                 }
             }
         },
-        "models.ConversationPagination": {
+        "github_com_yourusername_vectorchat_pkg_models.ConversationPagination": {
             "type": "object",
             "properties": {
                 "has_next_page": {
@@ -2787,7 +2848,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ConversationResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.ConversationResponse": {
             "type": "object",
             "properties": {
                 "first_message_at": {
@@ -2808,21 +2869,21 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ConversationsResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.ConversationsResponse": {
             "type": "object",
             "properties": {
                 "conversations": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.ConversationResponse"
+                        "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ConversationResponse"
                     }
                 },
                 "pagination": {
-                    "$ref": "#/definitions/models.ConversationPagination"
+                    "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.ConversationPagination"
                 }
             }
         },
-        "models.CreateRevisionRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.CreateRevisionRequest": {
             "type": "object",
             "required": [
                 "chatbot_id",
@@ -2862,7 +2923,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.FileInfo": {
+        "github_com_yourusername_vectorchat_pkg_models.FileInfo": {
             "type": "object",
             "properties": {
                 "filename": {
@@ -2883,7 +2944,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.FileUploadResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.FileUploadResponse": {
             "type": "object",
             "properties": {
                 "chat_id": {
@@ -2912,7 +2973,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.MessageResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.MessageResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -2921,7 +2982,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.PaginationMetadata": {
+        "github_com_yourusername_vectorchat_pkg_models.PaginationMetadata": {
             "type": "object",
             "properties": {
                 "has_next": {
@@ -2950,7 +3011,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.RevisionResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.RevisionResponse": {
             "type": "object",
             "properties": {
                 "chatbot_id": {
@@ -3003,26 +3064,26 @@ const docTemplate = `{
                 }
             }
         },
-        "models.RevisionsListResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.RevisionsListResponse": {
             "type": "object",
             "properties": {
                 "revisions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.RevisionResponse"
+                        "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.RevisionResponse"
                     }
                 }
             }
         },
-        "models.SessionResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.SessionResponse": {
             "type": "object",
             "properties": {
                 "user": {
-                    "$ref": "#/definitions/models.User"
+                    "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.User"
                 }
             }
         },
-        "models.SharedKnowledgeBaseCreateRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseCreateRequest": {
             "type": "object",
             "required": [
                 "name"
@@ -3038,7 +3099,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.SharedKnowledgeBaseFileUploadResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseFileUploadResponse": {
             "type": "object",
             "properties": {
                 "file": {
@@ -3062,13 +3123,13 @@ const docTemplate = `{
                 }
             }
         },
-        "models.SharedKnowledgeBaseFilesResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseFilesResponse": {
             "type": "object",
             "properties": {
                 "files": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.FileInfo"
+                        "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.FileInfo"
                     }
                 },
                 "knowledge_base_id": {
@@ -3076,18 +3137,18 @@ const docTemplate = `{
                 }
             }
         },
-        "models.SharedKnowledgeBaseListResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseListResponse": {
             "type": "object",
             "properties": {
                 "knowledge_bases": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.SharedKnowledgeBaseResponse"
+                        "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseResponse"
                     }
                 }
             }
         },
-        "models.SharedKnowledgeBaseResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -3116,7 +3177,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.SharedKnowledgeBaseTextSourcesResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseTextSourcesResponse": {
             "type": "object",
             "properties": {
                 "knowledge_base_id": {
@@ -3125,12 +3186,12 @@ const docTemplate = `{
                 "sources": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.TextSourceInfo"
+                        "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.TextSourceInfo"
                     }
                 }
             }
         },
-        "models.SharedKnowledgeBaseUpdateRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.SharedKnowledgeBaseUpdateRequest": {
             "type": "object",
             "properties": {
                 "description": {
@@ -3143,7 +3204,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.TextSourceInfo": {
+        "github_com_yourusername_vectorchat_pkg_models.TextSourceInfo": {
             "type": "object",
             "properties": {
                 "id": {
@@ -3164,7 +3225,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.TextSourcesResponse": {
+        "github_com_yourusername_vectorchat_pkg_models.TextSourcesResponse": {
             "type": "object",
             "properties": {
                 "chat_id": {
@@ -3174,12 +3235,12 @@ const docTemplate = `{
                 "sources": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.TextSourceInfo"
+                        "$ref": "#/definitions/github_com_yourusername_vectorchat_pkg_models.TextSourceInfo"
                     }
                 }
             }
         },
-        "models.TextUploadRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.TextUploadRequest": {
             "type": "object",
             "required": [
                 "text"
@@ -3191,7 +3252,41 @@ const docTemplate = `{
                 }
             }
         },
-        "models.UpdateRevisionRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.TokenRequest": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string",
+                    "example": "public-vectorchat-client"
+                },
+                "client_secret": {
+                    "type": "string",
+                    "example": "super-secret-value"
+                }
+            }
+        },
+        "github_com_yourusername_vectorchat_pkg_models.TokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+                },
+                "expires_in": {
+                    "type": "integer",
+                    "example": 3599
+                },
+                "scope": {
+                    "type": "string",
+                    "example": "chat:read chat:write"
+                },
+                "token_type": {
+                    "type": "string",
+                    "example": "bearer"
+                }
+            }
+        },
+        "github_com_yourusername_vectorchat_pkg_models.UpdateRevisionRequest": {
             "type": "object",
             "properties": {
                 "is_active": {
@@ -3212,7 +3307,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.User": {
+        "github_com_yourusername_vectorchat_pkg_models.User": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -3241,7 +3336,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.WebsiteUploadRequest": {
+        "github_com_yourusername_vectorchat_pkg_models.WebsiteUploadRequest": {
             "type": "object",
             "required": [
                 "url"
@@ -3255,19 +3350,11 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
-        "ApiKeyAuth": {
+        "BearerAuth": {
+            "description": "Provide your token as ` + "`" + `Bearer {token}` + "`" + ` after generating it via /public/oauth/token.",
             "type": "apiKey",
-            "name": "X-API-Key",
+            "name": "Authorization",
             "in": "header"
-        },
-        "OAuth2Application": {
-            "type": "oauth2",
-            "flow": "accessCode",
-            "authorizationUrl": "https://github.com/login/oauth/authorize",
-            "tokenUrl": "https://github.com/login/oauth/access_token",
-            "scopes": {
-                "user:email": "Grants access to email"
-            }
         }
     }
 }`

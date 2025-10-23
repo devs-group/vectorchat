@@ -1,12 +1,20 @@
-import { createError, defineEventHandler, getRouterParam, setHeader } from "h3";
+import {
+  createError,
+  defineEventHandler,
+  getRouterParam,
+  setHeader,
+} from "h3";
+import {
+  getVectorchatAccessToken,
+  getVectorchatBaseUrl,
+} from "../../../utils/vectorchat-auth";
 
 export default defineEventHandler(async (event) => {
   const chatID = getRouterParam(event, "chatID");
   const widget = getRouterParam(event, "widget");
   const config = useRuntimeConfig();
 
-  const apiKey = config.vectorchatApiKey as string;
-  const apiUrl = config.vectorchatUrl as string;
+  const apiUrl = getVectorchatBaseUrl(config);
 
   if (!chatID) {
     throw createError({
@@ -31,11 +39,12 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Fetch widget JavaScript from VectorChat API
+    const accessToken = await getVectorchatAccessToken(config);
     const response = await fetch(
-      `${apiUrl || "http://localhost:8080"}/widgets/chats/${chatID}/${widget}`,
+      `${apiUrl}/widgets/chats/${chatID}/${widget}`,
       {
         headers: {
-          "X-API-Key": apiKey || "",
+          Authorization: `Bearer ${accessToken}`,
         },
       },
     );

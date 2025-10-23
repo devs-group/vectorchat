@@ -1,11 +1,14 @@
 import { createError, defineEventHandler, getRouterParam } from "h3";
+import {
+  getVectorchatAccessToken,
+  getVectorchatBaseUrl,
+} from "../../utils/vectorchat-auth";
 
 export default defineEventHandler(async (event) => {
   const chatbotId = getRouterParam(event, "id");
   const config = useRuntimeConfig();
 
-  const apiKey = config.vectorchatApiKey as string;
-  const apiUrl = config.vectorchatUrl as string;
+  const apiUrl = getVectorchatBaseUrl(config);
 
   if (!chatbotId) {
     throw createError({
@@ -16,11 +19,12 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Fetch chatbot details from VectorChat API
+    const accessToken = await getVectorchatAccessToken(config);
     const response = await fetch(
-      `${apiUrl || "http://localhost:8080"}/chat/chatbot/${chatbotId}`,
+      `${apiUrl}/chat/chatbot/${chatbotId}`,
       {
         headers: {
-          "X-API-Key": apiKey || "",
+          Authorization: `Bearer ${accessToken}`,
         },
       },
     );

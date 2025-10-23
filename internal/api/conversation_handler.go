@@ -58,7 +58,7 @@ func (h *ConversationHandler) RegisterRoutes(app *fiber.App) {
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /conversation/conversations/{chatbotID} [get]
 func (h *ConversationHandler) GetConversations(c *fiber.Ctx) error {
 	// Get chatbot ID from path
@@ -141,7 +141,7 @@ func (h *ConversationHandler) GetConversations(c *fiber.Ctx) error {
 // @Failure 401 {object} models.APIResponse
 // @Failure 403 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /conversation/conversations/{chatbotID}/{sessionID} [get]
 func (h *ConversationHandler) GetConversationMessages(c *fiber.Ctx) error {
 	// Parse IDs
@@ -195,7 +195,7 @@ func (h *ConversationHandler) GetConversationMessages(c *fiber.Ctx) error {
 // @Failure 403 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /conversation/conversations/{chatbotID}/{sessionID} [delete]
 func (h *ConversationHandler) DeleteConversation(c *fiber.Ctx) error {
 	chatbotIDStr := c.Params("chatbotID")
@@ -249,7 +249,7 @@ func (h *ConversationHandler) DeleteConversation(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /conversation/revisions/{chatbotID} [get]
 func (h *ConversationHandler) GetRevisions(c *fiber.Ctx) error {
 	// Get chatbot ID from path
@@ -327,7 +327,7 @@ func (h *ConversationHandler) GetRevisions(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /conversation/revisions [post]
 func (h *ConversationHandler) CreateRevision(c *fiber.Ctx) error {
 	// Parse request body
@@ -399,7 +399,7 @@ func (h *ConversationHandler) CreateRevision(c *fiber.Ctx) error {
 // @Failure 401 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /conversation/revisions/{revisionID} [put]
 func (h *ConversationHandler) UpdateRevision(c *fiber.Ctx) error {
 	// Get revision ID from path
@@ -461,7 +461,7 @@ func (h *ConversationHandler) UpdateRevision(c *fiber.Ctx) error {
 // @Failure 401 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /conversation/revisions/{revisionID} [delete]
 func (h *ConversationHandler) DeactivateRevision(c *fiber.Ctx) error {
 	// Get revision ID from path

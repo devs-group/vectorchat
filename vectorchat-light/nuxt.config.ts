@@ -5,14 +5,12 @@ export default defineNuxtConfig({
   modules: ["@nuxt/fonts", "@nuxt/scripts", "shadcn-nuxt", "@nuxt/image"],
   css: ["@/assets/css/tailwind.css"],
   runtimeConfig: {
-    vectorchatUrl: "", // env:NUXT_VECTORCHAT_URL
-    vectorchatApiKey: "", // env:NUXT_VECTORCHAT_API_KEY
+    vectorchatUrl: process.env.NUXT_VECTORCHAT_URL || "",
+    vectorchatClientId: process.env.NUXT_VECTORCHAT_CLIENT_ID || "",
+    vectorchatClientSecret: process.env.NUXT_VECTORCHAT_CLIENT_SECRET || "",
     public: {
-      vectorchatUrl: "", // env:NUXT_PUBLIC_VECTORCHAT_URL
-      frontendLoginUrl:
-        process.env.NUXT_PUBLIC_FRONTEND_LOGIN_URL || "http://localhost:3000/login",
-      kratosPublicUrl:
-        process.env.NUXT_PUBLIC_KRATOS_PUBLIC_URL || "http://localhost:4433",
+      frontendLoginUrl: process.env.NUXT_PUBLIC_FRONTEND_LOGIN_URL || "",
+      kratosPublicUrl: process.env.NUXT_PUBLIC_KRATOS_PUBLIC_URL || "",
     },
   },
   components: [

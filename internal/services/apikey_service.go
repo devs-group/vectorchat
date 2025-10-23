@@ -174,3 +174,18 @@ func toAPIKeyResponse(client *HydraOAuthClient) *models.APIKeyResponse {
 		ExpiresAt: expiresAt,
 	}
 }
+
+// ExchangeClientCredentials exchanges client credentials for an access token using Hydra.
+func (s *APIKeyService) ExchangeClientCredentials(ctx context.Context, clientID, clientSecret string) (*models.TokenResponse, error) {
+	token, err := s.hydra.ExchangeClientCredentials(ctx, clientID, clientSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.TokenResponse{
+		AccessToken: token.AccessToken,
+		ExpiresIn:   token.ExpiresIn,
+		TokenType:   token.TokenType,
+		Scope:       token.Scope,
+	}, nil
+}

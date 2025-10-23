@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/yourusername/vectorchat/internal/db"
@@ -32,10 +33,43 @@ func NewAPIKeyHandler(
 }
 
 func (h *APIKeyHandler) RegisterRoutes(app *fiber.App) {
+	app.Post("/public/oauth/token", h.POST_OAuthToken)
+
 	auth := app.Group("/auth")
 	auth.Post("/apikey", h.authMiddleware.RequireAuth, h.POST_GenerateAPIKey)
 	auth.Get("/apikey", h.authMiddleware.RequireAuth, h.GET_ListAPIKeys)
 	auth.Delete("/apikey/:id", h.authMiddleware.RequireAuth, h.DELETE_RevokeAPIKey)
+}
+
+// @Summary Generate access token
+// @Description Exchanges client credentials for an access token issued by Ory Hydra
+// @Tags apiKey
+// @Accept json
+// @Produce json
+// @Param token body models.TokenRequest true "Client credentials request"
+// @Success 200 {object} models.TokenResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /public/oauth/token [post]
+func (h *APIKeyHandler) POST_OAuthToken(c *fiber.Ctx) error {
+	var req models.TokenRequest
+	if err := c.BodyParser(&req); err != nil {
+		return ErrorResponse(c, "invalid request body", err, http.StatusBadRequest)
+	}
+
+	req.ClientID = strings.TrimSpace(req.ClientID)
+	req.ClientSecret = strings.TrimSpace(req.ClientSecret)
+	if req.ClientID == "" || req.ClientSecret == "" {
+		return ErrorResponse(c, "client_id and client_secret are required", nil, http.StatusBadRequest)
+	}
+
+	token, err := h.apiKeyService.ExchangeClientCredentials(c.Context(), req.ClientID, req.ClientSecret)
+	if err != nil {
+		return ErrorResponse(c, "invalid client credentials", err, http.StatusUnauthorized)
+	}
+
+	return c.JSON(token)
 }
 
 // @Summary Provision OAuth client
@@ -47,7 +81,7 @@ func (h *APIKeyHandler) RegisterRoutes(app *fiber.App) {
 // @Success 200 {object} models.APIKeyCreateResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /auth/apikey [post]
 func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 	user := c.Locals("user").(*db.User)
@@ -89,7 +123,7 @@ func (h *APIKeyHandler) POST_GenerateAPIKey(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /auth/apikey [get]
 func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 	user := c.Locals("user").(*db.User)
@@ -112,7 +146,7 @@ func (h *APIKeyHandler) GET_ListAPIKeys(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /auth/apikey/{id} [delete]
 func (h *APIKeyHandler) DELETE_RevokeAPIKey(c *fiber.Ctx) error {
 	user := c.Locals("user").(*db.User)

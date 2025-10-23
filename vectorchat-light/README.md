@@ -18,8 +18,9 @@ cp .env.example .env
 ```
 
 Required environment variables:
-- `NUXT_VECTORCHAT_URL`: VectorChat API base URL
-- `NUXT_VECTORCHAT_API_KEY`: Your VectorChat API key
+- `NUXT_VECTORCHAT_URL`: VectorChat API base URL (e.g. `http://localhost:4456` when running through Oathkeeper)
+- `NUXT_VECTORCHAT_CLIENT_ID`: OAuth2 client ID generated via VectorChat Swagger (`/auth/apikey`)
+- `NUXT_VECTORCHAT_CLIENT_SECRET`: OAuth2 client secret paired with the client ID
 
 ## Setup
 

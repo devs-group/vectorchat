@@ -14,5 +14,6 @@ type AppConfig struct {
 	SessionCookieName string `env:"SESSION_COOKIE_NAME" envDefault:"vectorauth_session"`
 	CrawlerAPIURL     string `env:"CRAWLER_API_URL" envDefault:"http://localhost:11235"`
 	MarkitdownURL     string `env:"MARKITDOWN_API_URL" envDefault:"http://localhost:8000"`
-	HydraAdminURL     string `env:"HYDRA_ADMIN_URL" envDefault:"http://localhost:4445"`
+	HydraAdminURL     string `env:"HYDRA_ADMIN_URL" envDefault:"http://hydra:4445"`
+	HydraPublicURL    string `env:"HYDRA_PUBLIC_URL" envDefault:"http://hydra:4444"`
 }

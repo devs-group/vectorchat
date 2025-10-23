@@ -75,7 +75,7 @@ authenticators:
   oauth2_introspection:
     enabled: true
     config:
-      introspection_url: http://hydra:4445/oauth2/introspect
+      introspection_url: http://hydra:4445/admin/oauth2/introspect
       cache:
         enabled: true
         ttl: 30s

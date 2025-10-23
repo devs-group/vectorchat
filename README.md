@@ -31,9 +31,11 @@ A Go application that vectorizes text and files into PostgreSQL with pgvector, a
    GITHUB_CLIENT_SECRET=your_github_oauth_client_secret
    KRATOS_COOKIE_SECRET=at_least_32_random_bytes
    KRATOS_CIPHER_SECRET=at_least_32_random_bytes
-   BASE_URL=localhost:8080
+   BASE_URL=localhost:4456
    FRONTEND_URL=localhost:3000
    LIGHT_FRONTEND_URL=localhost:3100
+   VECTORCHAT_LIGHT_CLIENT_ID=your_vectorchat_light_client_id
+   VECTORCHAT_LIGHT_CLIENT_SECRET=your_vectorchat_light_client_secret
    ```
 
    > See `docs/authentication.md` for a full breakdown of the authentication stack and additional environment variables.
@@ -48,7 +50,7 @@ A Go application that vectorizes text and files into PostgreSQL with pgvector, a
 
    - Main dashboard: http://localhost:3000
    - VectorChat Light: http://localhost:3100
-   - API gateway (Oathkeeper): http://localhost:8080
+   - API gateway (Oathkeeper): http://localhost:4456
    - Mailhog (dev email): http://localhost:8025
 
 5. To interact with pgAdmin, open http://localhost:5050 and log in with the default email `admin@example.com` and password `admin`. The database password remains `postgres`.

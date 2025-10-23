@@ -24,10 +24,7 @@ services:
       dockerfile: Dockerfile
       target: development
     container_name: vectorchat-light
-    environment:
-      - API_BASE_URL=http://localhost:4456
-      - NUXT_PUBLIC_KRATOS_PUBLIC_URL=http://localhost:4433
-      - NUXT_PUBLIC_FRONTEND_LOGIN_URL=http://localhost:3000/login
+    env_file: ./vectorchat-light/.env
     ports:
       - "3100:3000"
     volumes:
@@ -56,6 +53,7 @@ services:
       - SESSION_COOKIE_NAME=vectorauth_session
       - LIGHT_FRONTEND_URL=http://localhost:3100
       - HYDRA_ADMIN_URL=http://hydra:4445
+      - HYDRA_PUBLIC_URL=http://hydra:4444
     depends_on:
       postgres:
         condition: service_healthy

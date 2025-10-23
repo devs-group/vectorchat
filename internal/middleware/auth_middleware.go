@@ -11,12 +11,16 @@ import (
 
 // AuthMiddleware trusts Oathkeeper to authenticate requests and forwards user context downstream.
 type AuthMiddleware struct {
-	authService *services.AuthService
+	authService  *services.AuthService
+	hydraService *services.HydraService
 }
 
 // NewAuthMiddleware creates a new auth middleware instance.
-func NewAuthMiddleware(authService *services.AuthService) *AuthMiddleware {
-	return &AuthMiddleware{authService: authService}
+func NewAuthMiddleware(authService *services.AuthService, hydraService *services.HydraService) *AuthMiddleware {
+	return &AuthMiddleware{
+		authService:  authService,
+		hydraService: hydraService,
+	}
 }
 
 // RequireAuth validates the Oathkeeper headers and ensures a user context is available.
@@ -30,13 +34,17 @@ func (m *AuthMiddleware) RequireAuth(c *fiber.Ctx) error {
 
 	traitsHeader := c.Get("X-User-Traits")
 
-	var user *db.User
-	var err error
-
+	var (
+		user *db.User
+		err  error
+	)
 	if traitsHeader != "" {
 		user, err = m.hydrateFromTraits(c, userID, traitsHeader)
 	} else {
 		user, err = m.hydrateFromStore(c, userID)
+		if err != nil && apperrors.Is(err, apperrors.ErrUserNotFound) {
+			user, err = m.hydrateFromClientSubject(c, userID)
+		}
 	}
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -71,5 +79,32 @@ func (m *AuthMiddleware) hydrateFromStore(c *fiber.Ctx, userID string) (*db.User
 		}
 		return nil, apperrors.Wrap(err, "failed to load user")
 	}
+	return user, nil
+}
+
+func (m *AuthMiddleware) hydrateFromClientSubject(c *fiber.Ctx, subject string) (*db.User, error) {
+	if m.hydraService == nil {
+		return nil, apperrors.ErrUserNotFound
+	}
+
+	client, err := m.hydraService.GetClient(c.Context(), subject)
+	if err != nil {
+		return nil, err
+	}
+
+	ownerID := client.Owner
+	if ownerID == "" && client.Metadata != nil {
+		ownerID = client.Metadata.UserID
+	}
+	if ownerID == "" {
+		return nil, apperrors.ErrUserNotFound
+	}
+
+	user, err := m.authService.FindUserByID(c.Context(), ownerID)
+	if err != nil {
+		return nil, err
+	}
+
+	c.Locals("oauth_client_id", subject)
 	return user, nil
 }

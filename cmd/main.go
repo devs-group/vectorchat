@@ -35,16 +35,10 @@ import (
 // @version 1.0
 // @description A Go application that vectorizes text and files into PostgreSQL with pgvector
 // @BasePath /
-// @securityDefinitions.apikey ApiKeyAuth
+// @securityDefinitions.apikey BearerAuth
+// @description Provide your token as `Bearer {token}` after generating it via /public/oauth/token.
 // @in header
-// @name X-API-Key
-// @securityDefinitions.oauth2.accessCode OAuth2Application
-// @tokenUrl https://github.com/login/oauth/access_token
-// @authorizationUrl https://github.com/login/oauth/authorize
-// @scope.user:email Grants access to email
-// @securityDefinitions.apiCookie CookieAuth
-// @in cookie
-// @name session_id
+// @name Authorization
 func main() {
 	app := &cli.Command{
 		Name:  "vectorchat",
@@ -149,14 +143,15 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize services
 	kbService := services.NewKnowledgeBaseService(repos.File, repos.Document, vectorizer, processor, webCrawler, pool)
 	sharedKBService := services.NewSharedKnowledgeBaseService(repos.SharedKB, repos.File, repos.Document, kbService)
-	hydraService := services.NewHydraService(appCfg.HydraAdminURL)
+	hydraService := services.NewHydraService(appCfg.HydraAdminURL, appCfg.HydraPublicURL)
+	logger.Info("hydra configuration", "admin_url", appCfg.HydraAdminURL, "public_url", appCfg.HydraPublicURL)
 	authService := services.NewAuthService(repos.User)
 	chatService := services.NewChatService(repos.Chat, repos.SharedKB, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, kbService, openaiKey, pool)
 	apiKeyService := services.NewAPIKeyService(hydraService)
 	commonService := services.NewCommonService()
 
 	// Initialize auth middleware
-	authMiddleware := middleware.NewAuthMiddleware(authService)
+	authMiddleware := middleware.NewAuthMiddleware(authService, hydraService)
 
 	// Initialize ownership middleware
 	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatService)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from "vue";
-import { useRoute, useRouter, useRuntimeConfig } from "#imports";
+import { useRoute, useRouter } from "#imports";
 import { Button } from "@/components/ui/button";
 
 const route = useRoute();
@@ -28,9 +28,6 @@ onMounted(async () => {
 
   try {
     // Fetch chatbot details
-    const config = useRuntimeConfig();
-    const apiKey = config.vectorchatApiKey as string;
-    const apiUrl = config.vectorchatUrl as string;
     const response = await fetch(`/api/chatbot/${chatbotId}`);
 
     if (response.ok) {
@@ -76,14 +73,10 @@ async function sendMessage() {
 
   try {
     // Send message to chatbot
-    const config = useRuntimeConfig();
-    const apiKey = config.vectorchatApiKey as string;
-    const apiUrl = config.vectorchatUrl as string;
     const response = await fetch(`/api/chatbot/${chatbotId}/message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": apiKey || "",
       },
       body: JSON.stringify({
         query: userMessage,

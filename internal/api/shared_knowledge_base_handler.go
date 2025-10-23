@@ -50,7 +50,7 @@ func (h *SharedKnowledgeBaseHandler) RegisterRoutes(app *fiber.App) {
 // @Success 200 {object} models.SharedKnowledgeBaseListResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases [get]
 func (h *SharedKnowledgeBaseHandler) GET_ListKnowledgeBases(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -76,7 +76,7 @@ func (h *SharedKnowledgeBaseHandler) GET_ListKnowledgeBases(c *fiber.Ctx) error 
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases [post]
 func (h *SharedKnowledgeBaseHandler) POST_CreateKnowledgeBase(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -113,7 +113,7 @@ func (h *SharedKnowledgeBaseHandler) POST_CreateKnowledgeBase(c *fiber.Ctx) erro
 // @Failure 403 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases/{id} [get]
 func (h *SharedKnowledgeBaseHandler) GET_KnowledgeBase(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -152,7 +152,7 @@ func (h *SharedKnowledgeBaseHandler) GET_KnowledgeBase(c *fiber.Ctx) error {
 // @Failure 401 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases/{id} [put]
 func (h *SharedKnowledgeBaseHandler) PUT_UpdateKnowledgeBase(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -196,7 +196,7 @@ func (h *SharedKnowledgeBaseHandler) PUT_UpdateKnowledgeBase(c *fiber.Ctx) error
 // @Failure 403 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases/{id} [delete]
 func (h *SharedKnowledgeBaseHandler) DELETE_KnowledgeBase(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -233,7 +233,7 @@ func (h *SharedKnowledgeBaseHandler) DELETE_KnowledgeBase(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases/{id}/upload [post]
 func (h *SharedKnowledgeBaseHandler) POST_UploadFile(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -274,7 +274,7 @@ func (h *SharedKnowledgeBaseHandler) POST_UploadFile(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases/{id}/text [post]
 func (h *SharedKnowledgeBaseHandler) POST_UploadText(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -314,7 +314,7 @@ func (h *SharedKnowledgeBaseHandler) POST_UploadText(c *fiber.Ctx) error {
 // @Failure 400 {object} models.APIResponse
 // @Failure 401 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases/{id}/website [post]
 func (h *SharedKnowledgeBaseHandler) POST_UploadWebsite(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -355,7 +355,7 @@ func (h *SharedKnowledgeBaseHandler) POST_UploadWebsite(c *fiber.Ctx) error {
 // @Failure 403 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases/{id}/files [get]
 func (h *SharedKnowledgeBaseHandler) GET_Files(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -394,7 +394,7 @@ func (h *SharedKnowledgeBaseHandler) GET_Files(c *fiber.Ctx) error {
 // @Failure 403 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases/{id}/files/{filename} [delete]
 func (h *SharedKnowledgeBaseHandler) DELETE_File(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -434,7 +434,7 @@ func (h *SharedKnowledgeBaseHandler) DELETE_File(c *fiber.Ctx) error {
 // @Failure 403 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases/{id}/text [get]
 func (h *SharedKnowledgeBaseHandler) GET_TextSources(c *fiber.Ctx) error {
 	user, err := GetUser(c)
@@ -473,7 +473,7 @@ func (h *SharedKnowledgeBaseHandler) GET_TextSources(c *fiber.Ctx) error {
 // @Failure 403 {object} models.APIResponse
 // @Failure 404 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
-// @Security ApiKeyAuth
+// @Security BearerAuth
 // @Router /knowledge-bases/{id}/text/{sourceId} [delete]
 func (h *SharedKnowledgeBaseHandler) DELETE_TextSource(c *fiber.Ctx) error {
 	user, err := GetUser(c)
