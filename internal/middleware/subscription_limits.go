@@ -82,6 +82,7 @@ func (s *SubscriptionLimitsMiddleware) checkChatbotsLimit(c *fiber.Ctx, userID s
 	if len(chatbots) >= maxChatbots {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "Chatbot limit reached. Please upgrade your plan.",
+			"code":  "LIMIT_REACHED",
 			"limit": maxChatbots,
 			"used":  len(chatbots),
 		})

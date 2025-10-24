@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { useHead } from "#imports";
-import LandingMenu from "@/components/LandingMenu.vue";
 import HeroSection from "@/components/HeroSection.vue";
 import HowItWorksSection from "@/components/HowItWorksSection.vue";
 import WhySection from "@/components/WhySection.vue";
+
+definePageMeta({
+  layout: "landing",
+});
 
 useHead({
   title: "VectorChat Light | Free Chatbot in Under 2 Minutes",
@@ -27,13 +30,9 @@ useHead({
 </script>
 
 <template>
-  <div class="relative min-h-screen bg-background text-foreground">
-    <LandingMenu />
-
-    <main class="flex flex-col">
-      <HeroSection />
-      <WhySection />
-      <HowItWorksSection />
-    </main>
+  <div class="flex flex-col">
+    <HeroSection />
+    <WhySection />
+    <HowItWorksSection />
   </div>
 </template>

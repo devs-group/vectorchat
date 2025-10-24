@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { nextTick, ref } from "vue";
-import { useNuxtApp, useRouter } from "#imports";
+import { nextTick, onMounted, ref } from "vue";
+import { useRouter } from "#imports";
 import { Button } from "@/components/ui/button";
+import AuthRequiredModal from "@/components/AuthRequiredModal.vue";
+import { useAuthPrompt } from "@/composables/useAuthPrompt";
 
 const siteUrl = ref("");
 const errorMessage = ref("");
@@ -17,10 +19,51 @@ type GenerateChatbotResponse = {
 };
 
 const router = useRouter();
-const { $fetch } = useNuxtApp();
+const SITE_URL_STORAGE_KEY = "vc-light:pending-site-url";
+
+const {
+  ensureAuthenticated,
+  loginHref,
+  isCheckingSession,
+  shouldShowPrompt,
+  updateLoginHref,
+} = useAuthPrompt({
+  getReturnTo: () =>
+    typeof window !== "undefined" ? window.location.href : undefined,
+});
 
 const urlPattern =
   /^https?:\/\/(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:[-a-zA-Z0-9@:%_+.~#?&/=]*)?$/;
+
+function rememberPendingSiteUrl(url: string) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SITE_URL_STORAGE_KEY, url);
+  } catch (error) {
+    console.warn("Failed to store pending site URL", error);
+  }
+}
+
+function clearPendingSiteUrl() {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(SITE_URL_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Failed to clear pending site URL", error);
+  }
+}
+
+function restorePendingSiteUrl() {
+  if (typeof window === "undefined") return;
+  try {
+    const pending = sessionStorage.getItem(SITE_URL_STORAGE_KEY);
+    if (pending && !siteUrl.value) {
+      siteUrl.value = pending;
+    }
+  } catch (error) {
+    console.warn("Failed to restore pending site URL", error);
+  }
+}
 
 async function handleSubmit() {
   if (isGenerating.value) return;
@@ -35,6 +78,14 @@ async function handleSubmit() {
     inputRef.value?.focus();
     return;
   }
+  rememberPendingSiteUrl(trimmed);
+  updateLoginHref();
+  const session = await ensureAuthenticated();
+  if (!session) {
+    return;
+  }
+  clearPendingSiteUrl();
+
   isGenerating.value = true;
   generationStep.value = "Creating your AI chatbot...";
 
@@ -51,9 +102,15 @@ async function handleSubmit() {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(
+      const error = new Error(
         errorData.message || `HTTP ${response.status}: ${response.statusText}`,
       );
+      if (errorData && typeof errorData === "object" && "code" in errorData) {
+        (error as { code?: string }).code = (
+          errorData as { code?: string }
+        ).code;
+      }
+      throw error;
     }
 
     const chatbotData: GenerateChatbotResponse = await response.json();
@@ -72,23 +129,29 @@ async function handleSubmit() {
     console.error("Failed to generate chatbot", error);
 
     // Provide more specific error messages based on the error type
-    const errorMessage = error?.message || "";
+    const errorMessageText = error?.message || "";
 
-    if (errorMessage.includes("HTTP 400")) {
+    if (errorMessageText === "LIMIT_REACHED") {
+      errorMessage.value =
+        "You have already created a chatbot. You are allowed to create only one chatbot on the free plan.";
+    } else if (errorMessageText.includes("HTTP 400")) {
       errorMessage.value =
         "Invalid website URL. Please check the URL and try again.";
-    } else if (errorMessage.includes("HTTP 401")) {
-      errorMessage.value = "Authentication error. Please try again later.";
-    } else if (errorMessage.includes("HTTP 500")) {
-      if (errorMessage.includes("website")) {
+    } else if (errorMessageText.includes("HTTP 401")) {
+      errorMessage.value = "Please sign in to continue.";
+    } else if (errorMessageText.includes("HTTP 500")) {
+      if (errorMessageText.includes("website")) {
         errorMessage.value =
           "Unable to process your website. Please ensure the URL is accessible and try again.";
-      } else if (errorMessage.includes("chatbot")) {
+      } else if (errorMessageText.includes("chatbot")) {
         errorMessage.value = "Failed to create chatbot. Please try again.";
       } else {
         errorMessage.value = "Server error occurred. Please try again later.";
       }
-    } else if (error?.name === "TypeError" || errorMessage.includes("fetch")) {
+    } else if (
+      error?.name === "TypeError" ||
+      errorMessageText.includes("fetch")
+    ) {
       errorMessage.value =
         "Network error. Please check your connection and try again.";
     } else {
@@ -103,6 +166,11 @@ async function handleSubmit() {
     generationStep.value = "";
   }
 }
+
+onMounted(() => {
+  updateLoginHref();
+  restorePendingSiteUrl();
+});
 </script>
 
 <template>
@@ -218,4 +286,11 @@ async function handleSubmit() {
       </div>
     </div>
   </section>
+  <AuthRequiredModal
+    :open="shouldShowPrompt"
+    :is-checking="isCheckingSession"
+    :login-href="loginHref"
+    title="Sign in to build your chatbot"
+    description="You need to be signed in to create your chatbot. We'll bring you right back here after you log in."
+  />
 </template>

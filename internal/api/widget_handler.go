@@ -70,7 +70,6 @@ func (h *WidgetHandler) GET_Widget(c *fiber.Ctx) error {
 func (h *WidgetHandler) isValidWidget(widgetName string) bool {
 	validWidgets := []string{
 		"vectorchat-glass-widget",
-		"vectorchat-neon-widget",
 		"vectorchat-plex-widget",
 	}
 

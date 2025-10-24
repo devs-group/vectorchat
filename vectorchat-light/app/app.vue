@@ -2,10 +2,9 @@
   <div class="">
     <NuxtRouteAnnouncer />
     <NuxtLoadingIndicator />
-    <NuxtPage />
-    <FooterSection />
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
   </div>
 </template>
-<script lang="ts" setup>
-import FooterSection from "~/components/FooterSection.vue";
-</script>
+<script lang="ts" setup></script>

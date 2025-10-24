@@ -8,7 +8,60 @@
   if (window.__vectorchat_plex_widget_loaded__) return; 
   window.__vectorchat_plex_widget_loaded__ = true;
 
-  let isRecording=false; let message=''; let isTyping=false; /** @type {{id:string,text:string,isUser:boolean,timestamp:Date}[]} */ let messages=[];
+  let isRecording=false; let message=''; let isTyping=false; let isSending=false; let sessionId=undefined;
+  let initialAssistantMessage="Hello! I'm your VectorChat assistant. Ask me anything.";
+  /** @type {{id:string,text:string,isUser:boolean,timestamp:Date}[]} */ let messages=[];
+
+  const scriptEl = document.currentScript;
+  const scriptMeta = (() => {
+    const attrSrc = scriptEl?.getAttribute('src') || '';
+    let resolvedSrc = '';
+    try { resolvedSrc = scriptEl?.src || attrSrc; } catch { resolvedSrc = attrSrc; }
+
+    let parsedUrl = null;
+    if (resolvedSrc) {
+      try {
+        parsedUrl = new URL(resolvedSrc);
+      } catch (_) {
+        try {
+          parsedUrl = new URL(
+            resolvedSrc,
+            typeof window !== 'undefined' ? window.location.origin : undefined,
+          );
+        } catch {
+          parsedUrl = null;
+        }
+      }
+    }
+
+    const origin = parsedUrl && parsedUrl.origin !== 'null' ? parsedUrl.origin : '';
+    const pathname = parsedUrl?.pathname || '';
+    const apiBaseAttr = (scriptEl?.getAttribute('data-api-base') || '').trim();
+    const chatIdAttr = scriptEl?.getAttribute('data-chat-id') || '';
+    return { origin, pathname, apiBaseAttr, chatIdAttr };
+  })();
+
+  const apiBase = (() => {
+    const candidate = scriptMeta.apiBaseAttr || scriptMeta.origin;
+    return candidate ? candidate.replace(/\/$/, '') : '';
+  })();
+
+  const buildApiUrl = (path) => apiBase ? `${apiBase}${path}` : path;
+
+  const chatId = (() => {
+    if (scriptMeta.chatIdAttr) {
+      try { return decodeURIComponent(scriptMeta.chatIdAttr); } catch { return scriptMeta.chatIdAttr; }
+    }
+    const segments = scriptMeta.pathname.split('/').filter(Boolean);
+    if (segments.length >= 2) {
+      const raw = segments[segments.length - 2] || '';
+      try { return decodeURIComponent(raw); } catch { return raw; }
+    }
+    return '';
+  })();
+
+  const chatMessageEndpoint = chatId ? buildApiUrl(`/api/chatbot/${encodeURIComponent(chatId)}/message`) : '';
+  const chatbotInfoEndpoint = chatId ? buildApiUrl(`/api/chatbot/${encodeURIComponent(chatId)}`) : '';
 
   const host = document.createElement('div');
   host.style.position='fixed'; host.style.left='50%'; host.style.bottom='24px'; host.style.transform='translateX(-50%)'; host.style.zIndex='2147483647';
@@ -147,22 +200,25 @@
       const s = document.createElement('style'); s.textContent='@keyframes w{0%{height:4px}50%{height:20px}100%{height:4px}}'; shadow.appendChild(s);
     } else {
       const has=(message||'').trim().length>0;
+      const sendDisabledAttr = isSending ? 'disabled aria-disabled="true"' : '';
       f.innerHTML = `
         <div class="row" style="justify-content:space-between;">
-          <input class="input" data-ref="input" placeholder="Type your message..." />
+          <input class="input" data-ref="input" placeholder="Type your message..." ${isSending ? 'disabled' : ''} />
           <div class="row">
             <button class="icon-btn" data-action="mic">${icons.mic}</button>
-            ${has? `<button class="icon-btn" data-action="send">${icons.send}</button>` : icons.barchart}
+            ${has? `<button class="icon-btn" data-action="send" ${sendDisabledAttr}>${icons.send}</button>` : icons.barchart}
           </div>
         </div>`;
       const input = f.querySelector('[data-ref="input"]');
-      if(input){ input.value=message; setTimeout(()=>{ input.focus(); input.setSelectionRange(input.value.length,input.value.length); },0);
+      if(input){ input.value=message; input.setAttribute('aria-disabled', isSending ? 'true':'false');
+        setTimeout(()=>{ if(!isSending){ input.focus(); input.setSelectionRange(input.value.length,input.value.length); } },0);
         input.addEventListener('input', e=>{ message=e.target.value; renderFooter(); });
         input.addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } }); }
     }
     f.querySelectorAll('[data-action]').forEach(btn=>{
       const a=btn.getAttribute('data-action');
       btn.addEventListener('click', ev=>{ ev.stopPropagation();
+        if(btn.hasAttribute('disabled')) return;
         if(a==='mic'){ isRecording=true; renderFooter(); }
         else if(a==='send'){ send(); }
         else if(a==='cancel'){ isRecording=false; renderFooter(); }
@@ -190,14 +246,96 @@
     try{ m.scrollTo({top:m.scrollHeight, behavior:'smooth'}); }catch{ m.scrollTop=m.scrollHeight; }
   }
 
-  function send(){
-    const text=(message||'').trim(); if(!text) return;
-    messages.push({id:String(Date.now()), text, isUser:true, timestamp:new Date()});
-    message=''; renderFooter(); isTyping=true; renderMessages();
-    setTimeout(()=>{ messages.push({id:String(Date.now()+1), text:"I'm a demo AI assistant. I can help you with various tasks and questions.", isUser:false, timestamp:new Date()}); isTyping=false; renderMessages(); }, 1100);
+  function pushAssistantMessage(text){
+    messages.push({id:String(Date.now()+Math.random()), text, isUser:false, timestamp:new Date()});
   }
 
-  function open(){ card.classList.add('open'); pill.classList.add('hidden'); if(messages.length===0){ messages.push({id:String(Date.now()), text:"I'm a demo AI assistant. I can help you with various tasks and questions.", isUser:false, timestamp:new Date()}); } renderFooter(); renderMessages(); }
+  async function requestChatbotResponse(userText){
+    const payload={ query:userText, session_id:sessionId };
+    const endpoints=[];
+    if(chatMessageEndpoint){ endpoints.push(chatMessageEndpoint); }
+    if(chatId){
+      const directEndpoint = buildApiUrl(`/chat/${encodeURIComponent(chatId)}/message`);
+      if(directEndpoint && !endpoints.includes(directEndpoint)){ endpoints.push(directEndpoint); }
+    }
+    if(!endpoints.length) throw new Error('Missing chat endpoint');
+
+    let lastError=null;
+    for(const url of endpoints){
+      try{
+        const response = await fetch(url, {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          credentials:'include',
+          body: JSON.stringify(payload)
+        });
+        if(!response.ok){
+          const errText = await response.text().catch(()=> '');
+          throw new Error(`Chat request failed (${response.status}): ${errText || response.statusText}`);
+        }
+        const data = await response.json().catch(()=> ({}));
+        if(data && typeof data.session_id === 'string'){ sessionId = data.session_id; }
+        return data?.response || data?.message || "I'm sorry, but I couldn't generate a response right now.";
+      }catch(err){
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('Unable to reach chatbot endpoint.');
+  }
+
+  async function initializeWidget(){
+    if(!chatId){
+      initialAssistantMessage = "VectorChat widget misconfigured: missing chatbot ID.";
+      return;
+    }
+    const infoEndpoints=[];
+    if(chatbotInfoEndpoint){ infoEndpoints.push(chatbotInfoEndpoint); }
+    const directInfo = buildApiUrl(`/chat/chatbot/${encodeURIComponent(chatId)}`);
+    if(directInfo && !infoEndpoints.includes(directInfo)){ infoEndpoints.push(directInfo); }
+    for(const url of infoEndpoints){
+      try{
+        const response = await fetch(url, { credentials:'include' });
+        if(!response.ok) continue;
+        const data = await response.json().catch(()=> ({}));
+        const greeting = data?.welcome_message || data?.greeting || data?.intro_message || data?.description;
+        if(greeting && typeof greeting === 'string'){
+          initialAssistantMessage = greeting;
+          if(messages.length===1 && !messages[0].isUser){
+            messages[0].text = greeting;
+            renderMessages();
+          }
+          break;
+        }
+      }catch(err){
+        console.warn('[VectorChat] Failed to preload chatbot info:', err);
+      }
+    }
+  }
+
+  function send(){
+    const text=(message||'').trim();
+    if(!text || isSending) return;
+    if(!chatId){
+      pushAssistantMessage("This widget is not configured with a chatbot ID. Please reload and try again.");
+      message=''; renderFooter(); renderMessages();
+      return;
+    }
+    messages.push({id:String(Date.now()), text, isUser:true, timestamp:new Date()});
+    message='';
+    isSending=true; isTyping=true;
+    renderFooter(); renderMessages();
+    requestChatbotResponse(text).then(resText=>{
+      pushAssistantMessage(String(resText||'').trim()||'...');
+    }).catch(err=>{
+      console.error('[VectorChat] Widget error:', err);
+      pushAssistantMessage("I'm having trouble responding right now. Please try again later.");
+    }).finally(()=>{
+      isSending=false; isTyping=false;
+      renderFooter(); renderMessages();
+    });
+  }
+
+  function open(){ card.classList.add('open'); pill.classList.add('hidden'); if(messages.length===0 && initialAssistantMessage){ messages.push({id:String(Date.now()), text:initialAssistantMessage, isUser:false, timestamp:new Date()}); } renderFooter(); renderMessages(); }
   function close(){ card.classList.remove('open'); setTimeout(()=>{ pill.classList.remove('hidden'); pill.classList.add('in'); },160); }
 
   pill.addEventListener('click', open);
@@ -206,6 +344,7 @@
 
   const rootEl = document.createElement('div'); rootEl.className='root'; rootEl.appendChild(pill); rootEl.appendChild(card);
   shadow.appendChild(style); shadow.appendChild(rootEl); document.body.appendChild(host);
+  initializeWidget();
   requestAnimationFrame(()=>{ pill.classList.add('in'); });
 
   try { const mq=matchMedia('(max-width:480px)'); const apply=()=>{ host.style.bottom = mq.matches ? '16px' : '24px'; }; mq.addEventListener?mq.addEventListener('change',apply):mq.addListener(apply); apply(); } catch {}

@@ -8,11 +8,6 @@ export default defineEventHandler(async (event) => {
       theme: "dark"
     },
     {
-      name: "vectorchat-neon-widget",
-      description: "Modern neon-styled chat widget with glowing effects",
-      theme: "neon"
-    },
-    {
       name: "vectorchat-glass-widget",
       description: "Glass morphism design with frosted glass effects",
       theme: "glass"

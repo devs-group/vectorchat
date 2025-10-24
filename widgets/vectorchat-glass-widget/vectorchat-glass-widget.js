@@ -12,8 +12,86 @@
   let isOpen = false;
   let isRecording = false;
   let message = "";
+  let isSending = false;
+  let isTyping = false;
+  let sessionId = undefined;
+  let initialAssistantMessage =
+    "Hello! I'm your VectorChat assistant. Ask me anything.";
   /** @type {{id:string,text:string,isUser:boolean,timestamp:Date}[]} */
   let messages = [];
+
+  const scriptEl = document.currentScript;
+  const scriptMeta = (() => {
+    const attrSrc = scriptEl?.getAttribute("src") || "";
+    let resolvedSrc = "";
+    try {
+      resolvedSrc = scriptEl?.src || attrSrc;
+    } catch (_) {
+      resolvedSrc = attrSrc;
+    }
+
+    let parsedUrl = null;
+    if (resolvedSrc) {
+      try {
+        parsedUrl = new URL(resolvedSrc);
+      } catch (_) {
+        try {
+          parsedUrl = new URL(
+            resolvedSrc,
+            typeof window !== "undefined" ? window.location.origin : undefined,
+          );
+        } catch (_) {
+          parsedUrl = null;
+        }
+      }
+    }
+
+    const origin =
+      parsedUrl && parsedUrl.origin !== "null" ? parsedUrl.origin : "";
+    const pathname = parsedUrl?.pathname || "";
+    const apiBaseAttr = (scriptEl?.getAttribute("data-api-base") || "").trim();
+    const chatIdAttr = scriptEl?.getAttribute("data-chat-id") || "";
+
+    return { origin, pathname, apiBaseAttr, chatIdAttr };
+  })();
+
+  const apiBase = (() => {
+    const candidate = scriptMeta.apiBaseAttr || scriptMeta.origin;
+    if (!candidate) return "";
+    return candidate.replace(/\/$/, "");
+  })();
+
+  const buildApiUrl = (path) => {
+    if (!path) return "";
+    return apiBase ? `${apiBase}${path}` : path;
+  };
+
+  const chatId = (() => {
+    if (scriptMeta.chatIdAttr) {
+      try {
+        return decodeURIComponent(scriptMeta.chatIdAttr);
+      } catch (_) {
+        return scriptMeta.chatIdAttr;
+      }
+    }
+    const segments = scriptMeta.pathname.split("/").filter(Boolean);
+    if (segments.length >= 2) {
+      const raw = segments[segments.length - 2] || "";
+      try {
+        return decodeURIComponent(raw);
+      } catch (_) {
+        return raw;
+      }
+    }
+    return "";
+  })();
+
+  const chatMessageEndpoint = chatId
+    ? buildApiUrl(`/api/chatbot/${encodeURIComponent(chatId)}/message`)
+    : "";
+  const chatbotInfoEndpoint = chatId
+    ? buildApiUrl(`/api/chatbot/${encodeURIComponent(chatId)}`)
+    : "";
 
   // Host container (outside Shadow DOM) for fixed positioning
   const host = document.createElement("div");
@@ -272,24 +350,32 @@
     } else {
       // Normal input UI
       const hasText = (message || "").trim().length > 0;
+      const sendDisabledAttr = isSending ? 'disabled aria-disabled="true"' : "";
       f.innerHTML = `
         <div class="vcw-row vcw-space-x">
           <div style="flex:1; position:relative;">
-            <input type="text" class="vcw-input" data-ref="input" placeholder="Type your message..." />
+            <input type="text" class="vcw-input" data-ref="input" placeholder="Type your message..." ${isSending ? "disabled" : ""} />
           </div>
           <div class="vcw-row vcw-space-x">
             <button class="vcw-icon-btn" data-action="mic" aria-label="Record">${icons.mic}</button>
-            ${hasText ? `<button class="vcw-icon-btn" data-action="send" aria-label="Send">${icons.send}</button>` : icons.barchart}
+            ${
+              hasText
+                ? `<button class="vcw-icon-btn" data-action="send" aria-label="Send" ${sendDisabledAttr}>${icons.send}</button>`
+                : icons.barchart
+            }
           </div>
         </div>
       `;
       const input = f.querySelector('[data-ref="input"]');
       if (input) {
         input.value = message;
+        input.setAttribute("aria-disabled", isSending ? "true" : "false");
         // Autofocus input when opening/returning from record mode
         setTimeout(() => {
-          input.focus();
-          input.setSelectionRange(input.value.length, input.value.length);
+          if (!isSending) {
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+          }
         }, 0);
         input.addEventListener("input", (e) => {
           message = e.target.value;
@@ -310,6 +396,9 @@
       const action = btn.getAttribute("data-action");
       btn.addEventListener("click", (ev) => {
         ev.stopPropagation();
+        if (btn.hasAttribute("disabled")) {
+          return;
+        }
         switch (action) {
           case "mic":
             isRecording = true;
@@ -380,11 +469,85 @@
     }
   }
 
-  // Send flow with simulated AI response
-  let isTyping = false;
+  function pushAssistantMessage(text) {
+    messages.push({
+      id: String(Date.now() + Math.random()),
+      text,
+      isUser: false,
+      timestamp: new Date(),
+    });
+  }
+
+  async function requestChatbotResponse(userText) {
+    const payload = {
+      query: userText,
+      session_id: sessionId,
+    };
+
+    const endpoints = [];
+    if (chatMessageEndpoint) {
+      endpoints.push(chatMessageEndpoint);
+    }
+    if (chatId) {
+      const directEndpoint = buildApiUrl(
+        `/chat/${encodeURIComponent(chatId)}/message`,
+      );
+      if (directEndpoint && !endpoints.includes(directEndpoint)) {
+        endpoints.push(directEndpoint);
+      }
+    }
+
+    if (!endpoints.length) {
+      throw new Error("Missing chat endpoint.");
+    }
+
+    let lastError = null;
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          const errText = await response.text().catch(() => "");
+          throw new Error(
+            `Chat request failed (${response.status}): ${errText || response.statusText}`,
+          );
+        }
+        const data = await response.json().catch(() => ({}));
+        if (data && typeof data.session_id === "string") {
+          sessionId = data.session_id;
+        }
+        return (
+          data?.response ||
+          data?.message ||
+          "I'm sorry, but I couldn't generate a response just now."
+        );
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error("Unable to reach chatbot endpoint.");
+  }
+
   function handleSend() {
     const text = (message || "").trim();
-    if (!text) return;
+    if (!text || isSending) return;
+    if (!chatId) {
+      pushAssistantMessage(
+        "This widget is not configured with a chatbot ID. Please reload the page and try again.",
+      );
+      message = "";
+      renderFooter();
+      renderMessages();
+      return;
+    }
+
     const userMessage = {
       id: String(Date.now()),
       text,
@@ -393,20 +556,76 @@
     };
     messages.push(userMessage);
     message = "";
-    renderFooter();
+    isSending = true;
     isTyping = true;
+    renderFooter();
     renderMessages();
-    setTimeout(() => {
-      const aiMessage = {
-        id: String(Date.now() + 1),
-        text: "I'm a demo AI assistant. I can help you with various tasks and questions.",
-        isUser: false,
-        timestamp: new Date(),
-      };
-      messages.push(aiMessage);
-      isTyping = false;
-      renderMessages();
-    }, 1200);
+
+    requestChatbotResponse(text)
+      .then((assistantText) => {
+        pushAssistantMessage(String(assistantText || "").trim() || "...");
+      })
+      .catch((error) => {
+        console.error("[VectorChat] Widget error:", error);
+        pushAssistantMessage(
+          "I'm having trouble responding right now. Please try again in a moment.",
+        );
+      })
+      .finally(() => {
+        isSending = false;
+        isTyping = false;
+        renderFooter();
+        renderMessages();
+      });
+  }
+
+  async function initializeWidget() {
+    if (!chatId) {
+      initialAssistantMessage =
+        "VectorChat widget misconfigured: missing chatbot ID.";
+      return;
+    }
+    const infoEndpoints = [];
+    if (chatbotInfoEndpoint) {
+      infoEndpoints.push(chatbotInfoEndpoint);
+    }
+    const directInfo = buildApiUrl(
+      `/chat/chatbot/${encodeURIComponent(chatId)}`,
+    );
+    if (directInfo && !infoEndpoints.includes(directInfo)) {
+      infoEndpoints.push(directInfo);
+    }
+
+    for (const url of infoEndpoints) {
+      try {
+        const response = await fetch(url, {
+          credentials: "include",
+        });
+        if (!response.ok) {
+          continue;
+        }
+        const data = await response.json().catch(() => ({}));
+        const greeting =
+          data?.welcome_message ||
+          data?.greeting ||
+          data?.intro_message ||
+          data?.description;
+        if (greeting && typeof greeting === "string") {
+          initialAssistantMessage = greeting;
+          if (
+            messages.length === 1 &&
+            !messages[0].isUser &&
+            messages[0].text
+          ) {
+            messages[0].text = greeting;
+            renderMessages();
+          }
+          break;
+        }
+      } catch (err) {
+        console.warn("[VectorChat] Failed to preload chatbot info:", err);
+      }
+    }
   }
 
   // Toggle open/close
@@ -415,10 +634,10 @@
     expanded.classList.add("vcw-open");
     collapsed.classList.add("vcw-hidden");
     // Seed a friendly AI greeting on first open
-    if (messages.length === 0) {
+    if (messages.length === 0 && initialAssistantMessage) {
       messages.push({
         id: String(Date.now()),
-        text: "I'm a demo AI assistant. I can help you with various tasks and questions.",
+        text: initialAssistantMessage,
         isUser: false,
         timestamp: new Date(),
       });
@@ -462,6 +681,8 @@
   shadow.appendChild(style);
   shadow.appendChild(root);
   document.body.appendChild(host);
+
+  initializeWidget();
 
   // Initial animations
   requestAnimationFrame(() => {

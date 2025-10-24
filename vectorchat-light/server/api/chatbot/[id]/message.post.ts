@@ -1,8 +1,6 @@
 import { createError, defineEventHandler, getRouterParam, readBody } from "h3";
-import {
-  getVectorchatAccessToken,
-  getVectorchatBaseUrl,
-} from "../../../utils/vectorchat-auth";
+import { getVectorchatBaseUrl } from "../../../utils/vectorchat-auth";
+import { createUserAuthHeaders } from "../../../utils/ory-session";
 
 type ChatMessageRequest = {
   query: string;
@@ -23,7 +21,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  console.log(body);
   if (!body?.query) {
     throw createError({
       statusCode: 400,
@@ -32,13 +29,13 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const accessToken = await getVectorchatAccessToken(config);
+    const authHeaders = await createUserAuthHeaders(event);
     // Send message to VectorChat API
     const response = await fetch(`${apiUrl}/chat/${chatbotId}/message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
+        ...authHeaders,
       },
       body: JSON.stringify({
         query: body.query,
@@ -47,13 +44,24 @@ export default defineEventHandler(async (event) => {
     });
 
     if (!response.ok) {
+      const errorBody = await safeParseJSON(response);
       if (response.status === 404) {
         throw createError({
           statusCode: 404,
           statusMessage: "Chatbot not found",
         });
       }
-      console.log(await response.json());
+      if (response.status === 401) {
+        throw createError({
+          statusCode: 401,
+          statusMessage: "Authentication required",
+        });
+      }
+      console.error("[vectorchat-light] Chat message failed", {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody,
+      });
       throw createError({
         statusCode: response.status,
         statusMessage: "Failed to send message",
@@ -62,10 +70,10 @@ export default defineEventHandler(async (event) => {
 
     const responseData = await response.json();
     return responseData;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error sending message:", error);
 
-    if (error.statusCode) {
+    if (error?.statusCode) {
       throw error;
     }
 
@@ -73,5 +81,13 @@ export default defineEventHandler(async (event) => {
       statusCode: 500,
       statusMessage: "Internal server error",
     });
+  }
+
+  async function safeParseJSON(response: Response) {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
   }
 });
