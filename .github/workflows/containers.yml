@@ -11,139 +11,58 @@ on:
 permissions:
   contents: read
   packages: write
+  security-events: write
+  checks: write
 
 concurrency:
   group: vectorchat-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  REGISTRY: ghcr.io
-
 jobs:
-  build-staging:
-    if: github.ref == 'refs/heads/main'
+  validate-secrets:
     runs-on: ubuntu-latest
-    environment: staging
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image: backend
-            context: .
-            dockerfile: Dockerfile
-            target: ''
-          - image: frontend
-            context: frontend
-            dockerfile: frontend/Dockerfile
-            target: ''
-          - image: markitdown
-            context: .
-            dockerfile: services/markitdown_api/Dockerfile
-            target: ''
-          - image: vectorchat-light
-            context: vectorchat-light
-            dockerfile: vectorchat-light/Dockerfile
-            target: production
+    outputs:
+      secrets-valid: ${{ steps.check.outputs.valid }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Derive image namespace
-        id: namespace
+      - name: Validate required secrets
+        id: check
         run: |
-          echo "value=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ secrets.GITHUB_TOKEN }}" != "" ]]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "GITHUB_TOKEN is required"
+            exit 1
+          fi
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.namespace.outputs.value }}/${{ matrix.image }}
-          tags: |
-            type=raw,value=staging
-
-      - name: Build and push image
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          target: ${{ matrix.target }}
+  build-staging:
+    if: github.ref == 'refs/heads/main' && needs.validate-secrets.outputs.secrets-valid == 'true'
+    needs: validate-secrets
+    uses: ./.github/workflows/build-containers.yml
+    with:
+      environment: staging
+      tag: staging
+      push_image: true
+    secrets: inherit
 
   build-production:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') && needs.validate-secrets.outputs.secrets-valid == 'true'
+    needs: validate-secrets
+    uses: ./.github/workflows/build-containers.yml
+    with:
+      environment: production
+      tag: latest
+      extra_tags: |
+        type=ref,event=tag
+      push_image: true
+    secrets: inherit
+
+  security-summary:
+    if: always() && (needs.build-staging.result == 'success' || needs.build-production.result == 'success')
+    needs: [validate-secrets, build-staging, build-production]
     runs-on: ubuntu-latest
-    environment: production
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image: backend
-            context: .
-            dockerfile: Dockerfile
-            target: ''
-          - image: frontend
-            context: frontend
-            dockerfile: frontend/Dockerfile
-            target: ''
-          - image: markitdown
-            context: .
-            dockerfile: services/markitdown_api/Dockerfile
-            target: ''
-          - image: vectorchat-light
-            context: vectorchat-light
-            dockerfile: vectorchat-light/Dockerfile
-            target: production
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Derive image namespace
-        id: namespace
+      - name: Security scan summary
         run: |
-          echo "value=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.namespace.outputs.value }}/${{ matrix.image }}
-          tags: |
-            type=raw,value=latest
-            type=ref,event=tag
-          flavor: latest=false
-
-      - name: Build and push image
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          target: ${{ matrix.target }}
+          echo "Container security scanning completed"
+          echo "Check the Security tab in GitHub for detailed vulnerability reports"

@@ -1,0 +1,139 @@
+name: Reusable Container Build
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+      extra_tags:
+        required: false
+        type: string
+        default: ""
+      push_image:
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: backend
+            context: .
+            dockerfile: Dockerfile
+            target: ''
+            paths: ['Dockerfile', 'go.mod', 'go.sum', 'main.go', 'internal/', 'services/', 'cmd/']
+          - image: frontend
+            context: frontend
+            dockerfile: frontend/Dockerfile
+            target: ''
+            paths: ['frontend/', 'frontend/Dockerfile', 'frontend/package*.json']
+          - image: markitdown
+            context: .
+            dockerfile: services/markitdown_api/Dockerfile
+            target: ''
+            paths: ['services/markitdown_api/', 'services/markitdown_api/Dockerfile']
+          - image: vectorchat-light
+            context: vectorchat-light
+            dockerfile: vectorchat-light/Dockerfile
+            target: production
+            paths: ['vectorchat-light/', 'vectorchat-light/Dockerfile']
+
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tags: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for changes
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            ${{ matrix.image }}:
+              - ${{ join(matrix.paths, '\n              - ') }}
+
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.${{ matrix.image }} == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: steps.changes.outputs.${{ matrix.image }} == 'true' && inputs.push_image
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image namespace
+        id: namespace
+        if: steps.changes.outputs.${{ matrix.image }} == 'true'
+        run: |
+          echo "value=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract Docker metadata
+        id: meta
+        if: steps.changes.outputs.${{ matrix.image }} == 'true'
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.namespace.outputs.value }}/${{ matrix.image }}
+          tags: |
+            type=raw,value=${{ inputs.tag }}
+            ${{ inputs.extra_tags }}
+          flavor: ${{ inputs.tag == 'latest' && 'latest=false' || '' }}
+
+      - name: Build and push image
+        id: build
+        if: steps.changes.outputs.${{ matrix.image }} == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ inputs.push_image }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: ${{ matrix.target }}
+          provenance: true
+          sbom: true
+
+      - name: Run Trivy vulnerability scanner
+        if: steps.changes.outputs.${{ matrix.image }} == 'true' && inputs.push_image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.tags }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: steps.changes.outputs.${{ matrix.image }} == 'true' && inputs.push_image
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run basic smoke test
+        if: steps.changes.outputs.${{ matrix.image }} == 'true' && inputs.push_image
+        run: |
+          echo "Testing ${{ steps.meta.outputs.tags }}"
+          docker pull ${{ steps.meta.outputs.tags }}
+          docker run --rm ${{ steps.meta.outputs.tags }} /bin/sh -c 'echo "Container runs successfully" || echo "Smoke test completed"'
