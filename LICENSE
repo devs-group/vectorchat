@@ -1,0 +1,56 @@
+VectorChat Noncommercial Contribution License (VNCL) v1.0
+
+Copyright (c) 2025 devs group
+
+1. Definitions
+   1.1 “Software” means the VectorChat codebase and all accompanying files distributed by Licensor.
+   1.2 “Licensor” means Devs Group, the copyright holder of the Software.
+   1.3 “Licensee” means any person or entity exercising rights under this License.
+   1.4 “Modification” means any change to the Software or any work based upon the Software.
+   1.5 “Noncommercial Purpose” means any activity that does not receive compensation of any kind and is not intended to produce revenue, customer goodwill, cost savings, or other commercial advantage.
+
+2. Grant of Rights
+   Subject to full compliance with this License, Licensor grants Licensee a limited, non-exclusive, non-transferable, revocable license to:
+   (a) use and run the Software for Noncommercial Purposes;
+   (b) modify the Software and create Modifications for Noncommercial Purposes; and
+   (c) distribute copies of the Software and Modifications solely for Noncommercial Purposes, and only under the conditions in Section 3.
+
+3. Conditions on Use and Distribution
+   Licensee may exercise the rights in Section 2 only if all of the following are satisfied:
+   3.1 Noncommercial Use: Licensee must not use, host, offer, or distribute the Software or any Modification for Commercial Purposes, including software-as-a-service or integrated offerings.
+   3.2 Contribution Obligation: Before distributing any Modification, Licensee must either:
+       (a) deliver to Licensor a written assignment transferring all right, title, and interest in the Modification to Licensor, using Licensor’s then-current assignment process; or
+       (b) make the complete, human-readable source code of the Modification publicly available at no charge under this same License, together with prominent notice that the Modification is covered by the VNCL v1.0.
+   3.3 Notices: Licensee must keep all copyright, patent, trademark, and attribution notices intact and must include this License with every copy of the Software and any Modification distributed.
+   3.4 No Additional Restrictions: Licensee may not impose extra terms on recipients that conflict with this License.
+
+4. Restrictions
+   4.1 No Sublicensing: Licensee may not sublicense the Software or Modifications except by providing them under this License.
+   4.2 No Patent License: This License does not grant any patent rights.
+   4.3 No Misrepresentation: Licensee may not misrepresent the origin of the Software or Modifications.
+   4.4 No Circumvention: Licensee may not remove or alter any functionality intended to enforce these terms.
+
+5. Contributions to Licensor
+   If Licensee submits Modifications directly to Licensor (including via pull request, email, or other collaboration tools), Licensee hereby assigns to Licensor all right, title, and interest in those Modifications and agrees to execute any documents reasonably requested to confirm the assignment.
+
+6. Ownership
+   The Software is licensed, not sold. Licensor retains all ownership rights not expressly granted. Modifications distributed under Section 3.2(b) remain subject to this License.
+
+7. Termination
+   7.1 Automatic Termination: Any breach of this License automatically terminates all rights granted.
+   7.2 Reinstatement: Licensor may, at its sole discretion, reinstate rights if the breach is fully remedied within 30 days of notice.
+   7.3 Effect of Termination: Upon termination, Licensee must stop using the Software and Modifications and destroy or return all copies. Sections 4–10 survive termination.
+
+8. Warranty Disclaimer
+   THE SOFTWARE IS PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND. LICENSOR DISCLAIMS ALL WARRANTIES, INCLUDING IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+9. Limitation of Liability
+   TO THE MAXIMUM EXTENT PERMITTED BY LAW, LICENSOR IS NOT LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR RELATING TO THIS LICENSE OR USE OF THE SOFTWARE.
+
+10. Governing Law
+   This License is governed by the laws of the jurisdiction in which the Licensor has its principal place of business, excluding its conflict-of-law rules.
+
+11. Entire Agreement; Amendments
+   This License is the entire agreement between Licensor and Licensee regarding the Software. Licensor may publish revised versions of this License; once published, Licensee may choose to continue under the original version or the new version. No waiver or amendment is valid unless in writing and signed by Licensor.
+
+Contact Licensor for assignments or commercial licensing through the repository’s documented support channels.
