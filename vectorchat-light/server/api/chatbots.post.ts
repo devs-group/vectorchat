@@ -46,6 +46,7 @@ export default defineEventHandler(async (event) => {
         max_tokens: 1000,
         temperature_param: 0.7,
         save_messages: true,
+        use_max_tokens: true,
         is_enabled: true,
         shared_knowledge_base_ids: [],
       }),

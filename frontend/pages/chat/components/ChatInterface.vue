@@ -162,7 +162,7 @@ const scrollToBottom = async () => {
   }
 };
 
-const markdownOptions = { breaks: true, linkify: true };
+const markdownOptions = { breaks: true, linkify: true, html: false };
 
 // Send a message
 const sendMessage = async () => {
@@ -281,17 +281,49 @@ watch(
   word-break: break-word;
 }
 
+.markdown-content :deep(h1),
+.markdown-content :deep(h2),
+.markdown-content :deep(h3) {
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  line-height: 1.25;
+}
+
 .markdown-content :deep(p) {
   margin: 0;
+}
+
+.markdown-content :deep(ul),
+.markdown-content :deep(ol) {
+  margin: 0 0 0.35rem 1.25rem;
+  padding-left: 0.75rem;
+}
+
+.markdown-content :deep(ul) {
+  list-style: disc;
+}
+
+.markdown-content :deep(ol) {
+  list-style: decimal;
+}
+
+.markdown-content :deep(li) {
+  margin: 0.15rem 0;
 }
 
 .markdown-content :deep(pre) {
   margin: 0;
   overflow-x: auto;
+  background-color: rgba(0, 0, 0, 0.04);
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
 }
 
 .markdown-content :deep(code) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
+  background-color: rgba(0, 0, 0, 0.04);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
 }
 </style>

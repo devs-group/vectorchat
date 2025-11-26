@@ -104,6 +104,7 @@ export function useApiService() {
         max_tokens: number;
         temperature_param: number;
         save_messages: boolean;
+        use_max_tokens?: boolean;
         is_enabled?: boolean;
         shared_knowledge_base_ids?: string[];
       }) => {
@@ -273,6 +274,7 @@ export function useApiService() {
         temperature_param?: number;
         max_tokens?: number;
         save_messages?: boolean;
+        use_max_tokens?: boolean;
         shared_knowledge_base_ids?: string[];
       }) => {
         return await useApiFetch<{ chatbot: ChatbotResponse }>(

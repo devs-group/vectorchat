@@ -31,10 +31,10 @@ func (r *ChatbotRepository) Create(ctx context.Context, chatbot *Chatbot) error 
 	query := `
 		INSERT INTO chatbots (
 			id, user_id, name, description, system_instructions,
-			model_name, temperature_param, max_tokens, save_messages, is_enabled, created_at, updated_at
+			model_name, temperature_param, max_tokens, use_max_tokens, save_messages, is_enabled, created_at, updated_at
 		) VALUES (
 			:id, :user_id, :name, :description, :system_instructions,
-			:model_name, :temperature_param, :max_tokens, :save_messages, :is_enabled, :created_at, :updated_at
+			:model_name, :temperature_param, :max_tokens, :use_max_tokens, :save_messages, :is_enabled, :created_at, :updated_at
 		)
 	`
 
@@ -67,10 +67,10 @@ func (r *ChatbotRepository) CreateTx(ctx context.Context, tx *Transaction, chatb
 	query := `
 		INSERT INTO chatbots (
 			id, user_id, name, description, system_instructions,
-			model_name, temperature_param, max_tokens, save_messages, is_enabled, created_at, updated_at
+			model_name, temperature_param, max_tokens, use_max_tokens, save_messages, is_enabled, created_at, updated_at
 		) VALUES (
 			:id, :user_id, :name, :description, :system_instructions,
-			:model_name, :temperature_param, :max_tokens, :save_messages, :is_enabled, :created_at, :updated_at
+			:model_name, :temperature_param, :max_tokens, :use_max_tokens, :save_messages, :is_enabled, :created_at, :updated_at
 		)
 	`
 
@@ -93,7 +93,7 @@ func (r *ChatbotRepository) FindByID(ctx context.Context, id uuid.UUID) (*Chatbo
 	var chatbot Chatbot
 	query := `
 		SELECT id, user_id, name, description, system_instructions,
-		       model_name, temperature_param, max_tokens, save_messages, is_enabled, created_at, updated_at
+		       model_name, temperature_param, max_tokens, use_max_tokens, save_messages, is_enabled, created_at, updated_at
 		FROM chatbots
 		WHERE id = $1
 	`
@@ -114,7 +114,7 @@ func (r *ChatbotRepository) FindByIDAndUserID(ctx context.Context, id uuid.UUID,
 	var chatbot Chatbot
 	query := `
 		SELECT id, user_id, name, description, system_instructions,
-		       model_name, temperature_param, max_tokens, save_messages, is_enabled, created_at, updated_at
+		       model_name, temperature_param, max_tokens, use_max_tokens, save_messages, is_enabled, created_at, updated_at
 		FROM chatbots
 		WHERE id = $1 AND user_id = $2
 	`
@@ -135,7 +135,7 @@ func (r *ChatbotRepository) FindByUserID(ctx context.Context, userID string) ([]
 	var chatbots []*Chatbot
 	query := `
 		SELECT id, user_id, name, description, system_instructions,
-		       model_name, temperature_param, max_tokens, save_messages, is_enabled, created_at, updated_at
+		       model_name, temperature_param, max_tokens, use_max_tokens, save_messages, is_enabled, created_at, updated_at
 		FROM chatbots
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -163,7 +163,7 @@ func (r *ChatbotRepository) FindByUserIDWithPagination(ctx context.Context, user
 	var chatbots []*Chatbot
 	query := `
 		SELECT id, user_id, name, description, system_instructions,
-		       model_name, temperature_param, max_tokens, save_messages, is_enabled, created_at, updated_at
+		       model_name, temperature_param, max_tokens, use_max_tokens, save_messages, is_enabled, created_at, updated_at
 		FROM chatbots
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -186,7 +186,8 @@ func (r *ChatbotRepository) Update(ctx context.Context, chatbot *Chatbot) error 
 		UPDATE chatbots
 		SET name = :name, description = :description, system_instructions = :system_instructions,
 		    model_name = :model_name, temperature_param = :temperature_param,
-		    max_tokens = :max_tokens, save_messages = :save_messages, is_enabled = :is_enabled, updated_at = :updated_at
+		    max_tokens = :max_tokens, use_max_tokens = :use_max_tokens,
+		    save_messages = :save_messages, is_enabled = :is_enabled, updated_at = :updated_at
 		WHERE id = :id AND user_id = :user_id
 	`
 
@@ -215,7 +216,8 @@ func (r *ChatbotRepository) UpdateTx(ctx context.Context, tx *Transaction, chatb
 		UPDATE chatbots
 		SET name = :name, description = :description, system_instructions = :system_instructions,
 		    model_name = :model_name, temperature_param = :temperature_param,
-		    max_tokens = :max_tokens, save_messages = :save_messages, is_enabled = :is_enabled, updated_at = :updated_at
+		    max_tokens = :max_tokens, use_max_tokens = :use_max_tokens,
+		    save_messages = :save_messages, is_enabled = :is_enabled, updated_at = :updated_at
 		WHERE id = :id AND user_id = :user_id
 	`
 

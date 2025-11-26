@@ -14,6 +14,7 @@ type ChatbotCreateRequest struct {
 	TemperatureParam       float64     `json:"temperature_param" binding:"required,min=0,max=2" example:"0.7"`
 	MaxTokens              int         `json:"max_tokens" binding:"required,min=1" example:"1000"`
 	SaveMessages           *bool       `json:"save_messages,omitempty" example:"true"`
+	UseMaxTokens           *bool       `json:"use_max_tokens,omitempty" example:"true"`
 	IsEnabled              *bool       `json:"is_enabled,omitempty" example:"false"`
 	SharedKnowledgeBaseIDs []uuid.UUID `json:"shared_knowledge_base_ids,omitempty"`
 }
@@ -26,6 +27,7 @@ type ChatbotUpdateRequest struct {
 	TemperatureParam       *float64    `json:"temperature_param,omitempty" example:"0.8"`
 	MaxTokens              *int        `json:"max_tokens,omitempty" example:"1500"`
 	SaveMessages           *bool       `json:"save_messages,omitempty" example:"true"`
+	UseMaxTokens           *bool       `json:"use_max_tokens,omitempty" example:"true"`
 	SharedKnowledgeBaseIDs []uuid.UUID `json:"shared_knowledge_base_ids,omitempty"`
 }
 
@@ -39,6 +41,7 @@ type ChatbotResponse struct {
 	TemperatureParam       float64     `json:"temperature_param" example:"0.7"`
 	MaxTokens              int         `json:"max_tokens" example:"1000"`
 	SaveMessages           bool        `json:"save_messages" example:"true"`
+	UseMaxTokens           bool        `json:"use_max_tokens" example:"true"`
 	IsEnabled              bool        `json:"is_enabled" example:"true"`
 	CreatedAt              time.Time   `json:"created_at" example:"2023-01-01T00:00:00Z"`
 	UpdatedAt              time.Time   `json:"updated_at" example:"2023-01-01T00:00:00Z"`

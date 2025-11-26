@@ -37,6 +37,7 @@ interface ChatbotFormData {
   max_tokens: number;
   temperature_param: number;
   save_messages: boolean;
+  use_max_tokens?: boolean;
   shared_knowledge_base_ids: string[];
 }
 
@@ -57,6 +58,7 @@ const modelName = ref("gpt-4");
 const temperatureParam = ref(0.7);
 const maxTokens = ref(2000);
 const saveMessages = ref(true);
+const useMaxTokens = ref(true);
 const selectedSharedKnowledgeBaseIds = ref<string[]>([]);
 
 // Initialize form with chatbot data if editing
@@ -69,6 +71,10 @@ const initializeForm = () => {
     modelName.value = props.chatbot.model_name || "gpt-4";
     temperatureParam.value = props.chatbot.temperature_param || 0.7;
     maxTokens.value = props.chatbot.max_tokens || 2000;
+    useMaxTokens.value =
+      (props.chatbot as any).use_max_tokens !== undefined
+        ? (props.chatbot as any).use_max_tokens
+        : true;
     saveMessages.value =
       props.chatbot.save_messages === undefined
         ? true
@@ -84,6 +90,7 @@ const initializeForm = () => {
     temperatureParam.value = 0.7;
     maxTokens.value = 2000;
     saveMessages.value = true;
+    useMaxTokens.value = true;
     selectedSharedKnowledgeBaseIds.value = [];
   }
 };
@@ -106,6 +113,7 @@ const handleSubmit = () => {
     max_tokens: Number(maxTokens.value),
     temperature_param: Number(temperatureParam.value),
     save_messages: Boolean(saveMessages.value),
+    use_max_tokens: useMaxTokens.value,
     shared_knowledge_base_ids: [...selectedSharedKnowledgeBaseIds.value],
   };
 
@@ -321,6 +329,17 @@ const models = [
                 {{ maxTokens }}
               </div>
             </div>
+            <div class="mt-2 flex items-start justify-between gap-4">
+              <p class="text-xs text-muted-foreground max-w-xs">
+                When enabled, the model is asked to stop after the
+                <span class="font-medium">max tokens</span> value. Setting this
+                too low can cause cut off or even empty responses.
+              </p>
+              <Switch
+                :model-value="useMaxTokens"
+                @update:model-value="(value) => (useMaxTokens = value)"
+              />
+            </div>
             <div class="mt-3">
               <input
                 type="range"
@@ -328,6 +347,7 @@ const models = [
                 max="4000"
                 step="100"
                 v-model.number="maxTokens"
+                :disabled="!useMaxTokens"
                 class="w-full appearance-none bg-transparent"
                 aria-label="Response length"
               />

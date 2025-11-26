@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS documents (
     embedding vector(1536) NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS documents_embedding_idx 
-ON documents 
-USING ivfflat (embedding vector_cosine_ops) 
+CREATE INDEX IF NOT EXISTS documents_embedding_idx
+ON documents
+USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);

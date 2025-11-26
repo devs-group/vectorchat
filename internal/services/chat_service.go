@@ -80,6 +80,7 @@ func (s *ChatService) toChatbotResponse(ctx context.Context, chatbot *db.Chatbot
 		TemperatureParam:       chatbot.TemperatureParam,
 		MaxTokens:              chatbot.MaxTokens,
 		SaveMessages:           chatbot.SaveMessages,
+		UseMaxTokens:           chatbot.UseMaxTokens,
 		IsEnabled:              chatbot.IsEnabled,
 		CreatedAt:              chatbot.CreatedAt,
 		UpdatedAt:              chatbot.UpdatedAt,
@@ -116,12 +117,17 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 		saveMessages = *req.SaveMessages
 	}
 
+	useMaxTokens := true
+	if req.UseMaxTokens != nil {
+		useMaxTokens = *req.UseMaxTokens
+	}
+
 	isEnabled := true
 	if req.IsEnabled != nil {
 		isEnabled = *req.IsEnabled
 	}
 
-	chatbot, err := s.CreateChatbot(ctx, userID, req.Name, req.Description, req.SystemInstructions, modelName, temperature, maxTokens, saveMessages, isEnabled)
+	chatbot, err := s.CreateChatbot(ctx, userID, req.Name, req.Description, req.SystemInstructions, modelName, temperature, maxTokens, saveMessages, isEnabled, useMaxTokens)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +144,7 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 }
 
 // CreateChatbot creates a new chatbot with default settings
-func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions, modelName string, temperature float64, maxTokens int, saveMessages bool, isEnabled bool) (*db.Chatbot, error) {
+func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions, modelName string, temperature float64, maxTokens int, saveMessages bool, isEnabled bool, useMaxTokens bool) (*db.Chatbot, error) {
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
@@ -161,6 +167,7 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 		ModelName:          modelName,
 		TemperatureParam:   temperature,
 		MaxTokens:          maxTokens,
+		UseMaxTokens:       useMaxTokens,
 		SaveMessages:       saveMessages,
 		IsEnabled:          isEnabled,
 		CreatedAt:          now,
@@ -242,7 +249,7 @@ func (s *ChatService) ListChatbotsFormatted(ctx context.Context, userID string) 
 
 // UpdateChatbotFromRequest updates a chatbot from request data
 func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatID, userID string, req *models.ChatbotUpdateRequest) (*models.ChatbotResponse, error) {
-	chatbot, err := s.UpdateChatbotAll(ctx, chatID, userID, req.Name, req.Description, req.SystemInstructions, req.ModelName, req.TemperatureParam, req.MaxTokens, req.SaveMessages)
+	chatbot, err := s.UpdateChatbotAll(ctx, chatID, userID, req.Name, req.Description, req.SystemInstructions, req.ModelName, req.TemperatureParam, req.MaxTokens, req.SaveMessages, req.UseMaxTokens)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +272,7 @@ func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatID, user
 }
 
 // UpdateChatbotAll updates all chatbot fields in a single operation
-func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID string, name, description, systemInstructions, modelName *string, temperature *float64, maxTokens *int, saveMessages *bool) (*db.Chatbot, error) {
+func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID string, name, description, systemInstructions, modelName *string, temperature *float64, maxTokens *int, saveMessages *bool, useMaxTokens *bool) (*db.Chatbot, error) {
 	// Validate inputs
 	if chatbotID == "" || userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
@@ -316,6 +323,10 @@ func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID st
 
 	if saveMessages != nil {
 		chatbot.SaveMessages = *saveMessages
+	}
+
+	if useMaxTokens != nil {
+		chatbot.UseMaxTokens = *useMaxTokens
 	}
 
 	chatbot.UpdatedAt = time.Now()
@@ -768,7 +779,7 @@ func (s *ChatService) chatWithChatbot(
 		return revisedAnswer.RevisedAnswer, currentSessionID.String(), nil
 	}
 
-	// Find relevant documents (RAG context)
+	// Find relevant documents inside of chatbot (RAG context)
 	docs, err := s.documentRepo.FindSimilarByChatbot(ctx, queryEmbedding, chatbotUUID, 5)
 	if err != nil {
 		return "", "", apperrors.Wrapf(apperrors.ErrDatabaseOperation, "find similar documents: %v", err)
@@ -779,6 +790,7 @@ func (s *ChatService) chatWithChatbot(
 		return "", "", apperrors.Wrap(err, "failed to list shared knowledge base ids")
 	}
 
+	// Find relevant documents across shared knowledge bases (RAG context)
 	var sharedDocs []*db.DocumentWithEmbedding
 	if len(sharedIDs) > 0 {
 		sharedDocs, err = s.documentRepo.FindSimilarBySharedKnowledgeBases(ctx, queryEmbedding, sharedIDs, 5)
@@ -839,7 +851,7 @@ func (s *ChatService) chatWithChatbot(
 	}
 
 	// Construct the final prompt
-	finalPrompt := fmt.Sprintf("%s\n\n%s\n%s\nGiven the context information and conversation history, answer the query.\nQuery: %s\nAnswer:",
+	finalPrompt := fmt.Sprintf("%s\n\n%s\n%s\nGiven the context information and conversation history, answer the query.\nFormat rules:\n- Use a single H2 heading (##, ≤8 words) only when the reply is an explanation/guide or longer than 2 paragraphs. For short/direct answers or chatty replies, skip the heading.\n- Use Markdown lists when helpful.\n- Wrap any code in fenced blocks with the language tag (```js, ```python, etc.).\n- Do not return HTML; use only Markdown.\nQuery: %s\nAnswer:",
 		chatbot.SystemInstructions,
 		historyBuilder.String(),
 		ragContextBuilder.String(),
@@ -849,8 +861,10 @@ func (s *ChatService) chatWithChatbot(
 	// Generate response
 	var streamedResponse strings.Builder
 	callOptions := []llms.CallOption{
-		llms.WithMaxTokens(chatbot.MaxTokens),
 		llms.WithTemperature(chatbot.TemperatureParam),
+	}
+	if chatbot.UseMaxTokens {
+		callOptions = append(callOptions, llms.WithMaxTokens(chatbot.MaxTokens))
 	}
 	if streamFn != nil {
 		callOptions = append(callOptions, llms.WithStreamingFunc(func(callCtx context.Context, chunk []byte) error {
@@ -872,14 +886,36 @@ func (s *ChatService) chatWithChatbot(
 		},
 	}, callOptions...)
 	if err != nil {
+		slog.Error("chatWithChatbot: LLM call failed",
+			"chatbot_id", chatbotUUID.String(),
+			"session_id", currentSessionID.String(),
+			"err", err,
+		)
 		return "", "", apperrors.Wrap(err, "failed to generate completion")
 	}
 
+	reasoningContent := ""
 	completion := streamedResponse.String()
 	if completion == "" {
 		for _, choice := range response.Choices {
 			completion += choice.Content
+			reasoningContent += choice.ReasoningContent
 		}
+	}
+
+	if completion == "" {
+		slog.Warn("chatWithChatbot: empty completion from LLM",
+			"chatbot_id", chatbotUUID.String(),
+			"session_id", currentSessionID.String(),
+			"choices", len(response.Choices),
+		)
+	} else {
+		slog.Info("chatWithChatbot: completion summary",
+			"chatbot_id", chatbotUUID.String(),
+			"session_id", currentSessionID.String(),
+			"completion_len", len(completion),
+			"max_tokens", chatbot.MaxTokens,
+		)
 	}
 
 	// Save assistant's message
