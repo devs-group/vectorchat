@@ -15,12 +15,14 @@ import (
 type SharedKnowledgeBaseHandler struct {
 	AuthMiddleware *middleware.AuthMiddleware
 	Service        *services.SharedKnowledgeBaseService
+	Schedule       *services.CrawlScheduleService
 }
 
-func NewSharedKnowledgeBaseHandler(auth *middleware.AuthMiddleware, service *services.SharedKnowledgeBaseService) *SharedKnowledgeBaseHandler {
+func NewSharedKnowledgeBaseHandler(auth *middleware.AuthMiddleware, service *services.SharedKnowledgeBaseService, schedule *services.CrawlScheduleService) *SharedKnowledgeBaseHandler {
 	return &SharedKnowledgeBaseHandler{
 		AuthMiddleware: auth,
 		Service:        service,
+		Schedule:       schedule,
 	}
 }
 
@@ -40,6 +42,10 @@ func (h *SharedKnowledgeBaseHandler) RegisterRoutes(app *fiber.App) {
 	group.Delete("/:id/files/:filename", h.DELETE_File)
 	group.Get("/:id/text", h.GET_TextSources)
 	group.Delete("/:id/text/:sourceId", h.DELETE_TextSource)
+	group.Get("/:id/crawl-schedules", h.GET_CrawlSchedules)
+	group.Put("/:id/crawl-schedules", h.PUT_CrawlSchedule)
+	group.Delete("/:id/crawl-schedules/:scheduleID", h.DELETE_CrawlSchedule)
+	group.Post("/:id/crawl-now", h.POST_CrawlNow)
 }
 
 // @Summary List shared knowledge bases
@@ -499,6 +505,194 @@ func (h *SharedKnowledgeBaseHandler) DELETE_TextSource(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(models.MessageResponse{Message: "Text source deleted successfully"})
+}
+
+// @Summary List crawl schedules
+// @Description List crawl schedules for a shared knowledge base
+// @Tags sharedKnowledgeBase
+// @Accept json
+// @Produce json
+// @Param id path string true "Knowledge base ID (UUID)"
+// @Success 200 {object} models.CrawlScheduleListResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /knowledge-bases/{id}/crawl-schedules [get]
+func (h *SharedKnowledgeBaseHandler) GET_CrawlSchedules(c *fiber.Ctx) error {
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+	kbID, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
+	}
+	if _, err := h.Service.Get(c.Context(), user.ID, kbID); err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
+			status = http.StatusNotFound
+		} else if apperrors.Is(err, apperrors.ErrUnauthorizedKnowledgeBaseAccess) {
+			status = http.StatusForbidden
+		}
+		return ErrorResponse(c, "Failed to fetch knowledge base", err, status)
+	}
+
+	resp, err := h.Schedule.List(c.Context(), services.KnowledgeBaseTarget{SharedKnowledgeBaseID: &kbID})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
+			status = http.StatusBadRequest
+		}
+		return ErrorResponse(c, "Failed to list schedules", err, status)
+	}
+	return c.JSON(resp)
+}
+
+// @Summary Upsert crawl schedule
+// @Description Create or update a crawl schedule for a shared knowledge base
+// @Tags sharedKnowledgeBase
+// @Accept json
+// @Produce json
+// @Param id path string true "Knowledge base ID (UUID)"
+// @Param body body models.CrawlScheduleRequest true "Schedule payload"
+// @Success 200 {object} models.CrawlScheduleResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /knowledge-bases/{id}/crawl-schedules [put]
+func (h *SharedKnowledgeBaseHandler) PUT_CrawlSchedule(c *fiber.Ctx) error {
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+	kbID, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
+	}
+	if _, err := h.Service.Get(c.Context(), user.ID, kbID); err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
+			status = http.StatusNotFound
+		} else if apperrors.Is(err, apperrors.ErrUnauthorizedKnowledgeBaseAccess) {
+			status = http.StatusForbidden
+		}
+		return ErrorResponse(c, "Failed to fetch knowledge base", err, status)
+	}
+
+	var req models.CrawlScheduleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
+
+	resp, err := h.Schedule.Upsert(c.Context(), services.KnowledgeBaseTarget{SharedKnowledgeBaseID: &kbID}, &req)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
+			status = http.StatusBadRequest
+		}
+		return ErrorResponse(c, "Failed to save schedule", err, status)
+	}
+	return c.JSON(resp)
+}
+
+// @Summary Delete crawl schedule
+// @Description Delete a crawl schedule for a shared knowledge base
+// @Tags sharedKnowledgeBase
+// @Accept json
+// @Produce json
+// @Param id path string true "Knowledge base ID (UUID)"
+// @Param scheduleID path string true "Schedule ID (UUID)"
+// @Success 204 {string} string ""
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /knowledge-bases/{id}/crawl-schedules/{scheduleID} [delete]
+func (h *SharedKnowledgeBaseHandler) DELETE_CrawlSchedule(c *fiber.Ctx) error {
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+	kbID, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
+	}
+	scheduleID, err := parseUUIDParam(c, "scheduleID")
+	if err != nil {
+		return ErrorResponse(c, "Invalid schedule id", err, http.StatusBadRequest)
+	}
+
+	// ensure ownership
+	if _, err := h.Service.Get(c.Context(), user.ID, kbID); err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
+			status = http.StatusNotFound
+		} else if apperrors.Is(err, apperrors.ErrUnauthorizedKnowledgeBaseAccess) {
+			status = http.StatusForbidden
+		}
+		return ErrorResponse(c, "Failed to fetch knowledge base", err, status)
+	}
+
+	if err := h.Schedule.Delete(c.Context(), services.KnowledgeBaseTarget{SharedKnowledgeBaseID: &kbID}, scheduleID); err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrNotFound) {
+			status = http.StatusNotFound
+		} else if apperrors.Is(err, apperrors.ErrUnauthorizedKnowledgeBaseAccess) {
+			status = http.StatusForbidden
+		}
+		return ErrorResponse(c, "Failed to delete schedule", err, status)
+	}
+	return c.SendStatus(http.StatusNoContent)
+}
+
+// @Summary Crawl once now
+// @Description Enqueue a single crawl job for this shared knowledge base.
+// @Tags sharedKnowledgeBase
+// @Accept json
+// @Produce json
+// @Param id path string true "Knowledge base ID (UUID)"
+// @Param body body models.WebsiteUploadRequest true "Website URL"
+// @Success 202 {object} models.MessageResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 401 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /knowledge-bases/{id}/crawl-now [post]
+func (h *SharedKnowledgeBaseHandler) POST_CrawlNow(c *fiber.Ctx) error {
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+	kbID, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
+	}
+	if _, err := h.Service.Get(c.Context(), user.ID, kbID); err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
+			status = http.StatusNotFound
+		} else if apperrors.Is(err, apperrors.ErrUnauthorizedKnowledgeBaseAccess) {
+			status = http.StatusForbidden
+		}
+		return ErrorResponse(c, "Failed to fetch knowledge base", err, status)
+	}
+
+	var req models.WebsiteUploadRequest
+	if err := c.BodyParser(&req); err != nil || strings.TrimSpace(req.URL) == "" {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
+
+	if err := h.Schedule.EnqueueOnce(c.Context(), services.KnowledgeBaseTarget{SharedKnowledgeBaseID: &kbID}, req.URL); err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
+			status = http.StatusBadRequest
+		}
+		return ErrorResponse(c, "Failed to enqueue crawl", err, status)
+	}
+	return c.Status(http.StatusAccepted).JSON(models.MessageResponse{Message: "Crawl enqueued"})
 }
 
 func parseUUIDParam(c *fiber.Ctx, key string) (uuid.UUID, error) {

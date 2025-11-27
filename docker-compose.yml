@@ -54,6 +54,7 @@ services:
       - LIGHT_FRONTEND_URL=http://localhost:3100
       - HYDRA_ADMIN_URL=http://hydra:4445
       - HYDRA_PUBLIC_URL=http://hydra:4444
+      - CRAWL_WORKER_ENABLED=true
     depends_on:
       postgres:
         condition: service_healthy
@@ -238,6 +239,50 @@ services:
     networks:
       - vectorchat-network
 
+  nats:
+    image: nats:2.10.19
+    container_name: vectorchat-nats
+    command: ["-js", "-sd", "/data"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats-data:/data
+    networks:
+      - vectorchat-network
+
+  crawl-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vectorchat-crawl-scheduler
+    command: ["/usr/local/bin/crawl-scheduler"]
+    environment:
+      - PG_CONNECTION_STRING=postgres://postgres:postgres@postgres:5432/vectordb?sslmode=disable
+      - OPENAI_API_KEY
+      - CRAWLER_API_URL=http://crawl4ai:11235
+      - MARKITDOWN_API_URL=http://markitdown:8000
+      - MIGRATIONS_PATH=/migrations
+      - BASE_URL=localhost:4456
+      - FRONTEND_URL=http://localhost:3000
+      - LIGHT_FRONTEND_URL=http://localhost:3100
+      - KRATOS_PUBLIC_URL=http://kratos:4433
+      - KRATOS_ADMIN_URL=http://kratos:4434
+      - SESSION_COOKIE_NAME=vectorauth_session
+      - HYDRA_ADMIN_URL=http://hydra:4445
+      - HYDRA_PUBLIC_URL=http://hydra:4444
+      - NATS_URL=nats://nats:4222
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    networks:
+      - vectorchat-network
+    env_file:
+      - .env
+
+
 networks:
   vectorchat-network:
     driver: bridge
@@ -245,3 +290,4 @@ networks:
 volumes:
   postgres-data:
   pgadmin-data:
+  nats-data:

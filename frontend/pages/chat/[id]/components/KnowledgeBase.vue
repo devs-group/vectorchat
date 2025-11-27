@@ -114,8 +114,8 @@
                 placeholder="docs.company.com"
                 :class="websiteProtocolHint ? 'pl-15 pr-12' : 'pr-12'"
                 :aria-invalid="Boolean(websiteError)"
-                @keydown.enter.prevent="addWebsite"
-              />
+                  @keydown.enter.prevent="handleWebsiteEnter"
+                />
               <Button
                 v-if="isWebsiteValid"
                 type="button"
@@ -134,25 +134,7 @@
               <IconAlertCircle class="h-3.5 w-3.5" />
               {{ websiteError }}
             </p>
-            <p
-              v-else
-              class="flex items-center gap-2 text-xs text-muted-foreground"
-            >
-              <IconGlobe class="h-3.5 w-3.5" />
-              {{ websiteHint }}
-            </p>
             <div class="flex items-center gap-3">
-              <Button
-                variant="secondary"
-                @click="addWebsite"
-                :disabled="!isWebsiteValid || isIndexingWebsite"
-              >
-                <template v-if="isIndexingWebsite">
-                  <IconSpinnerArc class="mr-2 h-4 w-4 animate-spin" />
-                  Indexing...
-                </template>
-                <template v-else> Add Website </template>
-              </Button>
               <span
                 v-if="isIndexingWebsite"
                 class="text-xs text-muted-foreground"
@@ -168,6 +150,141 @@
                 {{ indexingTargetDisplay }}
               </span>
               and adding them as context.
+            </div>
+          </div>
+
+          <div class="mt-6 space-y-4">
+            <div class="rounded-xl border border-border bg-card/70 p-5 shadow-sm space-y-4">
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <IconClock class="h-4 w-4" />
+                </div>
+                <div class="flex-1 min-w-[180px]">
+                  <p class="text-sm font-medium">Crawl mode</p>
+                  <p class="text-xs text-muted-foreground">Use the website URL above; jobs run via the queue.</p>
+                </div>
+                <div class="flex gap-2 w-full sm:w-auto">
+                  <Button
+                    class="flex-1 sm:flex-none"
+                    variant="outline"
+                    size="sm"
+                    :class="crawlMode === 'once' ? 'border-primary text-primary' : ''"
+                    @click="crawlMode = 'once'"
+                  >
+                    Once
+                  </Button>
+                  <Button
+                    class="flex-1 sm:flex-none"
+                    variant="outline"
+                    size="sm"
+                    :class="crawlMode === 'recurring' ? 'border-primary text-primary' : ''"
+                    @click="crawlMode = 'recurring'"
+                  >
+                    Recurring
+                  </Button>
+                </div>
+              </div>
+
+              <div v-if="crawlMode === 'recurring'" class="space-y-3">
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Cadence</Label>
+                    <Select
+                      :model-value="scheduleForm.frequency"
+                      @update:model-value="(v) => (scheduleForm.frequency = v as any)"
+                    >
+                      <SelectTrigger class="mt-2 w-full">
+                        <SelectValue placeholder="Choose cadence" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="minute">Every minute</SelectItem>
+                        <SelectItem value="hourly">Hourly</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly (Mon)</SelectItem>
+                        <SelectItem value="monthly">Monthly (1st)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label for="time">Time</Label>
+                    <Input
+                      id="time"
+                      type="time"
+                      v-model="scheduleForm.time"
+                      class="mt-2"
+                    />
+                  </div>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    class="sm:w-auto w-full"
+                    variant="default"
+                    :loading="isSavingSchedule"
+                    :disabled="isSavingSchedule || !isWebsiteValid"
+                    @click="saveSchedule"
+                  >
+                    Save & queue
+                  </Button>
+                  <Button
+                    v-if="schedule"
+                    class="sm:w-auto w-full"
+                    variant="outline"
+                    :loading="isDeletingSchedule"
+                    :disabled="!schedule || isDeletingSchedule"
+                    @click="deleteSchedule"
+                  >
+                    Delete schedule
+                  </Button>
+                </div>
+              </div>
+
+              <div v-else class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <Button
+                  class="sm:w-auto w-full"
+                  variant="secondary"
+                  :loading="isIndexingWebsite"
+                  :disabled="isIndexingWebsite || !isWebsiteValid"
+                  @click="crawlOnce"
+                >
+                  Crawl once now
+                </Button>
+                <p class="text-xs text-muted-foreground">
+                  We’ll queue a single crawl immediately.
+                </p>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-border bg-muted/10 p-5 text-sm space-y-2">
+              <div class="flex items-center gap-2">
+                <IconRefreshCw class="h-4 w-4 text-primary" />
+                <span class="font-medium text-foreground">Queue status</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                <IconSpinnerArc v-if="isIndexingWebsite" class="h-4 w-4 animate-spin" />
+                <IconRefreshCw v-else class="h-4 w-4 text-emerald-500" />
+                <span>
+                  {{ queueStatus || "Idle" }}
+                  <span v-if="queueStatusAt"> • {{ formatDate(queueStatusAt) }}</span>
+                </span>
+              </div>
+              <div class="text-xs text-muted-foreground space-y-1">
+                <div>Last run: {{ lastRunCopy }}</div>
+                <div>Next run: {{ nextRunCopy }}</div>
+                <div v-if="schedule?.last_error" class="text-destructive">
+                  {{ schedule?.last_error }}
+                </div>
+                <div v-if="isLoadingSchedule">Loading schedule…</div>
+                <div v-if="queueMetrics" class="flex flex-wrap gap-2 pt-1">
+                  <span class="rounded bg-muted px-2 py-1">Pending: {{ queueMetrics.consumer?.num_pending ?? 0 }}</span>
+                  <span class="rounded bg-muted px-2 py-1">Ack pending: {{ queueMetrics.consumer?.num_ack_pending ?? 0 }}</span>
+                  <span class="rounded bg-muted px-2 py-1">Waiting: {{ queueMetrics.consumer?.num_waiting ?? 0 }}</span>
+                </div>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <Button size="sm" variant="outline" @click="fetchQueueMetrics">
+                  Refresh metrics
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -285,13 +402,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from "vue";
+import { ref, onMounted, watch, computed, reactive } from "vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PillTabs, PillTab } from "@/components/ui/pill-tabs";
-import type { ChatFile } from "~/types/api";
+import type { ChatFile, CrawlSchedule } from "~/types/api";
 import IconGrid from "@/components/icons/IconGrid.vue";
 import IconFile from "@/components/icons/IconFile.vue";
 import IconText from "@/components/icons/IconText.vue";
@@ -300,6 +425,8 @@ import IconAlertCircle from "@/components/icons/IconAlertCircle.vue";
 import IconUpload from "@/components/icons/IconUpload.vue";
 import IconSpinnerArc from "@/components/icons/IconSpinnerArc.vue";
 import IconX from "@/components/icons/IconX.vue";
+import IconClock from "@/components/icons/IconClock.vue";
+import IconRefreshCw from "@/components/icons/IconRefreshCw.vue";
 import ChatSectionCard from "@/components/chat/ChatSectionCard.vue";
 import { useGlobalState } from "@/composables/useGlobalState";
 import { useApiService } from "@/composables/useApiService";
@@ -334,6 +461,21 @@ const activeTab = ref<"files" | "text" | "website">("files");
 const textSource = ref("");
 const websiteInput = ref("");
 const indexingTarget = ref("");
+const schedule = ref<CrawlSchedule | null>(null);
+const isLoadingSchedule = ref(false);
+const isSavingSchedule = ref(false);
+const isDeletingSchedule = ref(false);
+const localTimezone =
+  Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+const scheduleForm = reactive({
+  frequency: "daily" as "minute" | "hourly" | "daily" | "weekly" | "monthly",
+  time: "03:00",
+  enabled: true,
+});
+const crawlMode = ref<"once" | "recurring">("recurring");
+const queueStatus = ref<string>("");
+const queueStatusAt = ref<string>("");
+const queueMetrics = ref<any | null>(null);
 
 const websiteProtocolHint = computed(() => {
   const raw = websiteInput.value.trim();
@@ -395,25 +537,6 @@ const parsedWebsite = computed(() => {
 const normalizedWebsiteUrl = computed(() => parsedWebsite.value.url);
 const websiteError = computed(() => parsedWebsite.value.error);
 const isWebsiteValid = computed(() => Boolean(parsedWebsite.value.url));
-const websiteHint = computed(() => {
-  if (websiteError.value) {
-    return "";
-  }
-
-  const defaultHint = "Enter a valid website address.";
-  if (!websiteInput.value.trim()) {
-    return defaultHint;
-  }
-
-  const host = parsedWebsite.value.host;
-  const path = parsedWebsite.value.path;
-  const search = parsedWebsite.value.search;
-  if (!host) {
-    return defaultHint;
-  }
-
-  return `We'll crawl ${host}${path || ""}${search || ""} and its linked pages.`;
-});
 
 const indexingTargetDisplay = computed(() => {
   if (indexingTarget.value) {
@@ -633,21 +756,9 @@ const deleteText = async (id: string) => {
   await fetchKnowledgeItems();
 };
 
-const {
-  execute: uploadWebsite,
-  error: uploadWebsiteError,
-  isLoading: isIndexingChatWebsite,
-} = apiService.uploadWebsite();
-const {
-  execute: uploadSharedWebsite,
-  error: uploadSharedWebsiteError,
-  isLoading: isIndexingSharedWebsite,
-} = apiService.uploadSharedKnowledgeBaseWebsite();
-const isIndexingWebsite = computed(() =>
-  isSharedScope.value
-    ? isIndexingSharedWebsite.value
-    : isIndexingChatWebsite.value,
-);
+const isIndexingWebsite = ref(false);
+const { execute: enqueueChatOnce } = apiService.crawlChatOnce();
+const { execute: enqueueSharedOnce } = apiService.crawlSharedOnce();
 
 const previewWebsite = () => {
   if (!isWebsiteValid.value || typeof window === "undefined") {
@@ -657,47 +768,180 @@ const previewWebsite = () => {
   window.open(target, "_blank", "noopener,noreferrer");
 };
 
-// Add website source
-const addWebsite = async () => {
+const parseCron = (expr: string) => {
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length < 5) return;
+  const [min, hour, dom, mon, dow] = parts;
+  const time = `${hour.padStart(2, "0")}:${min.padStart(2, "0")}`;
+  if (parts[0] !== "*" && parts[1] === "*" && dom === "*" && mon === "*" && dow === "*") {
+    return { frequency: "minute" as const, time: "00:00" };
+  }
+  if (parts[1] !== "*" && dom === "*" && mon === "*" && dow === "*") {
+    return { frequency: "hourly" as const, time };
+  }
+  if (dom !== "*" && dom !== "?") {
+    return { frequency: "monthly" as const, time };
+  }
+  if (dow !== "*" && dow !== "?") {
+    return { frequency: "weekly" as const, time };
+  }
+  return { frequency: "daily" as const, time };
+};
+
+const toCron = (
+  frequency: "minute" | "hourly" | "daily" | "weekly" | "monthly",
+  time: string,
+) => {
+  const [hour, minute] = (time || "03:00").split(":");
+  switch (frequency) {
+    case "minute":
+      return "* * * * *"; // every minute
+    case "hourly":
+      return `${minute || "00"} * * * *`; // at minute every hour
+    case "weekly":
+      return `${minute || "00"} ${hour || "03"} * * 1`; // Monday
+    case "monthly":
+      return `${minute || "00"} ${hour || "03"} 1 * *`; // 1st of month
+    default:
+      return `${minute || "00"} ${hour || "03"} * * *`;
+  }
+};
+
+const loadSchedule = async () => {
+  if (!props.resourceId) return;
+  isLoadingSchedule.value = true;
+  const loader = isSharedScope.value
+    ? apiService.listSharedCrawlSchedules()
+    : apiService.listChatCrawlSchedules();
+  await loader.execute(props.resourceId);
+  if (loader.data.value && "schedules" in loader.data.value) {
+    const first = loader.data.value.schedules[0];
+    if (first) {
+      schedule.value = first;
+      const parsed = parseCron(first.cron_expr || "");
+      if (parsed) {
+        scheduleForm.frequency = parsed.frequency;
+        scheduleForm.time = parsed.time;
+      }
+      scheduleForm.timezone = first.timezone || scheduleForm.timezone;
+      scheduleForm.enabled = first.enabled;
+    }
+  }
+  isLoadingSchedule.value = false;
+};
+
+const fetchQueueMetrics = async () => {
+  const { execute, data, error } = apiService.getCrawlQueueMetrics();
+  await execute();
+  if (!error.value && data.value) {
+    queueMetrics.value = (data.value as any).data;
+  }
+};
+
+const saveSchedule = async () => {
+  if (!isWebsiteValid.value) {
+    showError(new Error("Enter a valid website URL before scheduling."));
+    return;
+  }
+  if (!scheduleForm.time) {
+    scheduleForm.time = "03:00";
+  }
+  isSavingSchedule.value = true;
+  queueStatus.value = "Enqueuing first crawl…";
+  queueStatusAt.value = new Date().toISOString();
+  const saver = isSharedScope.value
+    ? apiService.upsertSharedCrawlSchedule()
+    : apiService.upsertChatCrawlSchedule();
+  const payload: any = {
+    body: {
+      url: normalizedWebsiteUrl.value,
+      cron_expr: toCron(scheduleForm.frequency, scheduleForm.time),
+      timezone: localTimezone,
+      enabled: scheduleForm.enabled,
+    },
+  };
+  if (isSharedScope.value) payload.kbId = props.resourceId;
+  else payload.chatId = props.resourceId;
+
+  const res = await saver.execute(payload);
+  if (!saver.error.value && res) {
+    schedule.value = res;
+    crawlMode.value = "recurring";
+    queueStatus.value = "Queued";
+    queueStatusAt.value = new Date().toISOString();
+  }
+  isSavingSchedule.value = false;
+};
+
+const deleteSchedule = async () => {
+  if (!schedule.value) return;
+  isDeletingSchedule.value = true;
+  const deleter = isSharedScope.value
+    ? apiService.deleteSharedCrawlSchedule()
+    : apiService.deleteChatCrawlSchedule();
+  const payload: any = { scheduleId: schedule.value.id };
+  if (isSharedScope.value) payload.kbId = props.resourceId;
+  else payload.chatId = props.resourceId;
+  await deleter.execute(payload);
+  if (!deleter.error.value) {
+    schedule.value = null;
+  }
+  isDeletingSchedule.value = false;
+};
+
+// One-off crawl via queue
+const crawlOnce = async () => {
   if (!props.resourceId || !isWebsiteValid.value) return;
   const targetUrl = normalizedWebsiteUrl.value;
   indexingTarget.value = targetUrl;
+  isIndexingWebsite.value = true;
+  queueStatus.value = "Queued";
+  queueStatusAt.value = new Date().toISOString();
   if (isSharedScope.value) {
-    await uploadSharedWebsite({ kbId: props.resourceId, url: targetUrl });
-    if (uploadSharedWebsiteError.value) {
-      indexingTarget.value = "";
-      return;
-    }
+    await enqueueSharedOnce({ kbId: props.resourceId, url: targetUrl });
   } else {
-    await uploadWebsite({ chatID: props.resourceId, url: targetUrl });
-    if (uploadWebsiteError.value) {
-      indexingTarget.value = "";
-      return;
-    }
+    await enqueueChatOnce({ chatId: props.resourceId, url: targetUrl });
   }
-  websiteInput.value = "";
   indexingTarget.value = "";
-  await fetchKnowledgeItems();
+  isIndexingWebsite.value = false;
+};
+
+const handleWebsiteEnter = async () => {
+  if (crawlMode.value === "recurring") {
+    await saveSchedule();
+  } else {
+    await crawlOnce();
+  }
 };
 
 // Watch for resource changes
 watch(
   () => props.resourceId,
   async (newId) => {
-    if (newId) await fetchKnowledgeItems();
+    if (newId) {
+      await fetchKnowledgeItems();
+      await loadSchedule();
+    }
   },
 );
 
 watch(
   () => props.scope,
   async () => {
-    if (props.resourceId) await fetchKnowledgeItems();
+    if (props.resourceId) {
+      await fetchKnowledgeItems();
+      await loadSchedule();
+    }
   },
 );
 
 // Initialize on mount
 onMounted(async () => {
-  if (props.resourceId) await fetchKnowledgeItems();
+  if (props.resourceId) {
+    await fetchKnowledgeItems();
+    await loadSchedule();
+  }
+  fetchQueueMetrics();
 });
 
 // Expose methods and reactive state for parent component
@@ -718,6 +962,21 @@ const totalBytes = computed(() => {
   );
   return filesBytes + textBytes;
 });
+
+const lastRunCopy = computed(() => {
+  if (schedule.value?.last_run_at) {
+    return formatDate(schedule.value.last_run_at);
+  }
+  return "Not run yet";
+});
+
+const nextRunCopy = computed(() => {
+  if (schedule.value?.next_run_at) {
+    return formatDate(schedule.value.next_run_at);
+  }
+  return "Scheduled after next refresh";
+});
+
 </script>
 
 <style scoped>

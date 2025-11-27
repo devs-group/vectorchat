@@ -16,6 +16,8 @@ import type {
   SharedKnowledgeBaseFileUploadResponse,
   SharedKnowledgeBaseFilesResponse,
   SharedKnowledgeBaseTextSourcesResponse,
+  CrawlSchedule,
+  CrawlScheduleListResponse,
 } from "~/types/api";
 
 /**
@@ -512,6 +514,139 @@ export function useApiService() {
     );
   };
 
+  // Crawl schedules (chat)
+  const listChatCrawlSchedules = () => {
+    return useApi(
+      async (chatId: string) => {
+        return await useApiFetch<CrawlScheduleListResponse>(
+          `/chat/${chatId}/crawl-schedules`,
+          { method: "GET" },
+        );
+      },
+      { errorMessage: "Failed to load crawl schedules" },
+    );
+  };
+
+  const upsertChatCrawlSchedule = () => {
+    return useApi(
+      async (data: { chatId: string; body: Partial<CrawlSchedule> }) => {
+        return await useApiFetch<CrawlSchedule>(
+          `/chat/${data.chatId}/crawl-schedules`,
+          { method: "PUT", body: data.body },
+        );
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Schedule saved",
+        errorMessage: "Failed to save schedule",
+      },
+    );
+  };
+
+  const deleteChatCrawlSchedule = () => {
+    return useApi(
+      async (data: { chatId: string; scheduleId: string }) => {
+        return await useApiFetch(
+          `/chat/${data.chatId}/crawl-schedules/${data.scheduleId}`,
+          { method: "DELETE" },
+        );
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Schedule deleted",
+        errorMessage: "Failed to delete schedule",
+      },
+    );
+  };
+
+  // Crawl schedules (shared KB)
+  const listSharedCrawlSchedules = () => {
+    return useApi(
+      async (kbId: string) => {
+        return await useApiFetch<CrawlScheduleListResponse>(
+          `/knowledge-bases/${kbId}/crawl-schedules`,
+          { method: "GET" },
+        );
+      },
+      { errorMessage: "Failed to load crawl schedules" },
+    );
+  };
+
+  const upsertSharedCrawlSchedule = () => {
+    return useApi(
+      async (data: { kbId: string; body: Partial<CrawlSchedule> }) => {
+        return await useApiFetch<CrawlSchedule>(
+          `/knowledge-bases/${data.kbId}/crawl-schedules`,
+          { method: "PUT", body: data.body },
+        );
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Schedule saved",
+        errorMessage: "Failed to save schedule",
+      },
+    );
+  };
+
+  const deleteSharedCrawlSchedule = () => {
+    return useApi(
+      async (data: { kbId: string; scheduleId: string }) => {
+        return await useApiFetch(
+          `/knowledge-bases/${data.kbId}/crawl-schedules/${data.scheduleId}`,
+          { method: "DELETE" },
+        );
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Schedule deleted",
+        errorMessage: "Failed to delete schedule",
+      },
+    );
+  };
+
+  const crawlSharedOnce = () => {
+    return useApi(
+      async (data: { kbId: string; url: string }) => {
+        return await useApiFetch(`/knowledge-bases/${data.kbId}/crawl-now`, {
+          method: "POST",
+          body: { url: data.url },
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Crawl enqueued",
+        errorMessage: "Failed to enqueue crawl",
+      },
+    );
+  };
+
+  const crawlChatOnce = () => {
+    return useApi(
+      async (data: { chatId: string; url: string }) => {
+        return await useApiFetch(`/chat/${data.chatId}/crawl-now`, {
+          method: "POST",
+          body: { url: data.url },
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Crawl enqueued",
+        errorMessage: "Failed to enqueue crawl",
+      },
+    );
+  };
+
+  const getCrawlQueueMetrics = () => {
+    return useApi(
+      async () => {
+        return await useApiFetch(`/queue/crawl/metrics`, { method: "GET" });
+      },
+      {
+        errorMessage: "Failed to load crawl queue metrics",
+      },
+    );
+  };
+
   const sendChatMessage = () => {
     return useApi(
       async (data: {
@@ -879,6 +1014,15 @@ export function useApiService() {
     deleteSharedKnowledgeBaseFile,
     listSharedKnowledgeBaseTextSources,
     deleteSharedKnowledgeBaseTextSource,
+    listChatCrawlSchedules,
+    upsertChatCrawlSchedule,
+    deleteChatCrawlSchedule,
+    listSharedCrawlSchedules,
+    upsertSharedCrawlSchedule,
+    deleteSharedCrawlSchedule,
+    crawlSharedOnce,
+    crawlChatOnce,
+    getCrawlQueueMetrics,
 
     // Conversations
     listConversations,

@@ -16,4 +16,8 @@ type AppConfig struct {
 	MarkitdownURL     string `env:"MARKITDOWN_API_URL" envDefault:"http://localhost:8000"`
 	HydraAdminURL     string `env:"HYDRA_ADMIN_URL" envDefault:"http://hydra:4445"`
 	HydraPublicURL    string `env:"HYDRA_PUBLIC_URL" envDefault:"http://hydra:4444"`
+	NATSURL           string `env:"NATS_URL" envDefault:"nats://nats:4222"`
+	NATSUsername      string `env:"NATS_USERNAME" envDefault:""`
+	NATSPassword      string `env:"NATS_PASSWORD" envDefault:""`
+	CrawlWorkerEnabled bool   `env:"CRAWL_WORKER_ENABLED" envDefault:"true"`
 }

@@ -166,6 +166,26 @@ export interface SharedKnowledgeBaseTextSourcesResponse {
   sources: TextSource[];
 }
 
+export interface CrawlSchedule {
+  id: string;
+  url: string;
+  cron_expr: string;
+  timezone: string;
+  enabled: boolean;
+  last_run_at?: string | null;
+  next_run_at?: string | null;
+  last_status?: string | null;
+  last_error?: string | null;
+  chatbot_id?: string | null;
+  shared_knowledge_base_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrawlScheduleListResponse {
+  schedules: CrawlSchedule[];
+}
+
 // Billing
 export interface Plan {
   id: string;

@@ -17,8 +17,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application binaries
 RUN CGO_ENABLED=0 GOOS=linux go build -o /vectorchat ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /crawl-scheduler ./cmd/crawl-scheduler/main.go
 
 # Use a small image for the final container
 FROM alpine:latest
@@ -35,6 +36,7 @@ COPY --from=builder /app/internal/db/migrations /migrations
 COPY --from=builder /go/bin/goose /usr/local/bin/
 COPY --from=builder /go/bin/air /usr/local/bin/
 COPY --from=builder /vectorchat .
+COPY --from=builder /crawl-scheduler /usr/local/bin/
 
 # Command to run the executable
 CMD ["./vectorchat", "run"]

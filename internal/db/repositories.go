@@ -9,6 +9,7 @@ type Repositories struct {
 	Message  *ChatMessageRepository
 	Revision *RevisionRepository
 	SharedKB *SharedKnowledgeBaseRepository
+	Schedule *CrawlScheduleRepository
 }
 
 // NewRepositories creates all repository instances
@@ -22,5 +23,6 @@ func NewRepositories(db *Database) *Repositories {
 		Message:  NewChatMessageRepository(db),
 		Revision: NewRevisionRepository(db),
 		SharedKB: NewSharedKnowledgeBaseRepository(db),
+		Schedule: NewCrawlScheduleRepository(db),
 	}
 }

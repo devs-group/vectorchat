@@ -126,6 +126,11 @@ func (s *KnowledgeBaseService) IngestWebsite(ctx context.Context, target Knowled
 		host = u.Hostname()
 	}
 
+	// Ensure we don't keep multiple versions of the same website in a KB
+	if err := s.removeExistingWebsiteSources(ctx, target, host); err != nil {
+		return nil, err
+	}
+
 	fileID := uuid.New()
 	file := &db.File{
 		ID:                    fileID,
@@ -197,6 +202,43 @@ func (s *KnowledgeBaseService) IngestWebsite(ctx context.Context, target Knowled
 	}
 
 	return file, nil
+}
+
+// removeExistingWebsiteSources deletes prior crawls for the same host in the target KB.
+func (s *KnowledgeBaseService) removeExistingWebsiteSources(ctx context.Context, target KnowledgeBaseTarget, host string) error {
+	var files []*db.File
+	var err error
+	if target.ChatbotID != nil {
+		files, err = s.fileRepo.FindNonTextByChatbotID(ctx, *target.ChatbotID)
+	} else if target.SharedKnowledgeBaseID != nil {
+		files, err = s.fileRepo.FindNonTextBySharedKnowledgeBaseID(ctx, *target.SharedKnowledgeBaseID)
+	}
+	if err != nil {
+		return apperrors.Wrap(err, "failed to list existing website sources")
+	}
+
+	prefix := fmt.Sprintf("website-%s", host)
+	for _, f := range files {
+		if !strings.HasPrefix(f.Filename, prefix) {
+			continue
+		}
+		tx, txErr := s.db.BeginTx(ctx)
+		if txErr != nil {
+			return apperrors.Wrap(txErr, "failed to start cleanup transaction")
+		}
+		if err := s.documentRepo.DeleteByFileIDTx(ctx, tx, f.ID); err != nil {
+			tx.Rollback()
+			return apperrors.Wrap(err, "failed to delete existing website documents")
+		}
+		if err := s.fileRepo.DeleteTx(ctx, tx, f.ID); err != nil {
+			tx.Rollback()
+			return apperrors.Wrap(err, "failed to delete existing website file")
+		}
+		if err := tx.Commit(); err != nil {
+			return apperrors.Wrap(err, "failed to commit website cleanup")
+		}
+	}
+	return nil
 }
 
 func (s *KnowledgeBaseService) storeProcessedMarkdown(ctx context.Context, target KnowledgeBaseTarget, originalFilename string, originalSize int64, markdown string, docID string, ingestedAt time.Time) (*db.File, error) {

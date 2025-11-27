@@ -25,6 +25,7 @@ type ChatHandler struct {
 	OwershipMiddleware *middleware.OwnershipMiddleware
 	CommonService      *services.CommonService
 	SubscriptionLimits *middleware.SubscriptionLimitsMiddleware
+	ScheduleService    *services.CrawlScheduleService
 }
 
 func NewChatHandler(
@@ -33,6 +34,7 @@ func NewChatHandler(
 	ownershipMiddlware *middleware.OwnershipMiddleware,
 	commonService *services.CommonService,
 	subscriptionLimits *middleware.SubscriptionLimitsMiddleware,
+	scheduleService *services.CrawlScheduleService,
 ) *ChatHandler {
 	return &ChatHandler{
 		ChatService:        chatService,
@@ -40,6 +42,7 @@ func NewChatHandler(
 		OwershipMiddleware: ownershipMiddlware,
 		CommonService:      commonService,
 		SubscriptionLimits: subscriptionLimits,
+		ScheduleService:    scheduleService,
 	}
 }
 
@@ -63,6 +66,10 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Delete("/:chatID/text/:id", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_TextSource)
 	chat.Delete("/:chatID/files/:filename", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_ChatFile)
 	chat.Get("/:chatID/files", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatFiles)
+	chat.Get("/:chatID/crawl-schedules", h.OwershipMiddleware.IsChatbotOwner, h.GET_CrawlSchedules)
+	chat.Put("/:chatID/crawl-schedules", h.OwershipMiddleware.IsChatbotOwner, h.PUT_CrawlSchedule)
+	chat.Delete("/:chatID/crawl-schedules/:scheduleID", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_CrawlSchedule)
+	chat.Post("/:chatID/crawl-now", h.OwershipMiddleware.IsChatbotOwner, h.POST_CrawlNow)
 
 	// Chat
 	chat.Post("/:chatID/message", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckMessageCredits(), h.POST_ChatMessage)
@@ -297,6 +304,136 @@ func (h *ChatHandler) GET_ChatFiles(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(response)
+}
+
+// @Summary List crawl schedules
+// @Description List all crawl schedules for a chatbot knowledge base
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Success 200 {object} models.CrawlScheduleListResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /chat/{chatID}/crawl-schedules [get]
+func (h *ChatHandler) GET_CrawlSchedules(c *fiber.Ctx) error {
+	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+	}
+
+	resp, err := h.ScheduleService.List(c.Context(), services.KnowledgeBaseTarget{ChatbotID: &chatID})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
+			status = http.StatusBadRequest
+		}
+		return ErrorResponse(c, "Failed to list schedules", err, status)
+	}
+	return c.JSON(resp)
+}
+
+// @Summary Upsert crawl schedule
+// @Description Create or update a crawl schedule for a chatbot knowledge base
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Param body body models.CrawlScheduleRequest true "Schedule payload"
+// @Success 200 {object} models.CrawlScheduleResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /chat/{chatID}/crawl-schedules [put]
+func (h *ChatHandler) PUT_CrawlSchedule(c *fiber.Ctx) error {
+	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+	}
+
+	var req models.CrawlScheduleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
+
+	resp, err := h.ScheduleService.Upsert(c.Context(), services.KnowledgeBaseTarget{ChatbotID: &chatID}, &req)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
+			status = http.StatusBadRequest
+		}
+		return ErrorResponse(c, "Failed to save schedule", err, status)
+	}
+	return c.JSON(resp)
+}
+
+// @Summary Delete crawl schedule
+// @Description Delete a crawl schedule for a chatbot knowledge base
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Param scheduleID path string true "Schedule ID (UUID)"
+// @Success 204 {string} string ""
+// @Failure 400 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /chat/{chatID}/crawl-schedules/{scheduleID} [delete]
+func (h *ChatHandler) DELETE_CrawlSchedule(c *fiber.Ctx) error {
+	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+	}
+	scheduleID, err := parseUUIDParam(c, "scheduleID")
+	if err != nil {
+		return ErrorResponse(c, "Invalid schedule id", err, http.StatusBadRequest)
+	}
+
+	if err := h.ScheduleService.Delete(c.Context(), services.KnowledgeBaseTarget{ChatbotID: &chatID}, scheduleID); err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrNotFound) {
+			status = http.StatusNotFound
+		} else if apperrors.Is(err, apperrors.ErrUnauthorizedKnowledgeBaseAccess) {
+			status = http.StatusForbidden
+		}
+		return ErrorResponse(c, "Failed to delete schedule", err, status)
+	}
+	return c.SendStatus(http.StatusNoContent)
+}
+
+// @Summary Crawl once now
+// @Description Enqueue a single crawl job for this chatbot knowledge base using the provided URL.
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param chatID path string true "Chat session ID"
+// @Param body body models.WebsiteUploadRequest true "Website URL"
+// @Success 202 {object} models.MessageResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /chat/{chatID}/crawl-now [post]
+func (h *ChatHandler) POST_CrawlNow(c *fiber.Ctx) error {
+	chatID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chat ID", err, http.StatusBadRequest)
+	}
+
+	var req models.WebsiteUploadRequest
+	if err := c.BodyParser(&req); err != nil || strings.TrimSpace(req.URL) == "" {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
+
+	if err := h.ScheduleService.EnqueueOnce(c.Context(), services.KnowledgeBaseTarget{ChatbotID: &chatID}, req.URL); err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
+			status = http.StatusBadRequest
+		}
+		return ErrorResponse(c, "Failed to enqueue crawl", err, status)
+	}
+	return c.Status(http.StatusAccepted).JSON(models.MessageResponse{Message: "Crawl enqueued"})
 }
 
 // @Summary Get list of chatbots

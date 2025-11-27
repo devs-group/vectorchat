@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"log/slog"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/swagger"
+	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	"github.com/pressly/goose/v3"
 	"github.com/urfave/cli/v3"
 
@@ -23,11 +26,14 @@ import (
 	"github.com/yourusername/vectorchat/internal/crawler"
 	"github.com/yourusername/vectorchat/internal/db"
 	"github.com/yourusername/vectorchat/internal/middleware"
+	"github.com/yourusername/vectorchat/internal/queue"
 	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/internal/vectorize"
+	"github.com/robfig/cron/v3"
 	"github.com/yourusername/vectorchat/pkg/config"
 	"github.com/yourusername/vectorchat/pkg/constants"
 	"github.com/yourusername/vectorchat/pkg/docprocessor"
+	"github.com/yourusername/vectorchat/pkg/jobs"
 	stripe_sub "github.com/yourusername/vectorchat/pkg/stripe_sub"
 )
 
@@ -90,10 +96,10 @@ func runApplication(appCfg *config.AppConfig) error {
 		return fmt.Errorf("failed to connect to PostgreSQL: %v", err)
 	}
 
-	// Run database migrations
-	if err := runMigrations(pgConnStr, appCfg.MigrationsPath); err != nil {
-		return fmt.Errorf("failed to run migrations: %v", err)
-	}
+    // Run database migrations
+    if err := runMigrations(pgConnStr, appCfg.MigrationsPath); err != nil {
+        return fmt.Errorf("failed to run migrations: %v", err)
+    }
 
 	// Initialize database
 	pool, err := db.NewDatabase(pgConnStr)
@@ -140,6 +146,20 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize repositories
 	repos := db.NewRepositories(pool)
 
+	// JetStream for crawl queue (optional but recommended)
+	var js nats.JetStreamContext
+	nc, err := queue.Connect(appCfg.NATSURL, appCfg.NATSUsername, appCfg.NATSPassword)
+	if err != nil {
+		logger.Warn("failed to connect to nats; crawl scheduling will degrade", "error", err)
+	} else {
+		defer nc.Drain()
+		if js, err = nc.JetStream(); err != nil {
+			logger.Warn("failed to init jetstream", "error", err)
+		} else if err := queue.EnsureStreams(js); err != nil {
+			logger.Warn("failed to ensure jetstream streams", "error", err)
+		}
+	}
+
 	// Initialize services
 	kbService := services.NewKnowledgeBaseService(repos.File, repos.Document, vectorizer, processor, webCrawler, pool)
 	sharedKBService := services.NewSharedKnowledgeBaseService(repos.SharedKB, repos.File, repos.Document, kbService)
@@ -149,6 +169,19 @@ func runApplication(appCfg *config.AppConfig) error {
 	chatService := services.NewChatService(repos.Chat, repos.SharedKB, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, kbService, openaiKey, pool)
 	apiKeyService := services.NewAPIKeyService(hydraService)
 	commonService := services.NewCommonService()
+	scheduleService := services.NewCrawlScheduleService(repos.Schedule, kbService, js)
+
+	// Validate that cron library supports our expressions (minute granularity) once at startup
+	if _, err := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow).Parse("*/5 * * * *"); err != nil {
+		logger.Warn("cron parser init failed", "error", err)
+	}
+
+	// Start embedded crawl worker if enabled and JetStream available
+	if appCfg.CrawlWorkerEnabled && js != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go startCrawlWorker(ctx, js, repos.Schedule, kbService, logger)
+	}
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(authService, hydraService)
@@ -167,8 +200,8 @@ func runApplication(appCfg *config.AppConfig) error {
 	app.Use(fiberLogger.New())
 
 	// Initialize API handlers
-	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, ownershipMiddleware, commonService, subscriptionLimits)
-	sharedKnowledgeBaseHandler := api.NewSharedKnowledgeBaseHandler(authMiddleware, sharedKBService)
+	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, ownershipMiddleware, commonService, subscriptionLimits, scheduleService)
+	sharedKnowledgeBaseHandler := api.NewSharedKnowledgeBaseHandler(authMiddleware, sharedKBService, scheduleService)
 	authHandler := api.NewAuthHandler(authService, authMiddleware, api.AuthConfig{
 		KratosPublicURL: appCfg.KratosPublicURL,
 		KratosAdminURL:  appCfg.KratosAdminURL,
@@ -178,6 +211,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	subsHandler := api.NewStripeSubHandler(authMiddleware, svc)
 	conversationHandler := api.NewConversationHandler(authMiddleware, chatService)
 	widgetHandler := api.NewWidgetHandler(authMiddleware)
+	queueHandler := api.NewQueueHandler(authMiddleware, services.NewQueueMetricsService(js))
 
 	// Register routes
 	chatbotHandler.RegisterRoutes(app)
@@ -187,6 +221,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	subsHandler.RegisterRoutes(app)
 	conversationHandler.RegisterRoutes(app)
 	widgetHandler.RegisterRoutes(app)
+	queueHandler.RegisterRoutes(app)
 
 	// Add swagger route
 	app.Get("/swagger/*", swagger.HandlerDefault)
@@ -199,6 +234,75 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	log.Printf("Server starting on port %s", port)
 	return app.Listen(":" + port)
+}
+
+func startCrawlWorker(ctx context.Context, js nats.JetStreamContext, scheduleRepo *db.CrawlScheduleRepository, kbService *services.KnowledgeBaseService, logger *slog.Logger) {
+	sub, err := js.PullSubscribe(
+		jobs.CrawlSubject,
+		"crawler-workers",
+		nats.BindStream(jobs.CrawlStream),
+		nats.ManualAck(),
+	)
+	if err != nil {
+		logger.Warn("crawl worker: failed to subscribe", "error", err)
+		return
+	}
+	logger.Info("crawl worker started (embedded)")
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("crawl worker stopping")
+			return
+		default:
+		}
+
+		msgs, err := sub.Fetch(1, nats.MaxWait(2*time.Second))
+		if err != nil {
+			if err == nats.ErrTimeout {
+				continue
+			}
+			logger.Warn("crawl worker: fetch error", "error", err)
+			continue
+		}
+
+		for _, msg := range msgs {
+			handleCrawlMessage(ctx, msg, kbService, scheduleRepo, logger)
+		}
+	}
+}
+
+func handleCrawlMessage(ctx context.Context, msg *nats.Msg, kb *services.KnowledgeBaseService, repo *db.CrawlScheduleRepository, logger *slog.Logger) {
+	var payload jobs.CrawlJobPayload
+	if err := json.Unmarshal(msg.Data, &payload); err != nil {
+		logger.Warn("crawl worker: invalid payload", "error", err)
+		_ = msg.Term()
+		return
+	}
+
+	target := services.KnowledgeBaseTarget{
+		ChatbotID:             payload.ChatbotID,
+		SharedKnowledgeBaseID: payload.SharedKnowledgeBaseID,
+	}
+
+	start := time.Now().UTC()
+	if _, err := kb.IngestWebsite(ctx, target, payload.RootURL); err != nil {
+		if payload.ScheduleID != uuid.Nil {
+			errMsg := err.Error()
+			status := "failed"
+			_ = repo.UpdateRunInfo(context.Background(), payload.ScheduleID, &start, nil, &status, &errMsg)
+		}
+		logger.Error("crawl worker: crawl failed", "schedule_id", payload.ScheduleID, "error", err)
+		_ = msg.Nak()
+		return
+	}
+
+	if payload.ScheduleID != uuid.Nil {
+		status := "completed"
+		_ = repo.UpdateRunInfo(context.Background(), payload.ScheduleID, &start, nil, &status, nil)
+	}
+	_ = msg.Ack()
+	logger.Info("crawl worker: crawl completed", "schedule_id", payload.ScheduleID, "url", payload.RootURL)
 }
 
 // defaultPlans returns the requested initial plans seeded on startup.
