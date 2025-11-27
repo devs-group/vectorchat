@@ -11,6 +11,8 @@ export default defineNuxtConfig({
     public: {
       frontendLoginUrl: process.env.NUXT_PUBLIC_FRONTEND_LOGIN_URL || "",
       kratosPublicUrl: process.env.NUXT_PUBLIC_KRATOS_PUBLIC_URL || "",
+      vectorchatUrl:
+        process.env.NUXT_PUBLIC_VECTORCHAT_URL || "http://localhost:3000",
     },
   },
   components: [

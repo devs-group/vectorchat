@@ -31,7 +31,7 @@ const dashboardHref = computed(() => {
   if (config.public.vectorchatUrl) {
     return config.public.vectorchatUrl as string;
   }
-  return loginHref.value;
+  return loginHref.value || "http://localhost:3000";
 });
 
 onMounted(() => {

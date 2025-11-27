@@ -4,10 +4,8 @@ import {
   getRouterParam,
   setHeader,
 } from "h3";
-import {
-  getVectorchatAccessToken,
-  getVectorchatBaseUrl,
-} from "../../../utils/vectorchat-auth";
+import { getVectorchatBaseUrl } from "../../../utils/vectorchat-auth";
+import { createUserAuthHeaders } from "../../../utils/ory-session";
 
 export default defineEventHandler(async (event) => {
   const chatID = getRouterParam(event, "chatID");
@@ -38,14 +36,12 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // Fetch widget JavaScript from VectorChat API
-    const accessToken = await getVectorchatAccessToken(config);
+    // Forward the authenticated user's session cookie to VectorChat API
+    const authHeaders = await createUserAuthHeaders(event);
     const response = await fetch(
       `${apiUrl}/widgets/chats/${chatID}/${widget}`,
       {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: authHeaders,
       },
     );
 
@@ -54,6 +50,12 @@ export default defineEventHandler(async (event) => {
         throw createError({
           statusCode: 404,
           statusMessage: "Widget not found",
+        });
+      }
+      if (response.status === 401) {
+        throw createError({
+          statusCode: 401,
+          statusMessage: "Authentication required",
         });
       }
       throw createError({
