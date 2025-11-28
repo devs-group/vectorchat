@@ -18,6 +18,8 @@ import IconUserCircle from "@/components/icons/IconUserCircle.vue";
 import IconSun from "@/components/icons/IconSun.vue";
 import ChatSectionCard from "@/components/chat/ChatSectionCard.vue";
 import SystemPromptHelperDialog from "@/components/chat/SystemPromptHelperDialog.vue";
+import { useApiService } from "@/composables/useApiService";
+import type { LLMModel } from "~/types/api";
 
 interface Props {
   chatbot?: ChatbotResponse | null;
@@ -51,17 +53,133 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<EmitEvents>();
 
+type ModelOption = LLMModel & { hint?: string };
+const fallbackModels: ModelOption[] = [
+  {
+    id: "chat-default",
+    label: "Chat Default (GPT-4o Mini)",
+    provider: "openai",
+    advanced: false,
+    hint: "Fast, low-latency general chat via proxy",
+  },
+  {
+    id: "claude-default",
+    label: "Claude 3.5 Sonnet",
+    provider: "anthropic",
+    advanced: true,
+    hint: "Advanced reasoning; may consume more credits",
+  },
+  {
+    id: "gpt-4o-mini",
+    label: "GPT-4o Mini (Direct)",
+    provider: "openai",
+    advanced: false,
+    hint: "Direct OpenAI fallback if proxy models are unavailable",
+  },
+  {
+    id: "gemini-default",
+    label: "Gemini 1.5 Flash",
+    provider: "google",
+    advanced: true,
+    hint: "Google Gemini via proxy; great for long-context reads",
+  },
+  {
+    id: "gpt5-default",
+    label: "GPT-5",
+    provider: "openai",
+    advanced: true,
+    hint: "Latest OpenAI flagship; highest quality reasoning",
+  },
+  {
+    id: "gpt5-mini",
+    label: "GPT-5 Mini",
+    provider: "openai",
+    advanced: true,
+    hint: "Balanced speed and cost for GPT-5 generation",
+  },
+  {
+    id: "gpt5-nano",
+    label: "GPT-5 Nano",
+    provider: "openai",
+    advanced: false,
+    hint: "Fast, budget-friendly GPT-5 tier",
+  },
+];
+
+const defaultModelId = fallbackModels[0].id;
+const api = useApiService();
+
 // Form reactive data
 const name = ref("");
 const description = ref("");
 const systemInstructions = ref("You are a helpful AI assistant");
-const modelName = ref("gpt-4");
+const modelName = ref(defaultModelId);
 const temperatureParam = ref(0.7);
 const maxTokens = ref(2000);
 const saveMessages = ref(true);
 const useMaxTokens = ref(false);
 const selectedSharedKnowledgeBaseIds = ref<string[]>([]);
 const showPromptHelper = ref(false);
+const models = ref<ModelOption[]>([...fallbackModels]);
+const modelsLoading = ref(false);
+const modelsSource = ref<"fallback" | "api">("fallback");
+
+const formatHint = (model?: Partial<ModelOption>) => {
+  if (!model) return "";
+  const provider = model.provider
+    ? `${model.provider.slice(0, 1).toUpperCase()}${model.provider.slice(1)}`
+    : "LLM";
+  if (model.advanced) {
+    return `${provider} • Advanced`;
+  }
+  return provider;
+};
+
+const normalizeModels = (items: LLMModel[]): ModelOption[] => {
+  return items.map((m) => ({
+    ...m,
+    label: m.label || m.id,
+    hint: formatHint(m),
+  }));
+};
+
+const ensureModelSelection = () => {
+  if (!models.value.length) {
+    models.value = [...fallbackModels];
+  }
+
+  const exists = models.value.find((m) => m.id === modelName.value);
+  if (!exists) {
+    modelName.value = models.value[0]?.id || defaultModelId;
+  }
+};
+
+const applyModelPayload = (payload?: LLMModel[]) => {
+  if (payload && payload.length) {
+    models.value = normalizeModels(payload);
+    modelsSource.value = "api";
+  } else {
+    models.value = [...fallbackModels];
+    modelsSource.value = "fallback";
+  }
+  ensureModelSelection();
+};
+
+const { data: llmModels, execute: fetchModels } = api.listLLMModels();
+
+const loadModels = async () => {
+  modelsLoading.value = true;
+  await fetchModels();
+  modelsLoading.value = false;
+  applyModelPayload(llmModels.value?.models);
+};
+
+onMounted(loadModels);
+
+watch(
+  () => llmModels.value,
+  (val) => applyModelPayload(val?.models),
+);
 
 // Initialize form with chatbot data if editing
 const initializeForm = () => {
@@ -70,7 +188,7 @@ const initializeForm = () => {
     description.value = props.chatbot.description || "";
     systemInstructions.value =
       props.chatbot.system_instructions || "You are a helpful AI assistant";
-    modelName.value = props.chatbot.model_name || "gpt-4";
+    modelName.value = props.chatbot.model_name || defaultModelId;
     temperatureParam.value = props.chatbot.temperature_param || 0.7;
     maxTokens.value = props.chatbot.max_tokens || 2000;
     useMaxTokens.value =
@@ -88,13 +206,14 @@ const initializeForm = () => {
     name.value = "";
     description.value = "";
     systemInstructions.value = "You are a helpful AI assistant";
-    modelName.value = "gpt-4";
+    modelName.value = defaultModelId;
     temperatureParam.value = 0.7;
     maxTokens.value = 2000;
     saveMessages.value = true;
     useMaxTokens.value = false;
     selectedSharedKnowledgeBaseIds.value = [];
   }
+  ensureModelSelection();
 };
 
 // Watch for chatbot changes to reinitialize form
@@ -132,6 +251,13 @@ const submitButtonText = computed(() => {
   return props.mode === "edit" ? "Update Chatbot" : "Create Chatbot";
 });
 
+const currentModel = computed(() =>
+  models.value.find((m) => m.id === modelName.value),
+);
+const currentModelHint = computed(
+  () => currentModel.value?.hint || formatHint(currentModel.value),
+);
+
 // UI helpers
 const creativityLabel = computed(() => {
   const t = Number(temperatureParam.value);
@@ -147,24 +273,6 @@ const responseLengthLabel = computed(() => {
   if (tokens <= 2500) return "Long";
   return "Very Long";
 });
-
-const models = [
-  {
-    id: "gpt-5-nano",
-    name: "GPT-5 Fast",
-    hint: "Latest generation, optimized for rapid responses",
-  },
-  {
-    id: "gpt-5-mini",
-    name: "GPT-5 Balanced",
-    hint: "Balanced speed, cost, and intelligence",
-  },
-  {
-    id: "gpt-5",
-    name: "GPT-5",
-    hint: "Difficult or long/higher-reasoning tasks",
-  },
-];
 </script>
 
 <template>
@@ -200,18 +308,26 @@ const models = [
             >
 
             <div class="mt-2">
-              <Select v-model="modelName">
+              <Select v-model="modelName" :disabled="modelsLoading">
                 <SelectTrigger id="modelName" class="w-full">
                   <SelectValue placeholder="Select a model" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="m in models" :key="m.id" :value="m.id">
-                    {{ m.name }}
+                    <div class="flex flex-col">
+                      <span class="font-medium">{{ m.label || m.id }}</span>
+                      <span class="text-xs text-muted-foreground">
+                        {{ m.hint || formatHint(m) }}
+                      </span>
+                    </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
               <p class="mt-2 text-xs text-muted-foreground">
-                {{ models.find((m) => m.id === modelName)?.hint }}
+                <span>{{ currentModelHint }}</span>
+                <span v-if="modelsSource === 'fallback'" class="ml-1">
+                  (using fallback list while model catalog loads)
+                </span>
               </p>
             </div>
           </div>

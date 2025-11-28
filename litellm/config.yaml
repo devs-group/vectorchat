@@ -1,0 +1,30 @@
+model_list:
+  - model_name: chat-default
+    litellm_params:
+      model: gpt-4o-mini
+  - model_name: prompt-helper
+    litellm_params:
+      model: gpt-4o-mini
+  - model_name: claude-default
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet
+  - model_name: gemini-default
+    litellm_params:
+      model: google/gemini-1.5-flash
+  - model_name: gpt5-default
+    litellm_params:
+      model: gpt-5
+  - model_name: gpt5-mini
+    litellm_params:
+      model: gpt-5-mini
+  - model_name: gpt5-nano
+    litellm_params:
+      model: gpt-5-nano
+
+router_settings:
+  num_retries: 2
+  timeout: 60
+
+litellm_settings:
+  drop_params: true
+  cache: false

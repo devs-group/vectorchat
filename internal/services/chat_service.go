@@ -27,10 +27,12 @@ type ChatService struct {
 	fileRepo     *db.FileRepository
 	messageRepo  *db.ChatMessageRepository
 	revisionRepo *db.RevisionRepository
+	usageRepo    *db.LLMUsageRepository
 	vectorizer   vectorize.Vectorizer
 	llmClient    llm.Client
 	db           *db.Database
 	kbService    *KnowledgeBaseService
+	defaultModel string
 }
 
 // NewChatService creates a new chat service
@@ -41,11 +43,16 @@ func NewChatService(
 	fileRepo *db.FileRepository,
 	messageRepo *db.ChatMessageRepository,
 	revisionRepo *db.RevisionRepository,
+	usageRepo *db.LLMUsageRepository,
 	vectorizer vectorize.Vectorizer,
 	knowledgeService *KnowledgeBaseService,
 	llmClient llm.Client,
 	database *db.Database,
+	defaultModel string,
 ) *ChatService {
+	if defaultModel == "" {
+		defaultModel = "gpt-4o-mini"
+	}
 	return &ChatService{
 		CommonService: NewCommonService(),
 		chatbotRepo:   chatbotRepo,
@@ -54,10 +61,12 @@ func NewChatService(
 		fileRepo:      fileRepo,
 		messageRepo:   messageRepo,
 		revisionRepo:  revisionRepo,
+		usageRepo:     usageRepo,
 		vectorizer:    vectorizer,
 		llmClient:     llmClient,
 		db:            database,
 		kbService:     knowledgeService,
+		defaultModel:  defaultModel,
 	}
 }
 
@@ -98,7 +107,7 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 	// Set default values if not provided
 	modelName := req.ModelName
 	if modelName == "" {
-		modelName = "gpt-4" // or your default model
+		modelName = s.defaultModel
 	}
 
 	temperature := req.TemperatureParam
@@ -915,6 +924,26 @@ func (s *ChatService) chatWithChatbot(
 		if err := s.messageRepo.Create(ctx, assistantMessage); err != nil {
 			// Log this error, but don't fail the request since the user got a response
 			log.Printf("ERROR: failed to save assistant message: %v", err)
+		}
+	}
+
+	// Record usage (best-effort)
+	if s.usageRepo != nil {
+		trace := currentSessionID.String()
+		provider := llm.ProviderFromModelID(chatbot.ModelName)
+		usage := &db.LLMUsage{
+			UserID:           chatbot.UserID,
+			TraceID:          &trace,
+			ModelAlias:       chatbot.ModelName,
+			PromptTokens:     chatResp.Usage.PromptTokens,
+			CompletionTokens: chatResp.Usage.CompletionTokens,
+			CreatedAt:        time.Now(),
+		}
+		if provider != "" {
+			usage.Provider = &provider
+		}
+		if err := s.usageRepo.Create(ctx, usage); err != nil {
+			slog.Warn("failed to record llm usage", "chatbot_id", chatbotUUID.String(), "session_id", trace, "err", err)
 		}
 	}
 

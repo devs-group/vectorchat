@@ -24,7 +24,7 @@ export interface ChatbotCreateRequest {
   max_tokens: number;
   temperature_param: number;
   save_messages: boolean;
-   use_max_tokens?: boolean;
+  use_max_tokens?: boolean;
   is_enabled?: boolean;
   shared_knowledge_base_ids?: string[];
 }
@@ -49,6 +49,17 @@ export type ListChatsResponse = {
   message_count: number;
   file_count: number;
 }[];
+
+export interface LLMModel {
+  id: string;
+  label: string;
+  provider?: string;
+  advanced?: boolean;
+}
+
+export interface LLMModelsResponse {
+  models: LLMModel[];
+}
 
 export interface ChatMessageRequest {
   query: string;

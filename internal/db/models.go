@@ -128,6 +128,18 @@ type ChatMessage struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
+type LLMUsage struct {
+	ID               uuid.UUID `json:"id" db:"id"`
+	UserID           string    `json:"user_id" db:"user_id"`
+	OrgID            *string   `json:"org_id,omitempty" db:"org_id"`
+	TraceID          *string   `json:"trace_id,omitempty" db:"trace_id"`
+	ModelAlias       string    `json:"model_alias" db:"model_alias"`
+	Provider         *string   `json:"provider,omitempty" db:"provider"`
+	PromptTokens     int       `json:"prompt_tokens" db:"prompt_tokens"`
+	CompletionTokens int       `json:"completion_tokens" db:"completion_tokens"`
+	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+}
+
 type AnswerRevision struct {
 	ID                uuid.UUID       `json:"id" db:"id"`
 	ChatbotID         uuid.UUID       `json:"chatbot_id" db:"chatbot_id"`

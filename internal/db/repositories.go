@@ -10,6 +10,7 @@ type Repositories struct {
 	Revision *RevisionRepository
 	SharedKB *SharedKnowledgeBaseRepository
 	Schedule *CrawlScheduleRepository
+	LLMUsage *LLMUsageRepository
 }
 
 // NewRepositories creates all repository instances
@@ -24,5 +25,6 @@ func NewRepositories(db *Database) *Repositories {
 		Revision: NewRevisionRepository(db),
 		SharedKB: NewSharedKnowledgeBaseRepository(db),
 		Schedule: NewCrawlScheduleRepository(db),
+		LLMUsage: NewLLMUsageRepository(db),
 	}
 }

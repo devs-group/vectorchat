@@ -18,6 +18,7 @@ import type {
   SharedKnowledgeBaseTextSourcesResponse,
   CrawlSchedule,
   CrawlScheduleListResponse,
+  LLMModelsResponse,
 } from "~/types/api";
 
 /**
@@ -92,6 +93,17 @@ export function useApiService() {
         showSuccessToast: true,
         successMessage: "Logged out successfully",
       },
+    );
+  };
+
+  const listLLMModels = () => {
+    return useApi(
+      async () => {
+        return await useApiFetch<LLMModelsResponse>("/llm/models", {
+          method: "GET",
+        });
+      },
+      { errorMessage: "Failed to load available models" },
     );
   };
 
@@ -1004,6 +1016,7 @@ export function useApiService() {
     generateSystemPrompt,
     toggleChatbot,
     deleteChatbot,
+    listLLMModels,
     sendChatMessage,
     streamChatMessage,
     uploadFile,

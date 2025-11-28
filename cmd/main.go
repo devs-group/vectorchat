@@ -92,6 +92,11 @@ func runApplication(appCfg *config.AppConfig) error {
 		return fmt.Errorf("OPENAI_API_KEY environment variable is required")
 	}
 
+	llmAPIKey := appCfg.LLMAPIKey
+	if llmAPIKey == "" {
+		llmAPIKey = openaiKey
+	}
+
 	// Wait for PostgreSQL to be ready
 	if err := waitForPostgres(pgConnStr); err != nil {
 		return fmt.Errorf("failed to connect to PostgreSQL: %v", err)
@@ -131,7 +136,21 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
-	llmClient := llm.NewOpenAIClient(openaiKey, "")
+
+	llmBaseURL := appCfg.LLMBaseURL
+	if llmBaseURL == "" {
+		llmBaseURL = "https://api.openai.com/v1"
+	}
+	defaultChatModel := appCfg.LLMModelChat
+	llmClient := llm.NewOpenAIClient(llmAPIKey, llmBaseURL, defaultChatModel, nil)
+	fallbackModelIDs := []string{defaultChatModel}
+	if appCfg.LLMModelPromptGen != "" {
+		fallbackModelIDs = append(fallbackModelIDs, appCfg.LLMModelPromptGen)
+	}
+	llmService := services.NewLLMService(llmClient, fallbackModelIDs)
+	if err := waitForLLM(context.Background(), llmClient, 10, 3*time.Second); err != nil {
+		return fmt.Errorf("failed to reach LLM backend: %w", err)
+	}
 
 	// Initialize crawl4ai client (optional)
 	webCrawler, err := crawler.NewAPIClient(appCfg.CrawlerAPIURL, nil)
@@ -168,11 +187,11 @@ func runApplication(appCfg *config.AppConfig) error {
 	hydraService := services.NewHydraService(appCfg.HydraAdminURL, appCfg.HydraPublicURL)
 	logger.Info("hydra configuration", "admin_url", appCfg.HydraAdminURL, "public_url", appCfg.HydraPublicURL)
 	authService := services.NewAuthService(repos.User)
-	chatService := services.NewChatService(repos.Chat, repos.SharedKB, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, kbService, llmClient, pool)
+	chatService := services.NewChatService(repos.Chat, repos.SharedKB, repos.Document, repos.File, repos.Message, repos.Revision, repos.LLMUsage, vectorizer, kbService, llmClient, pool, defaultChatModel)
 	apiKeyService := services.NewAPIKeyService(hydraService)
 	commonService := services.NewCommonService()
 	scheduleService := services.NewCrawlScheduleService(repos.Schedule, kbService, js)
-	promptService := services.NewPromptService(llmClient)
+	promptService := services.NewPromptService(llmClient, appCfg.LLMModelPromptGen)
 
 	// Validate that cron library supports our expressions (minute granularity) once at startup
 	if _, err := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow).Parse("*/5 * * * *"); err != nil {
@@ -215,6 +234,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	conversationHandler := api.NewConversationHandler(authMiddleware, chatService)
 	widgetHandler := api.NewWidgetHandler(authMiddleware)
 	queueHandler := api.NewQueueHandler(authMiddleware, services.NewQueueMetricsService(js))
+	llmHandler := api.NewLLMHandler(authMiddleware, llmService, svc)
 
 	// Register routes
 	chatbotHandler.RegisterRoutes(app)
@@ -225,6 +245,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	conversationHandler.RegisterRoutes(app)
 	widgetHandler.RegisterRoutes(app)
 	queueHandler.RegisterRoutes(app)
+	llmHandler.RegisterRoutes(app)
 
 	// Add swagger route
 	app.Get("/swagger/*", swagger.HandlerDefault)
@@ -354,6 +375,18 @@ func defaultPlans() []stripe_sub.PlanParams {
 			PlanDefinition: map[string]any{"features": standardFeatures, "tags": []string{"Popular"}},
 		},
 	}
+}
+
+func waitForLLM(ctx context.Context, client llm.Client, retries int, delay time.Duration) error {
+	for i := 0; i < retries; i++ {
+		if _, err := client.ListModels(ctx); err == nil {
+			return nil
+		} else {
+			log.Printf("LLM not ready (attempt %d/%d): %v", i+1, retries, err)
+		}
+		time.Sleep(delay)
+	}
+	return fmt.Errorf("LLM not ready after %d attempts", retries)
 }
 
 // waitForPostgres attempts to connect to PostgreSQL with retries

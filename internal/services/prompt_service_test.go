@@ -23,9 +23,13 @@ func (s *stubLLM) Chat(_ context.Context, req llm.ChatRequest) (llm.ChatResponse
 	return llm.ChatResponse{Content: s.response}, nil
 }
 
+func (s *stubLLM) ListModels(context.Context) ([]llm.ModelInfo, error) {
+	return nil, nil
+}
+
 func TestGenerateSystemPrompt(t *testing.T) {
 	stub := &stubLLM{response: "You are a helpful assistant."}
-	service := NewPromptService(stub)
+	service := NewPromptService(stub, "gpt-4o-mini")
 
 	result, err := service.GenerateSystemPrompt(context.Background(), "Help with shipping questions", "concise")
 	if err != nil {
@@ -43,7 +47,7 @@ func TestGenerateSystemPrompt(t *testing.T) {
 
 func TestGenerateSystemPromptRequiresPurpose(t *testing.T) {
 	stub := &stubLLM{}
-	service := NewPromptService(stub)
+	service := NewPromptService(stub, "gpt-4o-mini")
 
 	_, err := service.GenerateSystemPrompt(context.Background(), "   ", "formal")
 	if err == nil {
@@ -53,7 +57,7 @@ func TestGenerateSystemPromptRequiresPurpose(t *testing.T) {
 
 func TestGenerateSystemPromptPropagatesError(t *testing.T) {
 	stub := &stubLLM{err: errors.New("llm failed")}
-	service := NewPromptService(stub)
+	service := NewPromptService(stub, "gpt-4o-mini")
 
 	_, err := service.GenerateSystemPrompt(context.Background(), "Assist", "")
 	if err == nil || !strings.Contains(err.Error(), "llm failed") {

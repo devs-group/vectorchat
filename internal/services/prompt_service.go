@@ -11,13 +11,15 @@ import (
 
 // PromptService handles generation of tailored system prompts.
 type PromptService struct {
-	llmClient llm.Client
+	llmClient  llm.Client
+	modelAlias string
 }
 
 // NewPromptService constructs a PromptService with the provided LLM client.
-func NewPromptService(llmClient llm.Client) *PromptService {
+func NewPromptService(llmClient llm.Client, modelAlias string) *PromptService {
 	return &PromptService{
-		llmClient: llmClient,
+		llmClient:  llmClient,
+		modelAlias: modelAlias,
 	}
 }
 
@@ -35,6 +37,7 @@ func (s *PromptService) GenerateSystemPrompt(ctx context.Context, purpose, tone 
 	resp, err := s.llmClient.Chat(ctx, llm.ChatRequest{
 		Prompt:      template,
 		Temperature: 0.4,
+		Model:       s.modelAlias,
 	})
 	if err != nil {
 		return "", err
