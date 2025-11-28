@@ -26,6 +26,7 @@ type ChatHandler struct {
 	CommonService      *services.CommonService
 	SubscriptionLimits *middleware.SubscriptionLimitsMiddleware
 	ScheduleService    *services.CrawlScheduleService
+	PromptService      *services.PromptService
 }
 
 func NewChatHandler(
@@ -35,6 +36,7 @@ func NewChatHandler(
 	commonService *services.CommonService,
 	subscriptionLimits *middleware.SubscriptionLimitsMiddleware,
 	scheduleService *services.CrawlScheduleService,
+	promptService *services.PromptService,
 ) *ChatHandler {
 	return &ChatHandler{
 		ChatService:        chatService,
@@ -43,6 +45,7 @@ func NewChatHandler(
 		CommonService:      commonService,
 		SubscriptionLimits: subscriptionLimits,
 		ScheduleService:    scheduleService,
+		PromptService:      promptService,
 	}
 }
 
@@ -59,6 +62,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Put("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateChatbot)
 	chat.Patch("/chatbot/:chatID/toggle", h.OwershipMiddleware.IsChatbotOwner, h.PATCH_ToggleChatbot)
 	chat.Delete("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_Chatbot)
+	chat.Post("/system-prompt/generate", h.POST_GenerateSystemPrompt)
 	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckLimit(constants.LimitDataSources), h.SubscriptionLimits.CheckLimit(constants.LimitTrainingData), h.POST_UploadFile)
 	chat.Post("/:chatID/text", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckLimit(constants.LimitDataSources), h.SubscriptionLimits.CheckLimit(constants.LimitTrainingData), h.POST_UploadText)
 	chat.Post("/:chatID/website", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckLimit(constants.LimitDataSources), h.POST_UploadWebsite)
@@ -86,6 +90,39 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 // @Router /health [get]
 func (h *ChatHandler) GET_HealthCheck(c *fiber.Ctx) error {
 	return c.SendString("VectorChat API is running")
+}
+
+// @Summary Generate a system prompt
+// @Description Generate a tailored system prompt from a short purpose and tone
+// @Tags chat
+// @Accept json
+// @Produce json
+// @Param body body models.SystemPromptGenerateRequest true "Prompt generation request"
+// @Success 200 {object} models.SystemPromptGenerateResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Security BearerAuth
+// @Router /chat/system-prompt/generate [post]
+func (h *ChatHandler) POST_GenerateSystemPrompt(c *fiber.Ctx) error {
+	var req models.SystemPromptGenerateRequest
+	if err := c.BodyParser(&req); err != nil {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
+
+	if strings.TrimSpace(req.Purpose) == "" {
+		return ErrorResponse(c, "Purpose is required", nil, http.StatusBadRequest)
+	}
+
+	prompt, err := h.PromptService.GenerateSystemPrompt(c.Context(), req.Purpose, req.Tone)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
+			status = http.StatusBadRequest
+		}
+		return ErrorResponse(c, "Failed to generate system prompt", err, status)
+	}
+
+	return c.JSON(models.SystemPromptGenerateResponse{Prompt: prompt})
 }
 
 // @Summary Upload file

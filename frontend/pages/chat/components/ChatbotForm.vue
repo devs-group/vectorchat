@@ -17,6 +17,7 @@ import type { ChatbotResponse, SharedKnowledgeBase } from "~/types/api";
 import IconUserCircle from "@/components/icons/IconUserCircle.vue";
 import IconSun from "@/components/icons/IconSun.vue";
 import ChatSectionCard from "@/components/chat/ChatSectionCard.vue";
+import SystemPromptHelperDialog from "@/components/chat/SystemPromptHelperDialog.vue";
 
 interface Props {
   chatbot?: ChatbotResponse | null;
@@ -58,8 +59,9 @@ const modelName = ref("gpt-4");
 const temperatureParam = ref(0.7);
 const maxTokens = ref(2000);
 const saveMessages = ref(true);
-const useMaxTokens = ref(true);
+const useMaxTokens = ref(false);
 const selectedSharedKnowledgeBaseIds = ref<string[]>([]);
+const showPromptHelper = ref(false);
 
 // Initialize form with chatbot data if editing
 const initializeForm = () => {
@@ -74,7 +76,7 @@ const initializeForm = () => {
     useMaxTokens.value =
       (props.chatbot as any).use_max_tokens !== undefined
         ? (props.chatbot as any).use_max_tokens
-        : true;
+        : false;
     saveMessages.value =
       props.chatbot.save_messages === undefined
         ? true
@@ -90,7 +92,7 @@ const initializeForm = () => {
     temperatureParam.value = 0.7;
     maxTokens.value = 2000;
     saveMessages.value = true;
-    useMaxTokens.value = true;
+    useMaxTokens.value = false;
     selectedSharedKnowledgeBaseIds.value = [];
   }
 };
@@ -118,6 +120,11 @@ const handleSubmit = () => {
   };
 
   emit("submit", formData);
+};
+
+const handleInsertPrompt = (prompt: string) => {
+  systemInstructions.value = prompt;
+  showPromptHelper.value = false;
 };
 
 // Computed properties
@@ -248,7 +255,18 @@ const models = [
         </div>
 
         <div class="mt-6">
-          <Label for="systemInstructions">System Instructions</Label>
+          <div class="flex items-center justify-between gap-3">
+            <Label for="systemInstructions">System Instructions</Label>
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              class="whitespace-nowrap"
+              @click="showPromptHelper = true"
+            >
+              Prompt Helper
+            </Button>
+          </div>
           <Textarea
             id="systemInstructions"
             v-model="systemInstructions"
@@ -395,6 +413,10 @@ const models = [
         </div>
       </ChatSectionCard>
     </form>
+    <SystemPromptHelperDialog
+      v-model:open="showPromptHelper"
+      @insert="handleInsertPrompt"
+    />
   </div>
 </template>
 

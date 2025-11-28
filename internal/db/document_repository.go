@@ -370,6 +370,11 @@ func (r *DocumentRepository) DeleteByFileIDTx(ctx context.Context, tx *Transacti
 	return nil
 }
 
+// DeleteByConnectorID is a no-op placeholder kept for compatibility with connector cleanup flows.
+func (r *DocumentRepository) DeleteByConnectorID(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 // Count returns the total number of documents
 func (r *DocumentRepository) Count(ctx context.Context) (int64, error) {
 	var count int64

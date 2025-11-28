@@ -313,6 +313,18 @@ export function useApiService() {
     );
   };
 
+  const generateSystemPrompt = <T>() => {
+    return useApi(
+      async (data: { purpose: string; tone?: string }) => {
+        return await useApiFetch<T>("/chat/system-prompt/generate", {
+          method: "POST",
+          body: data,
+        });
+      },
+      { errorMessage: "Failed to generate system prompt" },
+    );
+  };
+
   const deleteChatbot = () => {
     return useApi(
       async (chatbotId: string) => {
@@ -989,6 +1001,7 @@ export function useApiService() {
     listChatbots,
     getChatbot,
     updateChatbot,
+    generateSystemPrompt,
     toggleChatbot,
     deleteChatbot,
     sendChatMessage,

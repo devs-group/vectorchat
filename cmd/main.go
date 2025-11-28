@@ -19,17 +19,18 @@ import (
 	"github.com/urfave/cli/v3"
 
 	fiberLogger "github.com/gofiber/fiber/v2/middleware/logger"
-	_ "github.com/lib/pq"                       // PostgreSQL driver
+	_ "github.com/lib/pq" // PostgreSQL driver
+	"github.com/robfig/cron/v3"
 	_ "github.com/yourusername/vectorchat/docs" // Import generated docs
 	swaggerDocs "github.com/yourusername/vectorchat/docs"
 	"github.com/yourusername/vectorchat/internal/api"
 	"github.com/yourusername/vectorchat/internal/crawler"
 	"github.com/yourusername/vectorchat/internal/db"
+	"github.com/yourusername/vectorchat/internal/llm"
 	"github.com/yourusername/vectorchat/internal/middleware"
 	"github.com/yourusername/vectorchat/internal/queue"
 	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/internal/vectorize"
-	"github.com/robfig/cron/v3"
 	"github.com/yourusername/vectorchat/pkg/config"
 	"github.com/yourusername/vectorchat/pkg/constants"
 	"github.com/yourusername/vectorchat/pkg/docprocessor"
@@ -96,10 +97,10 @@ func runApplication(appCfg *config.AppConfig) error {
 		return fmt.Errorf("failed to connect to PostgreSQL: %v", err)
 	}
 
-    // Run database migrations
-    if err := runMigrations(pgConnStr, appCfg.MigrationsPath); err != nil {
-        return fmt.Errorf("failed to run migrations: %v", err)
-    }
+	// Run database migrations
+	if err := runMigrations(pgConnStr, appCfg.MigrationsPath); err != nil {
+		return fmt.Errorf("failed to run migrations: %v", err)
+	}
 
 	// Initialize database
 	pool, err := db.NewDatabase(pgConnStr)
@@ -130,6 +131,7 @@ func runApplication(appCfg *config.AppConfig) error {
 
 	// Initialize vectorizer
 	vectorizer := vectorize.NewOpenAIVectorizer(openaiKey)
+	llmClient := llm.NewOpenAIClient(openaiKey, "")
 
 	// Initialize crawl4ai client (optional)
 	webCrawler, err := crawler.NewAPIClient(appCfg.CrawlerAPIURL, nil)
@@ -166,10 +168,11 @@ func runApplication(appCfg *config.AppConfig) error {
 	hydraService := services.NewHydraService(appCfg.HydraAdminURL, appCfg.HydraPublicURL)
 	logger.Info("hydra configuration", "admin_url", appCfg.HydraAdminURL, "public_url", appCfg.HydraPublicURL)
 	authService := services.NewAuthService(repos.User)
-	chatService := services.NewChatService(repos.Chat, repos.SharedKB, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, kbService, openaiKey, pool)
+	chatService := services.NewChatService(repos.Chat, repos.SharedKB, repos.Document, repos.File, repos.Message, repos.Revision, vectorizer, kbService, llmClient, pool)
 	apiKeyService := services.NewAPIKeyService(hydraService)
 	commonService := services.NewCommonService()
 	scheduleService := services.NewCrawlScheduleService(repos.Schedule, kbService, js)
+	promptService := services.NewPromptService(llmClient)
 
 	// Validate that cron library supports our expressions (minute granularity) once at startup
 	if _, err := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow).Parse("*/5 * * * *"); err != nil {
@@ -200,7 +203,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	app.Use(fiberLogger.New())
 
 	// Initialize API handlers
-	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, ownershipMiddleware, commonService, subscriptionLimits, scheduleService)
+	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, ownershipMiddleware, commonService, subscriptionLimits, scheduleService, promptService)
 	sharedKnowledgeBaseHandler := api.NewSharedKnowledgeBaseHandler(authMiddleware, sharedKBService, scheduleService)
 	authHandler := api.NewAuthHandler(authService, authMiddleware, api.AuthConfig{
 		KratosPublicURL: appCfg.KratosPublicURL,

@@ -62,6 +62,17 @@ type ChatMessageRequest struct {
 	SessionID *string `json:"session_id,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
+// SystemPromptGenerateRequest represents the payload to generate a system prompt.
+type SystemPromptGenerateRequest struct {
+	Purpose string `json:"purpose" binding:"required" example:"Customer support chatbot for shipping questions"`
+	Tone    string `json:"tone,omitempty" example:"concise and friendly"`
+}
+
+// SystemPromptGenerateResponse contains the generated prompt text.
+type SystemPromptGenerateResponse struct {
+	Prompt string `json:"prompt" example:"You are an AI assistant..."`
+}
+
 // CreateRevisionRequest represents a request to create an answer revision
 type CreateRevisionRequest struct {
 	ChatbotID         uuid.UUID  `json:"chatbot_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`

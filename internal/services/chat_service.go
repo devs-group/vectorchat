@@ -11,10 +11,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
-	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/yourusername/vectorchat/internal/db"
 	apperrors "github.com/yourusername/vectorchat/internal/errors"
+	"github.com/yourusername/vectorchat/internal/llm"
 	"github.com/yourusername/vectorchat/internal/vectorize"
 	"github.com/yourusername/vectorchat/pkg/models"
 )
@@ -29,7 +28,7 @@ type ChatService struct {
 	messageRepo  *db.ChatMessageRepository
 	revisionRepo *db.RevisionRepository
 	vectorizer   vectorize.Vectorizer
-	openaiKey    string
+	llmClient    llm.Client
 	db           *db.Database
 	kbService    *KnowledgeBaseService
 }
@@ -44,7 +43,7 @@ func NewChatService(
 	revisionRepo *db.RevisionRepository,
 	vectorizer vectorize.Vectorizer,
 	knowledgeService *KnowledgeBaseService,
-	openaiKey string,
+	llmClient llm.Client,
 	database *db.Database,
 ) *ChatService {
 	return &ChatService{
@@ -56,7 +55,7 @@ func NewChatService(
 		messageRepo:   messageRepo,
 		revisionRepo:  revisionRepo,
 		vectorizer:    vectorizer,
-		openaiKey:     openaiKey,
+		llmClient:     llmClient,
 		db:            database,
 		kbService:     knowledgeService,
 	}
@@ -117,7 +116,7 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 		saveMessages = *req.SaveMessages
 	}
 
-	useMaxTokens := true
+	useMaxTokens := false
 	if req.UseMaxTokens != nil {
 		useMaxTokens = *req.UseMaxTokens
 	}
@@ -841,15 +840,6 @@ func (s *ChatService) chatWithChatbot(
 		}
 	}
 
-	// Create OpenAI client with chatbot's model settings
-	llm, err := openai.New(
-		openai.WithToken(s.openaiKey),
-		openai.WithModel(chatbot.ModelName),
-	)
-	if err != nil {
-		return "", "", apperrors.Wrap(err, "failed to create OpenAI client")
-	}
-
 	// Construct the final prompt
 	finalPrompt := fmt.Sprintf("%s\n\n%s\n%s\nGiven the context information and conversation history, answer the query.\nFormat rules:\n- Use a single H2 heading (##, ≤8 words) only when the reply is an explanation/guide or longer than 2 paragraphs. For short/direct answers or chatty replies, skip the heading.\n- Use Markdown lists when helpful.\n- Wrap any code in fenced blocks with the language tag (```js, ```python, etc.).\n- Do not return HTML; use only Markdown.\nQuery: %s\nAnswer:",
 		chatbot.SystemInstructions,
@@ -860,31 +850,29 @@ func (s *ChatService) chatWithChatbot(
 
 	// Generate response
 	var streamedResponse strings.Builder
-	callOptions := []llms.CallOption{
-		llms.WithTemperature(chatbot.TemperatureParam),
-	}
+	var maxTokens *int
 	if chatbot.UseMaxTokens {
-		callOptions = append(callOptions, llms.WithMaxTokens(chatbot.MaxTokens))
-	}
-	if streamFn != nil {
-		callOptions = append(callOptions, llms.WithStreamingFunc(func(callCtx context.Context, chunk []byte) error {
-			if len(chunk) == 0 {
-				return nil
-			}
-			textChunk := string(chunk)
-			streamedResponse.WriteString(textChunk)
-			return streamFn(callCtx, textChunk)
-		}))
+		maxTokens = &chatbot.MaxTokens
 	}
 
-	response, err := llm.GenerateContent(ctx, []llms.MessageContent{
-		{
-			Role: llms.ChatMessageTypeHuman,
-			Parts: []llms.ContentPart{
-				llms.TextPart(finalPrompt),
-			},
-		},
-	}, callOptions...)
+	var streamWrapper func(context.Context, string) error
+	if streamFn != nil {
+		streamWrapper = func(callCtx context.Context, chunk string) error {
+			if chunk == "" {
+				return nil
+			}
+			streamedResponse.WriteString(chunk)
+			return streamFn(callCtx, chunk)
+		}
+	}
+
+	chatResp, err := s.llmClient.Chat(ctx, llm.ChatRequest{
+		Prompt:      finalPrompt,
+		Model:       chatbot.ModelName,
+		Temperature: chatbot.TemperatureParam,
+		MaxTokens:   maxTokens,
+		StreamFn:    streamWrapper,
+	})
 	if err != nil {
 		slog.Error("chatWithChatbot: LLM call failed",
 			"chatbot_id", chatbotUUID.String(),
@@ -894,20 +882,16 @@ func (s *ChatService) chatWithChatbot(
 		return "", "", apperrors.Wrap(err, "failed to generate completion")
 	}
 
-	reasoningContent := ""
 	completion := streamedResponse.String()
 	if completion == "" {
-		for _, choice := range response.Choices {
-			completion += choice.Content
-			reasoningContent += choice.ReasoningContent
-		}
+		completion = chatResp.Content
 	}
 
 	if completion == "" {
 		slog.Warn("chatWithChatbot: empty completion from LLM",
 			"chatbot_id", chatbotUUID.String(),
 			"session_id", currentSessionID.String(),
-			"choices", len(response.Choices),
+			"streamed", streamFn != nil,
 		)
 	} else {
 		slog.Info("chatWithChatbot: completion summary",

@@ -113,6 +113,15 @@ export interface ChatFilesResponse {
   files: ChatFile[];
 }
 
+export interface SystemPromptGenerateRequest {
+  purpose: string;
+  tone?: string;
+}
+
+export interface SystemPromptGenerateResponse {
+  prompt: string;
+}
+
 export interface TextSource {
   id: string;
   title: string;
