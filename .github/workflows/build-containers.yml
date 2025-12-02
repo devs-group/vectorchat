@@ -127,7 +127,7 @@ jobs:
         if: steps.changes.outputs.${{ matrix.image }} == 'true' && inputs.push_image
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.meta.outputs.tags }}
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'HIGH,CRITICAL'
@@ -141,6 +141,7 @@ jobs:
       - name: Run basic smoke test
         if: steps.changes.outputs.${{ matrix.image }} == 'true' && inputs.push_image
         run: |
-          echo "Testing ${{ steps.meta.outputs.tags }}"
-          docker pull ${{ steps.meta.outputs.tags }}
-          docker run --rm ${{ steps.meta.outputs.tags }} /bin/sh -c 'echo "Container runs successfully" || echo "Smoke test completed"'
+          IMAGE="${{ fromJSON(steps.meta.outputs.json).tags[0] }}"
+          echo "Testing ${IMAGE}"
+          docker pull "${IMAGE}"
+          docker run --rm "${IMAGE}" /bin/sh -c 'echo "Container runs successfully" || echo "Smoke test completed"'
