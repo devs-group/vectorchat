@@ -10,93 +10,107 @@ stages:
 variables:
   GITLAB_REGISTRY: registry.gitlab.com
 
-build_backend_staging:
-  stage: build
+  # common tags so ArgoCD can detect updated images
+  # - staging: branch name + short SHA
+  # - production: CI tag + short SHA
+  STAGING_TAG: "$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA"
+  PRODUCTION_TAG: "$CI_COMMIT_TAG-$CI_COMMIT_SHORT_SHA"
+
+.docker_login:
   before_script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
-  script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/backend:staging
-    - docker build -t $CONTAINER_PATH -f Dockerfile .
-    - docker push $CONTAINER_PATH
+    - docker login -u gitlab-ci-token -p "$CI_JOB_TOKEN" "$CI_REGISTRY"
+
+.build_image_staging:
+  stage: build
+  extends: .docker_login
   rules:
     - if: '$CI_COMMIT_REF_NAME == "main"'
+
+.build_image_production:
+  stage: build
+  extends: .docker_login
+  rules:
+    - if: '$CI_COMMIT_TAG != null'
+
+build_backend_staging:
+  extends: .build_image_staging
+  script:
+    - export IMAGE_BASE="$GITLAB_REGISTRY/$CI_PROJECT_PATH/backend"
+    - export IMAGE_TAG="staging-$STAGING_TAG"
+    - docker build -t "$IMAGE_BASE:$IMAGE_TAG" -f Dockerfile .
+    - docker push "$IMAGE_BASE:$IMAGE_TAG"
 
 build_frontend_staging:
-  stage: build
-  before_script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  extends: .build_image_staging
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/frontend:staging
-    - docker build -t $CONTAINER_PATH -f frontend/Dockerfile ./frontend
-    - docker push $CONTAINER_PATH
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "main"'
+    - export IMAGE_BASE="$GITLAB_REGISTRY/$CI_PROJECT_PATH/frontend"
+    - export IMAGE_TAG="staging-$STAGING_TAG"
+    - docker build -t "$IMAGE_BASE:$IMAGE_TAG" -f frontend/Dockerfile ./frontend
+    - docker push "$IMAGE_BASE:$IMAGE_TAG"
 
 build_markitdown_staging:
-  stage: build
-  before_script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  extends: .build_image_staging
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/markitdown:staging
-    - docker build -t $CONTAINER_PATH -f services/markitdown_api/Dockerfile .
-    - docker push $CONTAINER_PATH
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "main"'
+    - export IMAGE_BASE="$GITLAB_REGISTRY/$CI_PROJECT_PATH/markitdown"
+    - export IMAGE_TAG="staging-$STAGING_TAG"
+    - docker build -t "$IMAGE_BASE:$IMAGE_TAG" -f services/markitdown_api/Dockerfile ./services/markitdown_api
+    - docker push "$IMAGE_BASE:$IMAGE_TAG"
 
 build_vectorchat_light_staging:
-  stage: build
-  before_script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  extends: .build_image_staging
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-light:staging
-    - docker build -t $CONTAINER_PATH --target production -f vectorchat-light/Dockerfile ./vectorchat-light
-    - docker push $CONTAINER_PATH
-  rules:
-    - if: '$CI_COMMIT_REF_NAME == "main"'
+    - export IMAGE_BASE="$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-light"
+    - export IMAGE_TAG="staging-$STAGING_TAG"
+    - docker build -t "$IMAGE_BASE:$IMAGE_TAG" --target production -f vectorchat-light/Dockerfile ./vectorchat-light
+    - docker push "$IMAGE_BASE:$IMAGE_TAG"
+
+build_crawl_scheduler_staging:
+  extends: .build_image_staging
+  script:
+    - export IMAGE_BASE="$GITLAB_REGISTRY/$CI_PROJECT_PATH/crawl-scheduler"
+    - export IMAGE_TAG="staging-$STAGING_TAG"
+    - docker build -t "$IMAGE_BASE:$IMAGE_TAG" -f Dockerfile .
+    - docker push "$IMAGE_BASE:$IMAGE_TAG"
 
 build_backend_production:
-  stage: build
-  before_script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  extends: .build_image_production
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/backend:latest
-    - docker build -t $CONTAINER_PATH -f Dockerfile .
-    - docker push $CONTAINER_PATH
-  rules:
-    - if: "$CI_COMMIT_TAG != null"
+    - export IMAGE_BASE="$GITLAB_REGISTRY/$CI_PROJECT_PATH/backend"
+    - export IMAGE_TAG="latest-$PRODUCTION_TAG"
+    - docker build -t "$IMAGE_BASE:$IMAGE_TAG" -f Dockerfile .
+    - docker push "$IMAGE_BASE:$IMAGE_TAG"
 
 build_frontend_production:
-  stage: build
-  before_script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  extends: .build_image_production
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/frontend:latest
-    - docker build -t $CONTAINER_PATH -f frontend/Dockerfile ./frontend
-    - docker push $CONTAINER_PATH
-  rules:
-    - if: "$CI_COMMIT_TAG != null"
+    - export IMAGE_BASE="$GITLAB_REGISTRY/$CI_PROJECT_PATH/frontend"
+    - export IMAGE_TAG="latest-$PRODUCTION_TAG"
+    - docker build -t "$IMAGE_BASE:$IMAGE_TAG" -f frontend/Dockerfile ./frontend
+    - docker push "$IMAGE_BASE:$IMAGE_TAG"
 
 build_markitdown_production:
-  stage: build
-  before_script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  extends: .build_image_production
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/markitdown:latest
-    - docker build -t $CONTAINER_PATH -f services/markitdown_api/Dockerfile ./services/markitdown_api
-    - docker push $CONTAINER_PATH
-  rules:
-    - if: "$CI_COMMIT_TAG != null"
+    - export IMAGE_BASE="$GITLAB_REGISTRY/$CI_PROJECT_PATH/markitdown"
+    - export IMAGE_TAG="latest-$PRODUCTION_TAG"
+    - docker build -t "$IMAGE_BASE:$IMAGE_TAG" -f services/markitdown_api/Dockerfile ./services/markitdown_api
+    - docker push "$IMAGE_BASE:$IMAGE_TAG"
 
 build_vectorchat_light_production:
-  stage: build
-  before_script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  extends: .build_image_production
   script:
-    - export CONTAINER_PATH=$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-light:latest
-    - docker build -t $CONTAINER_PATH --target production -f vectorchat-light/Dockerfile ./vectorchat-light
-    - docker push $CONTAINER_PATH
-  rules:
-    - if: "$CI_COMMIT_TAG != null"
+    - export IMAGE_BASE="$GITLAB_REGISTRY/$CI_PROJECT_PATH/vectorchat-light"
+    - export IMAGE_TAG="latest-$PRODUCTION_TAG"
+    - docker build -t "$IMAGE_BASE:$IMAGE_TAG" --target production -f vectorchat-light/Dockerfile ./vectorchat-light
+    - docker push "$IMAGE_BASE:$IMAGE_TAG"
+
+build_crawl_scheduler_production:
+  extends: .build_image_production
+  script:
+    - export IMAGE_BASE="$GITLAB_REGISTRY/$CI_PROJECT_PATH/crawl-scheduler"
+    - export IMAGE_TAG="latest-$PRODUCTION_TAG"
+    - docker build -t "$IMAGE_BASE:$IMAGE_TAG" -f Dockerfile .
+    - docker push "$IMAGE_BASE:$IMAGE_TAG"
 
 deploy_staging:
   stage: deploy
