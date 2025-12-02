@@ -71,11 +71,11 @@ jobs:
             ${{ matrix.image }}:
               - ${{ join(matrix.paths, '\n              - ') }}
 
-      - name: Set build timestamp
-        id: timestamp
+      - name: Set build commit id
+        id: commit
         if: steps.changes.outputs.${{ matrix.image }} == 'true'
         run: |
-          echo "value=$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
+          echo "value=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         if: steps.changes.outputs.${{ matrix.image }} == 'true'
@@ -103,7 +103,7 @@ jobs:
           images: ${{ steps.namespace.outputs.value }}/${{ matrix.image }}
           tags: |
             type=raw,value=${{ inputs.tag }}
-            type=raw,value=${{ inputs.tag }}-${{ steps.timestamp.outputs.value }}
+            type=raw,value=${{ inputs.tag }}-${{ steps.commit.outputs.value }}
             ${{ inputs.extra_tags }}
           flavor: ${{ inputs.tag == 'latest' && 'latest=false' || '' }}
 
