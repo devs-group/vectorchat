@@ -254,38 +254,6 @@
               </div>
             </div>
 
-            <div class="rounded-xl border border-border bg-muted/10 p-5 text-sm space-y-2">
-              <div class="flex items-center gap-2">
-                <IconRefreshCw class="h-4 w-4 text-primary" />
-                <span class="font-medium text-foreground">Queue status</span>
-              </div>
-              <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                <IconSpinnerArc v-if="isIndexingWebsite" class="h-4 w-4 animate-spin" />
-                <IconRefreshCw v-else class="h-4 w-4 text-emerald-500" />
-                <span>
-                  {{ queueStatus || "Idle" }}
-                  <span v-if="queueStatusAt"> • {{ formatDate(queueStatusAt) }}</span>
-                </span>
-              </div>
-              <div class="text-xs text-muted-foreground space-y-1">
-                <div>Last run: {{ lastRunCopy }}</div>
-                <div>Next run: {{ nextRunCopy }}</div>
-                <div v-if="schedule?.last_error" class="text-destructive">
-                  {{ schedule?.last_error }}
-                </div>
-                <div v-if="isLoadingSchedule">Loading schedule…</div>
-                <div v-if="queueMetrics" class="flex flex-wrap gap-2 pt-1">
-                  <span class="rounded bg-muted px-2 py-1">Pending: {{ queueMetrics.consumer?.num_pending ?? 0 }}</span>
-                  <span class="rounded bg-muted px-2 py-1">Ack pending: {{ queueMetrics.consumer?.num_ack_pending ?? 0 }}</span>
-                  <span class="rounded bg-muted px-2 py-1">Waiting: {{ queueMetrics.consumer?.num_waiting ?? 0 }}</span>
-                </div>
-              </div>
-              <div class="flex gap-2 text-xs">
-                <Button size="sm" variant="outline" @click="fetchQueueMetrics">
-                  Refresh metrics
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -313,7 +281,7 @@
 
         <!-- Empty state -->
         <div
-          v-else-if="files.length + textSources.length === 0"
+          v-else-if="files.length + textSources.length + websitePlaceholders.length === 0"
           class="rounded-xl border border-dashed bg-muted/20 p-8 text-center text-sm text-muted-foreground"
         >
           No sources yet — add files, text, or websites above.
@@ -321,6 +289,27 @@
 
         <!-- List of files -->
         <div v-else class="space-y-3">
+          <div
+            v-for="placeholder in websitePlaceholders"
+            :key="placeholder.id"
+            class="flex items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3 shadow-xs"
+          >
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+              <div
+                class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary"
+              >
+                <IconGlobe class="h-4 w-4" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-medium">
+                  {{ placeholder.url }}
+                </div>
+                <div class="text-xs text-muted-foreground">
+                  Crawling… • {{ formatDate(placeholder.startedAt) }}
+                </div>
+              </div>
+            </div>
+          </div>
           <div
             v-for="file in files"
             :key="file.filename"
@@ -342,13 +331,18 @@
                   {{ file.filename }}
                 </div>
                 <div class="text-xs text-muted-foreground">
-                  {{ formatFileSize(file.size) }} •
-                  <span v-if="(file as any).uploaded_at">
-                    {{ formatDate((file as any).uploaded_at) }}
-                  </span>
-                  <span v-else>
-                    {{ formatDate((file as any).updated_at) }}
-                  </span>
+                  <template v-if="file.filename?.startsWith('website-')">
+                    {{ formatFileSize(file.size) }} • {{ websiteStatusText(file) }}
+                  </template>
+                  <template v-else>
+                    {{ formatFileSize(file.size) }} •
+                    <span v-if="(file as any).uploaded_at">
+                      {{ formatDate((file as any).uploaded_at) }}
+                    </span>
+                    <span v-else>
+                      {{ formatDate((file as any).updated_at) }}
+                    </span>
+                  </template>
                 </div>
               </div>
             </div>
@@ -402,7 +396,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed, reactive } from "vue";
+import { ref, onMounted, onUnmounted, watch, computed, reactive } from "vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -426,7 +420,6 @@ import IconUpload from "@/components/icons/IconUpload.vue";
 import IconSpinnerArc from "@/components/icons/IconSpinnerArc.vue";
 import IconX from "@/components/icons/IconX.vue";
 import IconClock from "@/components/icons/IconClock.vue";
-import IconRefreshCw from "@/components/icons/IconRefreshCw.vue";
 import ChatSectionCard from "@/components/chat/ChatSectionCard.vue";
 import { useGlobalState } from "@/composables/useGlobalState";
 import { useApiService } from "@/composables/useApiService";
@@ -473,9 +466,11 @@ const scheduleForm = reactive({
   enabled: true,
 });
 const crawlMode = ref<"once" | "recurring">("recurring");
-const queueStatus = ref<string>("");
-const queueStatusAt = ref<string>("");
-const queueMetrics = ref<any | null>(null);
+const websitePlaceholders = ref<
+  { id: string; url: string; host: string; startedAt: string }[]
+>([]);
+const crawlingHosts = ref<string[]>([]);
+let crawlStatusTimer: ReturnType<typeof setInterval> | null = null;
 
 const websiteProtocolHint = computed(() => {
   const raw = websiteInput.value.trim();
@@ -561,9 +556,12 @@ const indexingTargetDisplay = computed(() => {
 });
 
 // Fetch knowledge base items
-const fetchKnowledgeItems = async () => {
+const fetchKnowledgeItems = async (options?: { silent?: boolean }) => {
+  const silent = Boolean(options?.silent);
   if (!props.resourceId) return;
-  isLoadingFiles.value = true;
+  if (!silent) {
+    isLoadingFiles.value = true;
+  }
   try {
     const { data: filesData, execute: executeFetchFiles } =
       isSharedScope.value
@@ -604,7 +602,9 @@ const fetchKnowledgeItems = async () => {
     console.error("Error fetching chat files:", error);
     showError(error, "Failed to load files");
   } finally {
-    isLoadingFiles.value = false;
+    if (!silent) {
+      isLoadingFiles.value = false;
+    }
   }
 };
 
@@ -702,6 +702,65 @@ const formatDate = (iso: string | Date) => {
   return d.toLocaleString();
 };
 
+const extractHostFromUrl = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+};
+
+const parseWebsiteFilename = (filename: string) => {
+  if (!filename.startsWith("website-")) return null;
+  const withoutPrefix = filename.slice("website-".length);
+  const lastDash = withoutPrefix.lastIndexOf("-");
+  if (lastDash === -1) return null;
+  const beforeTime = withoutPrefix.slice(0, lastDash);
+  const secondLastDash = beforeTime.lastIndexOf("-");
+  if (secondLastDash === -1) return null;
+  const host = beforeTime.slice(0, secondLastDash);
+  if (!host) return null;
+  return { host };
+};
+
+const isWebsiteFileForHost = (filename: string, host: string) => {
+  const parsed = parseWebsiteFilename(filename);
+  return parsed?.host === host;
+};
+
+const latestPlaceholderStart = (host: string) => {
+  const candidates = websitePlaceholders.value.filter((p) => p.host === host);
+  if (candidates.length === 0) return null;
+  return candidates.reduce((latest, p) =>
+    new Date(p.startedAt).getTime() > new Date(latest.startedAt).getTime()
+      ? p
+      : latest,
+  ).startedAt;
+};
+
+const websiteStatusText = (file: ChatFile) => {
+  if (!file.filename?.startsWith("website-")) return "";
+  const parsed = parseWebsiteFilename(file.filename);
+  if (!parsed) return "";
+  const host = parsed.host;
+  const isCrawling =
+    crawlingHosts.value.includes(host) || typeof file.size !== "number" || file.size === 0;
+  if (isCrawling) {
+    return `Crawling…`;
+  }
+  const scheduleHost = schedule.value?.url
+    ? extractHostFromUrl(schedule.value.url)
+    : "";
+  const lastAt =
+    scheduleHost &&
+    scheduleHost === host &&
+    schedule.value?.last_run_at
+      ? schedule.value.last_run_at
+      : ((file as any).uploaded_at || file.updated_at);
+  return `Last crawl: ${formatDate(lastAt)}`;
+};
+
 const {
   execute: uploadChatText,
   error: uploadChatTextError,
@@ -759,6 +818,51 @@ const deleteText = async (id: string) => {
 const isIndexingWebsite = ref(false);
 const { execute: enqueueChatOnce } = apiService.crawlChatOnce();
 const { execute: enqueueSharedOnce } = apiService.crawlSharedOnce();
+
+const refreshCrawlStatus = async () => {
+  if (!props.resourceId) return;
+  await fetchKnowledgeItems({ silent: true });
+  const currentFiles = [...files.value];
+  const remainingHosts: string[] = [];
+  for (const host of crawlingHosts.value) {
+    const placeholderStartedAt = latestPlaceholderStart(host);
+    const hasCompleted = currentFiles.some((f) => {
+      if (!isWebsiteFileForHost(f.filename, host)) return false;
+      if (!(typeof f.size === "number" && f.size > 0)) return false;
+      const ts =
+        (f as any).uploaded_at || (f as any).updated_at || (f as any).created_at;
+      if (!placeholderStartedAt || !ts) return true;
+      return new Date(ts).getTime() >= new Date(placeholderStartedAt).getTime();
+    });
+    if (!hasCompleted) {
+      remainingHosts.push(host);
+    }
+  }
+  crawlingHosts.value = remainingHosts;
+  websitePlaceholders.value = websitePlaceholders.value.filter((p) =>
+    remainingHosts.includes(p.host),
+  );
+  if (remainingHosts.length === 0) {
+    if (crawlStatusTimer) {
+      clearInterval(crawlStatusTimer);
+      crawlStatusTimer = null;
+    }
+  }
+};
+
+const startCrawlPolling = () => {
+  if (crawlStatusTimer) return;
+  crawlStatusTimer = setInterval(() => {
+    void refreshCrawlStatus();
+  }, 1000);
+};
+
+onUnmounted(() => {
+  if (crawlStatusTimer) {
+    clearInterval(crawlStatusTimer);
+    crawlStatusTimer = null;
+  }
+});
 
 const previewWebsite = () => {
   if (!isWebsiteValid.value || typeof window === "undefined") {
@@ -846,15 +950,15 @@ const saveSchedule = async () => {
   if (!scheduleForm.time) {
     scheduleForm.time = "03:00";
   }
+  const targetUrl = normalizedWebsiteUrl.value;
+  const host = parsedWebsite.value.host || extractHostFromUrl(targetUrl);
   isSavingSchedule.value = true;
-  queueStatus.value = "Enqueuing first crawl…";
-  queueStatusAt.value = new Date().toISOString();
   const saver = isSharedScope.value
     ? apiService.upsertSharedCrawlSchedule()
     : apiService.upsertChatCrawlSchedule();
   const payload: any = {
     body: {
-      url: normalizedWebsiteUrl.value,
+      url: targetUrl,
       cron_expr: toCron(scheduleForm.frequency, scheduleForm.time),
       timezone: localTimezone,
       enabled: scheduleForm.enabled,
@@ -863,12 +967,32 @@ const saveSchedule = async () => {
   if (isSharedScope.value) payload.kbId = props.resourceId;
   else payload.chatId = props.resourceId;
 
+  let placeholderId: string | null = null;
+  if (host) {
+    if (!crawlingHosts.value.includes(host)) {
+      crawlingHosts.value = [...crawlingHosts.value, host];
+    }
+    placeholderId = `recurring-${host}-${Date.now()}`;
+    websitePlaceholders.value.unshift({
+      id: placeholderId,
+      url: targetUrl,
+      host,
+      startedAt: new Date().toISOString(),
+    });
+    startCrawlPolling();
+  }
+
   const res = await saver.execute(payload);
   if (!saver.error.value && res) {
     schedule.value = res;
     crawlMode.value = "recurring";
-    queueStatus.value = "Queued";
-    queueStatusAt.value = new Date().toISOString();
+  } else if (host) {
+    crawlingHosts.value = crawlingHosts.value.filter((h) => h !== host);
+    if (placeholderId) {
+      websitePlaceholders.value = websitePlaceholders.value.filter(
+        (p) => p.id !== placeholderId,
+      );
+    }
   }
   isSavingSchedule.value = false;
 };
@@ -893,10 +1017,21 @@ const deleteSchedule = async () => {
 const crawlOnce = async () => {
   if (!props.resourceId || !isWebsiteValid.value) return;
   const targetUrl = normalizedWebsiteUrl.value;
+  const host = parsedWebsite.value.host;
   indexingTarget.value = targetUrl;
   isIndexingWebsite.value = true;
-  queueStatus.value = "Queued";
-  queueStatusAt.value = new Date().toISOString();
+  if (host) {
+    if (!crawlingHosts.value.includes(host)) {
+      crawlingHosts.value = [...crawlingHosts.value, host];
+    }
+    websitePlaceholders.value.unshift({
+      id: `once-${host}-${Date.now()}`,
+      url: targetUrl,
+      host,
+      startedAt: new Date().toISOString(),
+    });
+    startCrawlPolling();
+  }
   if (isSharedScope.value) {
     await enqueueSharedOnce({ kbId: props.resourceId, url: targetUrl });
   } else {
@@ -941,7 +1076,6 @@ onMounted(async () => {
     await fetchKnowledgeItems();
     await loadSchedule();
   }
-  fetchQueueMetrics();
 });
 
 // Expose methods and reactive state for parent component
@@ -949,7 +1083,10 @@ defineExpose({ fetchKnowledgeItems, files, textSources });
 
 // Summary: items and total usage
 const itemsCount = computed(
-  () => (files.value?.length || 0) + (textSources.value?.length || 0),
+  () =>
+    (files.value?.length || 0) +
+    (textSources.value?.length || 0) +
+    (websitePlaceholders.value?.length || 0),
 );
 const totalBytes = computed(() => {
   const filesBytes = (files.value || []).reduce(
@@ -961,20 +1098,6 @@ const totalBytes = computed(() => {
     0,
   );
   return filesBytes + textBytes;
-});
-
-const lastRunCopy = computed(() => {
-  if (schedule.value?.last_run_at) {
-    return formatDate(schedule.value.last_run_at);
-  }
-  return "Not run yet";
-});
-
-const nextRunCopy = computed(() => {
-  if (schedule.value?.next_run_at) {
-    return formatDate(schedule.value.next_run_at);
-  }
-  return "Scheduled after next refresh";
 });
 
 </script>

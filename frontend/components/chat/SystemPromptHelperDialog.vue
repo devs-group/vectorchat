@@ -20,6 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useApiService } from "@/composables/useApiService";
 import type { SystemPromptGenerateResponse } from "~/types/api";
+import { Loader2 } from "lucide-vue-next";
 
 interface Props {
   open: boolean;
@@ -171,11 +172,16 @@ const handleClose = () => {
         <Button
           v-if="stage === 'input'"
           type="button"
-          :loading="isLoading"
           :disabled="isLoading || !purpose.trim()"
           @click="handleGenerate"
         >
-          Generate
+          <span v-if="isLoading" class="inline-flex items-center gap-2">
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Generating...
+          </span>
+          <span v-else>
+            Generate
+          </span>
         </Button>
         <Button
           v-else

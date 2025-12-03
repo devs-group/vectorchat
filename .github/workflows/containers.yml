@@ -19,6 +19,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  prepare-build:
+    runs-on: ubuntu-latest
+    outputs:
+      build-ts: ${{ steps.ts.outputs.value }}
+    steps:
+      - name: Compute UTC build timestamp
+        id: ts
+        run: echo "value=$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
+
   validate-secrets:
     runs-on: ubuntu-latest
     outputs:
@@ -37,11 +46,13 @@ jobs:
 
   build-staging:
     if: github.ref == 'refs/heads/main' && needs.validate-secrets.outputs.secrets-valid == 'true'
-    needs: validate-secrets
+    needs: [prepare-build, validate-secrets]
     uses: ./.github/workflows/build-containers.yml
     with:
       environment: staging
-      tag: staging
+      tag: staging-${{ needs.prepare-build.outputs.build-ts }}
+      extra_tags: |
+        type=raw,value=staging
       push_image: true
     secrets: inherit
 
@@ -56,6 +67,65 @@ jobs:
         type=ref,event=tag
       push_image: true
     secrets: inherit
+
+  update-gitops-staging:
+    name: Update GitOps values (staging)
+    if: needs.build-staging.result == 'success'
+    needs: [prepare-build, build-staging]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      IMAGE_TAG: staging-${{ needs.prepare-build.outputs.build-ts }}
+      GITOPS_REPO: devs-group/rke2-applications
+      GITOPS_PATH: vectorchat/values-staging.yaml
+    steps:
+      - name: Validate GitOps token
+        run: |
+          if [ -z "${{ secrets.GITOPS_TOKEN }}" ]; then
+            echo "GITOPS_TOKEN secret is required to update ${GITOPS_REPO}"
+            exit 1
+          fi
+
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ secrets.GITOPS_TOKEN }}
+          fetch-depth: 0
+
+      - name: Bump vectorchat staging images
+        uses: mikefarah/yq@v4
+        with:
+          cmd: |
+            yq -i '
+              .components.app.image = "ghcr.io/devs-group/vectorchat/backend:" + strenv(IMAGE_TAG) |
+              .components["crawl-scheduler"].image = "ghcr.io/devs-group/vectorchat/backend:" + strenv(IMAGE_TAG) |
+              .components.frontend.image = "ghcr.io/devs-group/vectorchat/frontend:" + strenv(IMAGE_TAG) |
+              .components["vectorchat-light"].image = "ghcr.io/devs-group/vectorchat/vectorchat-light:" + strenv(IMAGE_TAG) |
+              .components.markitdown.image = "ghcr.io/devs-group/vectorchat/markitdown:" + strenv(IMAGE_TAG)
+            ' $GITOPS_PATH
+
+      - name: Show diff
+        run: git diff --stat && git diff
+
+      - name: Create PR in GitOps repo
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITOPS_TOKEN }}
+          commit-message: "chore(vectorchat-staging): bump images to ${IMAGE_TAG}"
+          branch: ci/vectorchat-staging-${{ env.IMAGE_TAG }}
+          title: "chore(vectorchat-staging): bump images to ${IMAGE_TAG}"
+          body: |
+            Automated update from vectorchat build.
+
+            - backend/crawl-scheduler: ghcr.io/devs-group/vectorchat/backend:${IMAGE_TAG}
+            - frontend: ghcr.io/devs-group/vectorchat/frontend:${IMAGE_TAG}
+            - vectorchat-light: ghcr.io/devs-group/vectorchat/vectorchat-light:${IMAGE_TAG}
+            - markitdown: ghcr.io/devs-group/vectorchat/markitdown:${IMAGE_TAG}
+          add-paths: |
+            ${{ env.GITOPS_PATH }}
 
   security-summary:
     if: always() && (needs.build-staging.result == 'success' || needs.build-production.result == 'success')

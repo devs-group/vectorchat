@@ -660,17 +660,6 @@ export function useApiService() {
     );
   };
 
-  const getCrawlQueueMetrics = () => {
-    return useApi(
-      async () => {
-        return await useApiFetch(`/queue/crawl/metrics`, { method: "GET" });
-      },
-      {
-        errorMessage: "Failed to load crawl queue metrics",
-      },
-    );
-  };
-
   const sendChatMessage = () => {
     return useApi(
       async (data: {
@@ -1048,7 +1037,6 @@ export function useApiService() {
     deleteSharedCrawlSchedule,
     crawlSharedOnce,
     crawlChatOnce,
-    getCrawlQueueMetrics,
 
     // Conversations
     listConversations,
