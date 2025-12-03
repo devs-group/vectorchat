@@ -5,11 +5,11 @@
         to="/"
         class="flex items-center gap-3 rounded-lg px-2 py-1 text-base font-semibold leading-none text-sidebar-foreground transition-colors hover:text-sidebar-foreground/80"
       >
-        <div
-          class="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-accent text-sm font-semibold uppercase text-sidebar-accent-foreground"
-        >
-          VC
-        </div>
+        <img
+          src="/vc.svg"
+          alt="VectorChat logo"
+          class="h-9 w-9 rounded-lg"
+        />
         <div class="flex flex-col gap-0.5 group-data-[collapsible=icon]:hidden">
           <span class="text-sm font-semibold tracking-tight">VectorChat</span>
           <span class="text-xs font-normal text-muted-foreground"
@@ -18,6 +18,10 @@
         </div>
       </NuxtLink>
     </SidebarHeader>
+
+    <div class="px-3 py-2">
+      <OrganizationSwitcher />
+    </div>
 
     <SidebarContent>
       <SidebarGroup>
@@ -92,10 +96,12 @@ import IconCreditCard from "@/components/icons/IconCreditCard.vue";
 import IconGrid from "@/components/icons/IconGrid.vue";
 import IconMessageSquare from "@/components/icons/IconMessageSquare.vue";
 import IconSettings from "@/components/icons/IconSettings.vue";
+import OrganizationSwitcher from "@/components/OrganizationSwitcher.vue";
 
 const navItems = [
   { title: "Chats", to: "/chat", icon: IconMessageSquare },
   { title: "Knowledge Bases", to: "/knowledge-bases", icon: IconGrid },
+  { title: "Organizations", to: "/organizations", icon: IconGrid },
   { title: "Subscription", to: "/subscription", icon: IconCreditCard },
   { title: "API Settings", to: "/settings", icon: IconSettings },
 ] as const;

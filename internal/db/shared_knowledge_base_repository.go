@@ -29,8 +29,8 @@ func (r *SharedKnowledgeBaseRepository) Create(ctx context.Context, kb *SharedKn
 	kb.UpdatedAt = now
 
 	query := `
-        INSERT INTO shared_knowledge_bases (id, owner_id, name, description, created_at, updated_at)
-        VALUES (:id, :owner_id, :name, :description, :created_at, :updated_at)
+        INSERT INTO shared_knowledge_bases (id, owner_id, organization_id, name, description, created_at, updated_at)
+        VALUES (:id, :owner_id, :organization_id, :name, :description, :created_at, :updated_at)
     `
 
 	if _, err := r.db.NamedExecContext(ctx, query, kb); err != nil {
@@ -52,7 +52,10 @@ func (r *SharedKnowledgeBaseRepository) Update(ctx context.Context, kb *SharedKn
         SET name = :name,
             description = :description,
             updated_at = :updated_at
-        WHERE id = :id AND owner_id = :owner_id
+        WHERE id = :id AND (
+			(:organization_id IS NULL AND organization_id IS NULL AND owner_id = :owner_id)
+			OR organization_id = :organization_id::uuid
+		)
     `
 
 	result, err := r.db.NamedExecContext(ctx, query, kb)
@@ -95,7 +98,7 @@ func (r *SharedKnowledgeBaseRepository) Delete(ctx context.Context, id uuid.UUID
 func (r *SharedKnowledgeBaseRepository) FindByID(ctx context.Context, id uuid.UUID) (*SharedKnowledgeBase, error) {
 	var kb SharedKnowledgeBase
 	query := `
-        SELECT id, owner_id, name, description, created_at, updated_at
+        SELECT id, owner_id, organization_id, name, description, created_at, updated_at
         FROM shared_knowledge_bases
         WHERE id = $1
     `
@@ -114,9 +117,9 @@ func (r *SharedKnowledgeBaseRepository) FindByID(ctx context.Context, id uuid.UU
 func (r *SharedKnowledgeBaseRepository) ListByOwner(ctx context.Context, ownerID string) ([]*SharedKnowledgeBase, error) {
 	var results []*SharedKnowledgeBase
 	query := `
-        SELECT id, owner_id, name, description, created_at, updated_at
+        SELECT id, owner_id, organization_id, name, description, created_at, updated_at
         FROM shared_knowledge_bases
-        WHERE owner_id = $1
+        WHERE owner_id = $1 AND organization_id IS NULL
         ORDER BY created_at DESC
     `
 
@@ -148,7 +151,7 @@ func (r *SharedKnowledgeBaseRepository) ListIDsByChatbot(ctx context.Context, ch
 func (r *SharedKnowledgeBaseRepository) ListByChatbot(ctx context.Context, chatbotID uuid.UUID) ([]*SharedKnowledgeBase, error) {
 	var results []*SharedKnowledgeBase
 	query := `
-        SELECT skb.id, skb.owner_id, skb.name, skb.description, skb.created_at, skb.updated_at
+        SELECT skb.id, skb.owner_id, skb.organization_id, skb.name, skb.description, skb.created_at, skb.updated_at
         FROM shared_knowledge_bases skb
         INNER JOIN chatbot_shared_knowledge_bases link ON link.shared_knowledge_base_id = skb.id
         WHERE link.chatbot_id = $1
@@ -253,22 +256,29 @@ func (r *SharedKnowledgeBaseRepository) DetachAllOwned(ctx context.Context, owne
 	return nil
 }
 
-// ListOwnersByKnowledgeBaseIDs returns owner IDs for a set of shared KBs.
-func (r *SharedKnowledgeBaseRepository) ListOwnersByKnowledgeBaseIDs(ctx context.Context, kbIDs []uuid.UUID) (map[uuid.UUID]string, error) {
-	result := make(map[uuid.UUID]string)
+// ListOwnersByKnowledgeBaseIDs returns owner/org IDs for a set of shared KBs.
+func (r *SharedKnowledgeBaseRepository) ListOwnersByKnowledgeBaseIDs(ctx context.Context, kbIDs []uuid.UUID) (map[uuid.UUID]struct {
+	OwnerID string
+	OrgID   *uuid.UUID
+}, error) {
+	result := make(map[uuid.UUID]struct {
+		OwnerID string
+		OrgID   *uuid.UUID
+	})
 	if len(kbIDs) == 0 {
 		return result, nil
 	}
 
 	query := `
-        SELECT id, owner_id
+        SELECT id, owner_id, organization_id
         FROM shared_knowledge_bases
         WHERE id = ANY($1)
     `
 
 	type row struct {
-		ID      uuid.UUID `db:"id"`
-		OwnerID string    `db:"owner_id"`
+		ID             uuid.UUID  `db:"id"`
+		OwnerID        string     `db:"owner_id"`
+		OrganizationID *uuid.UUID `db:"organization_id"`
 	}
 
 	var rows []row
@@ -277,8 +287,32 @@ func (r *SharedKnowledgeBaseRepository) ListOwnersByKnowledgeBaseIDs(ctx context
 	}
 
 	for _, r := range rows {
-		result[r.ID] = r.OwnerID
+		org := r.OrganizationID
+		result[r.ID] = struct {
+			OwnerID string
+			OrgID   *uuid.UUID
+		}{
+			OwnerID: r.OwnerID,
+			OrgID:   org,
+		}
 	}
 
 	return result, nil
+}
+
+// ListByOrganization returns knowledge bases for an organization.
+func (r *SharedKnowledgeBaseRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]*SharedKnowledgeBase, error) {
+	var results []*SharedKnowledgeBase
+	query := `
+        SELECT id, owner_id, organization_id, name, description, created_at, updated_at
+        FROM shared_knowledge_bases
+        WHERE organization_id = $1
+        ORDER BY created_at DESC
+    `
+
+	if err := r.db.SelectContext(ctx, &results, query, orgID); err != nil {
+		return nil, apperrors.Wrap(err, "failed to list shared knowledge bases by org")
+	}
+
+	return results, nil
 }

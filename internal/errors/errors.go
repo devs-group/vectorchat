@@ -43,6 +43,10 @@ var (
 	ErrNotFound                        = errors.New("not found")
 	ErrSharedKnowledgeBaseNotFound     = errors.New("shared knowledge base not found")
 	ErrUnauthorizedKnowledgeBaseAccess = errors.New("unauthorized access to shared knowledge base")
+	ErrOrganizationNotFound            = errors.New("organization not found")
+	ErrUnauthorizedOrganizationAccess  = errors.New("unauthorized access to organization")
+	ErrOrganizationInviteInvalid       = errors.New("invalid or expired organization invite")
+	ErrOrganizationAlreadyExists       = errors.New("organization already exists")
 )
 
 // WithDetails adds context details to an error

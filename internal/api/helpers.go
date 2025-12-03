@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/yourusername/vectorchat/internal/db"
+	"github.com/yourusername/vectorchat/internal/services"
 	"github.com/yourusername/vectorchat/pkg/models"
 )
 
@@ -14,6 +15,13 @@ func GetUser(c *fiber.Ctx) (*db.User, error) {
 		return nil, fiber.ErrUnauthorized
 	}
 	return user, nil
+}
+
+func GetOrgContext(c *fiber.Ctx) *services.OrganizationContext {
+	if org, ok := c.Locals("org").(*services.OrganizationContext); ok && org != nil {
+		return org
+	}
+	return &services.OrganizationContext{Role: services.OrgRolePersonal}
 }
 
 func ErrorResponse(c *fiber.Ctx, msg string, err error, statusCode ...int) error {

@@ -71,8 +71,12 @@ func (s *SubscriptionLimitsMiddleware) CheckLimit(limitKey string) fiber.Handler
 func (s *SubscriptionLimitsMiddleware) checkChatbotsLimit(c *fiber.Ctx, userID string, limits map[string]interface{}) error {
 	maxChatbots := getIntLimit(limits, constants.LimitChatbots, constants.DefaultChatbots)
 
-	// Count existing chatbots
-	chatbots, err := s.chatService.ListChatbots(c.Context(), userID)
+	orgCtx, _ := c.Locals("org").(*services.OrganizationContext)
+	if orgCtx == nil {
+		orgCtx = &services.OrganizationContext{Role: services.OrgRolePersonal}
+	}
+
+	chatbots, err := s.chatService.ListChatbots(c.Context(), userID, orgCtx)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to check chatbots limit",

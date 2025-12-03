@@ -29,6 +29,7 @@ serve:
         - Origin
         - X-Requested-With
         - X-CSRF-Token
+        - X-Organization-ID
       exposed_headers:
         - Content-Type
       allow_credentials: true
@@ -50,6 +51,7 @@ serve:
         - X-Requested-With
         - Access-Control-Allow-Origin
         - Access-Control-Allow-Credentials
+        - X-Organization-ID
       allow_credentials: true
 
 access_rules:

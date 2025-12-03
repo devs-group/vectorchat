@@ -23,6 +23,7 @@ type ChatHandler struct {
 	ChatService        *services.ChatService
 	AuthMiddleware     *middleware.AuthMiddleware
 	OwershipMiddleware *middleware.OwnershipMiddleware
+	OrgMiddleware      *middleware.OrganizationMiddleware
 	CommonService      *services.CommonService
 	SubscriptionLimits *middleware.SubscriptionLimitsMiddleware
 	ScheduleService    *services.CrawlScheduleService
@@ -33,6 +34,7 @@ func NewChatHandler(
 	authMiddleware *middleware.AuthMiddleware,
 	chatService *services.ChatService,
 	ownershipMiddlware *middleware.OwnershipMiddleware,
+	orgMiddleware *middleware.OrganizationMiddleware,
 	commonService *services.CommonService,
 	subscriptionLimits *middleware.SubscriptionLimitsMiddleware,
 	scheduleService *services.CrawlScheduleService,
@@ -42,6 +44,7 @@ func NewChatHandler(
 		ChatService:        chatService,
 		AuthMiddleware:     authMiddleware,
 		OwershipMiddleware: ownershipMiddlware,
+		OrgMiddleware:      orgMiddleware,
 		CommonService:      commonService,
 		SubscriptionLimits: subscriptionLimits,
 		ScheduleService:    scheduleService,
@@ -53,7 +56,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	// Health check endpoint (no auth required)
 	app.Get("/public/health", h.GET_HealthCheck)
 
-	chat := app.Group("/chat", h.AuthMiddleware.RequireAuth)
+	chat := app.Group("/chat", h.AuthMiddleware.RequireAuth, h.OrgMiddleware.Attach)
 
 	// File upload and management
 	chat.Post("/chatbot", h.SubscriptionLimits.CheckLimit(constants.LimitChatbots), h.POST_CreateChatbot)
@@ -61,6 +64,7 @@ func (h *ChatHandler) RegisterRoutes(app *fiber.App) {
 	chat.Get("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.GET_ChatbotByID)
 	chat.Put("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.PUT_UpdateChatbot)
 	chat.Patch("/chatbot/:chatID/toggle", h.OwershipMiddleware.IsChatbotOwner, h.PATCH_ToggleChatbot)
+	chat.Post("/chatbot/:chatID/transfer", h.OwershipMiddleware.IsChatbotOwner, h.POST_TransferChatbot)
 	chat.Delete("/chatbot/:chatID", h.OwershipMiddleware.IsChatbotOwner, h.DELETE_Chatbot)
 	chat.Post("/system-prompt/generate", h.POST_GenerateSystemPrompt)
 	chat.Post("/:chatID/upload", h.OwershipMiddleware.IsChatbotOwner, h.SubscriptionLimits.CheckLimit(constants.LimitDataSources), h.SubscriptionLimits.CheckLimit(constants.LimitTrainingData), h.POST_UploadFile)
@@ -489,7 +493,7 @@ func (h *ChatHandler) GET_ListChatbots(c *fiber.Ctx) error {
 		return err
 	}
 
-	response, err := h.ChatService.ListChatbotsFormatted(c.Context(), user.ID)
+	response, err := h.ChatService.ListChatbotsFormatted(c.Context(), user.ID, GetOrgContext(c))
 	if err != nil {
 		return ErrorResponse(c, "Failed to retrieve chatbots", err)
 	}
@@ -634,7 +638,7 @@ func (h *ChatHandler) prepareChatMessageContext(c *fiber.Ctx) (*chatMessageConte
 		return nil, 0, "", err
 	}
 
-	chatbot, err := h.ChatService.GetChatbotForUser(c.Context(), chatID, user.ID)
+	chatbot, err := h.ChatService.GetChatbotForUser(c.Context(), chatID, user.ID, GetOrgContext(c))
 	if err != nil {
 		if apperrors.Is(err, apperrors.ErrChatbotNotFound) {
 			return nil, http.StatusNotFound, "Chatbot not found", err
@@ -671,7 +675,8 @@ func (h *ChatHandler) POST_CreateChatbot(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
-	response, err := h.ChatService.ValidateAndCreateChatbot(c.Context(), user.ID, &req)
+	orgCtx := GetOrgContext(c)
+	response, err := h.ChatService.ValidateAndCreateChatbot(c.Context(), user.ID, orgCtx, &req)
 	if err != nil {
 		return ErrorResponse(c, "Failed to create chatbot", err)
 	}
@@ -699,7 +704,7 @@ func (h *ChatHandler) GET_ChatbotByID(c *fiber.Ctx) error {
 		return err
 	}
 
-	chatbot, err := h.ChatService.GetChatbotFormatted(c.Context(), c.Params("chatID"), user.ID)
+	chatbot, err := h.ChatService.GetChatbotFormatted(c.Context(), c.Params("chatID"), user.ID, GetOrgContext(c))
 	if err != nil {
 		if apperrors.Is(err, apperrors.ErrUnauthorizedChatbotAccess) {
 			return ErrorResponse(c, "You don't have permission to access this chatbot", err, http.StatusForbidden)
@@ -740,7 +745,7 @@ func (h *ChatHandler) PUT_UpdateChatbot(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
 
-	chatbot, err := h.ChatService.UpdateChatbotFromRequest(c.Context(), c.Params("chatID"), user.ID, &req)
+	chatbot, err := h.ChatService.UpdateChatbotFromRequest(c.Context(), c.Params("chatID"), user.ID, GetOrgContext(c), &req)
 	if err != nil {
 		if apperrors.Is(err, apperrors.ErrUnauthorizedChatbotAccess) {
 			return ErrorResponse(c, "You don't have permission to access this chatbot", err, http.StatusForbidden)
@@ -786,7 +791,7 @@ func (h *ChatHandler) PATCH_ToggleChatbot(c *fiber.Ctx) error {
 		return err
 	}
 
-	chatbot, err := h.ChatService.ToggleChatbotEnabled(c.Context(), chatID, user.ID, req.IsEnabled)
+	chatbot, err := h.ChatService.ToggleChatbotEnabled(c.Context(), chatID, user.ID, GetOrgContext(c), req.IsEnabled)
 	if err != nil {
 		if apperrors.Is(err, apperrors.ErrChatbotNotFound) {
 			return ErrorResponse(c, "Chatbot not found", err, http.StatusNotFound)
@@ -796,6 +801,41 @@ func (h *ChatHandler) PATCH_ToggleChatbot(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Failed to toggle chatbot state", err)
 	}
 	return c.JSON(chatbot)
+}
+
+// POST_TransferChatbot moves a chatbot from personal workspace into an organization the user administers.
+func (h *ChatHandler) POST_TransferChatbot(c *fiber.Ctx) error {
+	user, err := GetUser(c)
+	if err != nil {
+		return err
+	}
+	chatbotID, err := h.ChatService.ParseChatID(c.Params("chatID"))
+	if err != nil {
+		return ErrorResponse(c, "Invalid chatbot ID", err, http.StatusBadRequest)
+	}
+
+	var req models.ChatbotTransferRequest
+	if err := c.BodyParser(&req); err != nil {
+		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
+	}
+
+	resp, err := h.ChatService.TransferChatbotToOrganization(c.Context(), chatbotID, user.ID, req.OrganizationID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case apperrors.Is(err, apperrors.ErrInvalidChatbotParameters):
+			status = http.StatusBadRequest
+		case apperrors.Is(err, apperrors.ErrUnauthorizedOrganizationAccess) || apperrors.Is(err, apperrors.ErrUnauthorizedKnowledgeBaseAccess):
+			status = http.StatusForbidden
+		case apperrors.Is(err, apperrors.ErrOrganizationNotFound):
+			status = http.StatusNotFound
+		case apperrors.Is(err, apperrors.ErrChatbotNotFound):
+			status = http.StatusNotFound
+		}
+		return ErrorResponse(c, "Failed to transfer chatbot", err, status)
+	}
+
+	return c.JSON(fiber.Map{"chatbot": resp})
 }
 
 // @Summary Delete chatbot
@@ -821,9 +861,13 @@ func (h *ChatHandler) DELETE_Chatbot(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Chat ID is required", nil, http.StatusBadRequest)
 	}
 
-	err = h.ChatService.DeleteChatbot(c.Context(), chatID, user.ID)
+	err = h.ChatService.DeleteChatbot(c.Context(), chatID, user.ID, GetOrgContext(c))
 	if err != nil {
-		return ErrorResponse(c, "Failed to delete chatbot", err)
+		status := http.StatusInternalServerError
+		if apperrors.Is(err, apperrors.ErrChatbotNotFound) {
+			status = http.StatusNotFound
+		}
+		return ErrorResponse(c, "Failed to delete chatbot", err, status)
 	}
 
 	return c.JSON(models.MessageResponse{

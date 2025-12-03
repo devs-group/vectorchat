@@ -14,20 +14,22 @@ import (
 
 type SharedKnowledgeBaseHandler struct {
 	AuthMiddleware *middleware.AuthMiddleware
+	OrgMiddleware  *middleware.OrganizationMiddleware
 	Service        *services.SharedKnowledgeBaseService
 	Schedule       *services.CrawlScheduleService
 }
 
-func NewSharedKnowledgeBaseHandler(auth *middleware.AuthMiddleware, service *services.SharedKnowledgeBaseService, schedule *services.CrawlScheduleService) *SharedKnowledgeBaseHandler {
+func NewSharedKnowledgeBaseHandler(auth *middleware.AuthMiddleware, org *middleware.OrganizationMiddleware, service *services.SharedKnowledgeBaseService, schedule *services.CrawlScheduleService) *SharedKnowledgeBaseHandler {
 	return &SharedKnowledgeBaseHandler{
 		AuthMiddleware: auth,
+		OrgMiddleware:  org,
 		Service:        service,
 		Schedule:       schedule,
 	}
 }
 
 func (h *SharedKnowledgeBaseHandler) RegisterRoutes(app *fiber.App) {
-	group := app.Group("/knowledge-bases", h.AuthMiddleware.RequireAuth)
+	group := app.Group("/knowledge-bases", h.AuthMiddleware.RequireAuth, h.OrgMiddleware.Attach)
 
 	group.Get("/", h.GET_ListKnowledgeBases)
 	group.Post("/", h.POST_CreateKnowledgeBase)
@@ -64,7 +66,7 @@ func (h *SharedKnowledgeBaseHandler) GET_ListKnowledgeBases(c *fiber.Ctx) error 
 		return err
 	}
 
-	resp, err := h.Service.List(c.Context(), user.ID)
+	resp, err := h.Service.List(c.Context(), user.ID, GetOrgContext(c))
 	if err != nil {
 		return ErrorResponse(c, "Failed to list knowledge bases", err)
 	}
@@ -95,7 +97,7 @@ func (h *SharedKnowledgeBaseHandler) POST_CreateKnowledgeBase(c *fiber.Ctx) erro
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
 
-	resp, err := h.Service.Create(c.Context(), user.ID, &req)
+	resp, err := h.Service.Create(c.Context(), user.ID, GetOrgContext(c), &req)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
@@ -132,7 +134,7 @@ func (h *SharedKnowledgeBaseHandler) GET_KnowledgeBase(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
 	}
 
-	resp, err := h.Service.Get(c.Context(), user.ID, kbID)
+	resp, err := h.Service.Get(c.Context(), user.ID, GetOrgContext(c), kbID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
@@ -176,7 +178,7 @@ func (h *SharedKnowledgeBaseHandler) PUT_UpdateKnowledgeBase(c *fiber.Ctx) error
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
 
-	resp, err := h.Service.Update(c.Context(), user.ID, kbID, &req)
+	resp, err := h.Service.Update(c.Context(), user.ID, GetOrgContext(c), kbID, &req)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
@@ -215,7 +217,7 @@ func (h *SharedKnowledgeBaseHandler) DELETE_KnowledgeBase(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
 	}
 
-	if err := h.Service.Delete(c.Context(), user.ID, kbID); err != nil {
+	if err := h.Service.Delete(c.Context(), user.ID, GetOrgContext(c), kbID); err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
 			status = http.StatusNotFound
@@ -257,7 +259,7 @@ func (h *SharedKnowledgeBaseHandler) POST_UploadFile(c *fiber.Ctx) error {
 		return ErrorResponse(c, "No file uploaded", err, http.StatusBadRequest)
 	}
 
-	resp, err := h.Service.ProcessFileUpload(c.Context(), user.ID, kbID, fileHeader)
+	resp, err := h.Service.ProcessFileUpload(c.Context(), user.ID, GetOrgContext(c), kbID, fileHeader)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
@@ -298,7 +300,7 @@ func (h *SharedKnowledgeBaseHandler) POST_UploadText(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
 
-	if err := h.Service.ProcessTextUpload(c.Context(), user.ID, kbID, req.Text); err != nil {
+	if err := h.Service.ProcessTextUpload(c.Context(), user.ID, GetOrgContext(c), kbID, req.Text); err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
 			status = http.StatusBadRequest
@@ -338,7 +340,7 @@ func (h *SharedKnowledgeBaseHandler) POST_UploadWebsite(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Invalid request body", err, http.StatusBadRequest)
 	}
 
-	if err := h.Service.ProcessWebsiteUpload(c.Context(), user.ID, kbID, req.URL); err != nil {
+	if err := h.Service.ProcessWebsiteUpload(c.Context(), user.ID, GetOrgContext(c), kbID, req.URL); err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
 			status = http.StatusBadRequest
@@ -373,7 +375,7 @@ func (h *SharedKnowledgeBaseHandler) GET_Files(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
 	}
 
-	resp, err := h.Service.ListFiles(c.Context(), user.ID, kbID)
+	resp, err := h.Service.ListFiles(c.Context(), user.ID, GetOrgContext(c), kbID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
@@ -413,7 +415,7 @@ func (h *SharedKnowledgeBaseHandler) DELETE_File(c *fiber.Ctx) error {
 	}
 	filename := c.Params("filename")
 
-	if err := h.Service.DeleteFile(c.Context(), user.ID, kbID, filename); err != nil {
+	if err := h.Service.DeleteFile(c.Context(), user.ID, GetOrgContext(c), kbID, filename); err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
 			status = http.StatusBadRequest
@@ -452,7 +454,7 @@ func (h *SharedKnowledgeBaseHandler) GET_TextSources(c *fiber.Ctx) error {
 		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
 	}
 
-	resp, err := h.Service.ListTextSources(c.Context(), user.ID, kbID)
+	resp, err := h.Service.ListTextSources(c.Context(), user.ID, GetOrgContext(c), kbID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
@@ -492,7 +494,7 @@ func (h *SharedKnowledgeBaseHandler) DELETE_TextSource(c *fiber.Ctx) error {
 	}
 	sourceID := c.Params("sourceId")
 
-	if err := h.Service.DeleteTextSource(c.Context(), user.ID, kbID, sourceID); err != nil {
+	if err := h.Service.DeleteTextSource(c.Context(), user.ID, GetOrgContext(c), kbID, sourceID); err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrInvalidChatbotParameters) {
 			status = http.StatusBadRequest
@@ -528,7 +530,8 @@ func (h *SharedKnowledgeBaseHandler) GET_CrawlSchedules(c *fiber.Ctx) error {
 	if err != nil {
 		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
 	}
-	if _, err := h.Service.Get(c.Context(), user.ID, kbID); err != nil {
+	orgCtx := GetOrgContext(c)
+	if _, err := h.Service.Get(c.Context(), user.ID, orgCtx, kbID); err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
 			status = http.StatusNotFound
@@ -571,7 +574,8 @@ func (h *SharedKnowledgeBaseHandler) PUT_CrawlSchedule(c *fiber.Ctx) error {
 	if err != nil {
 		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
 	}
-	if _, err := h.Service.Get(c.Context(), user.ID, kbID); err != nil {
+	orgCtx := GetOrgContext(c)
+	if _, err := h.Service.Get(c.Context(), user.ID, orgCtx, kbID); err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
 			status = http.StatusNotFound
@@ -626,7 +630,8 @@ func (h *SharedKnowledgeBaseHandler) DELETE_CrawlSchedule(c *fiber.Ctx) error {
 	}
 
 	// ensure ownership
-	if _, err := h.Service.Get(c.Context(), user.ID, kbID); err != nil {
+	orgCtx := GetOrgContext(c)
+	if _, err := h.Service.Get(c.Context(), user.ID, orgCtx, kbID); err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
 			status = http.StatusNotFound
@@ -670,7 +675,8 @@ func (h *SharedKnowledgeBaseHandler) POST_CrawlNow(c *fiber.Ctx) error {
 	if err != nil {
 		return ErrorResponse(c, "Invalid knowledge base id", err, http.StatusBadRequest)
 	}
-	if _, err := h.Service.Get(c.Context(), user.ID, kbID); err != nil {
+	orgCtx := GetOrgContext(c)
+	if _, err := h.Service.Get(c.Context(), user.ID, orgCtx, kbID); err != nil {
 		status := http.StatusInternalServerError
 		if apperrors.Is(err, apperrors.ErrSharedKnowledgeBaseNotFound) {
 			status = http.StatusNotFound

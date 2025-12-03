@@ -95,19 +95,19 @@ Rules:
 
 ## Execution Checklist (for me)
 ### Foundation
-- [ ] Confirm goose migration numbers and add 019-021 covering org tables + resource columns.
-- [ ] Add repository interfaces for organizations, members, invites with tests.
-- [ ] Update ownership middleware to accept org context + permission checks.
+- [x] Confirm goose migration numbers and add 019 covering org tables + resource columns.
+- [x] Add repository interfaces for organizations, members, invites (tests pending).
+- [x] Update ownership middleware to accept org context + permission checks.
 
 ### Backend features
-- [ ] Org CRUD handler under `/orgs` (thin) backed by service.
-- [ ] Invite flow: create, email hook, accept endpoint that joins member + invalidates token.
-- [ ] Chatbot/KB listing & create: scope by org when header set; preserve personal behavior when absent.
+- [x] Org CRUD handler under `/orgs` (thin) backed by service.
+- [x] Invite flow: create, accept endpoint that joins member + invalidates token (email hook TBD).
+- [x] Chatbot/KB listing & create: scope by org when header set; preserve personal behavior when absent.
 
 ### Frontend
-- [ ] Pinia store for orgs (`currentOrgId`, permissions, hydration from `/orgs`).
-- [ ] Axios interceptor for `X-Organization-ID` + 403 handling.
-- [ ] Minimal Linear-style org switcher (popover, keyboard focusable) and member list page (table-style, inline role select).
+- [x] Org state composable (`currentOrgId`, hydration from `/orgs`).
+- [x] Axios/fetch header injection for `X-Organization-ID`.
+- [x] Minimal org switcher + organizations page (list + create). Member management UI pending.
 
 ### QA & rollout
 - [ ] Table-driven unit tests for permission logic and invite token flow.

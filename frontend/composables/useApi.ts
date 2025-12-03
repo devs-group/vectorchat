@@ -179,10 +179,22 @@ export function useApi<T, P>(
  */
 export const useApiFetch = <T>(request: any, opts?: any) => {
   const config = useRuntimeConfig();
+  const orgState = useState<{
+    currentOrgId: string | null;
+  } | null>("org-state", () => null);
+
+  const orgHeaders =
+    orgState.value && orgState.value.currentOrgId
+      ? { "X-Organization-ID": orgState.value.currentOrgId }
+      : undefined;
 
   return useFetch<T>(request, {
     baseURL: config.public.apiBase as string,
     credentials: "include",
+    headers: {
+      ...orgHeaders,
+      ...(opts?.headers || {}),
+    },
     onResponseError({ response }) {
       // Ensure error responses are properly formatted
       if (response._data) {

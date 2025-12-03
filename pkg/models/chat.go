@@ -34,6 +34,7 @@ type ChatbotUpdateRequest struct {
 type ChatbotResponse struct {
 	ID                     uuid.UUID   `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
 	UserID                 string      `json:"user_id" example:"user_123"`
+	OrganizationID         *uuid.UUID  `json:"organization_id,omitempty" example:"3f5f5f4e-1234-5678-a9ab-0123456789ab"`
 	Name                   string      `json:"name" example:"Customer Support Bot"`
 	Description            string      `json:"description" example:"AI assistant for customer support"`
 	SystemInstructions     string      `json:"system_instructions" example:"You are a helpful customer support assistant"`
@@ -55,6 +56,10 @@ type ChatbotsListResponse struct {
 
 type ChatbotToggleRequest struct {
 	IsEnabled bool `json:"is_enabled" binding:"required" example:"false"`
+}
+
+type ChatbotTransferRequest struct {
+	OrganizationID uuid.UUID `json:"organization_id" binding:"required" example:"3f5f5f4e-1234-5678-a9ab-0123456789ab"`
 }
 
 type ChatMessageRequest struct {

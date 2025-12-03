@@ -17,12 +17,13 @@ type SharedKnowledgeBaseUpdateRequest struct {
 }
 
 type SharedKnowledgeBaseResponse struct {
-	ID          uuid.UUID `json:"id" example:"3f5f5f4e-1234-5678-a9ab-0123456789ab"`
-	OwnerID     string    `json:"owner_id" example:"user_123"`
-	Name        string    `json:"name" example:"Support FAQs"`
-	Description *string   `json:"description,omitempty" example:"Frequently asked questions for agents"`
-	CreatedAt   time.Time `json:"created_at" example:"2024-01-01T12:00:00Z"`
-	UpdatedAt   time.Time `json:"updated_at" example:"2024-01-02T12:00:00Z"`
+	ID             uuid.UUID  `json:"id" example:"3f5f5f4e-1234-5678-a9ab-0123456789ab"`
+	OwnerID        string     `json:"owner_id" example:"user_123"`
+	OrganizationID *uuid.UUID `json:"organization_id,omitempty" example:"3f5f5f4e-1234-5678-a9ab-0123456789ac"`
+	Name           string     `json:"name" example:"Support FAQs"`
+	Description    *string    `json:"description,omitempty" example:"Frequently asked questions for agents"`
+	CreatedAt      time.Time  `json:"created_at" example:"2024-01-01T12:00:00Z"`
+	UpdatedAt      time.Time  `json:"updated_at" example:"2024-01-02T12:00:00Z"`
 }
 
 type SharedKnowledgeBaseListResponse struct {

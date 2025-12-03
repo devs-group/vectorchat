@@ -40,8 +40,10 @@ func (m *OwnershipMiddleware) IsChatbotOwner(c *fiber.Ctx) error {
 		})
 	}
 
+	orgCtx, _ := c.Locals("org").(*services.OrganizationContext)
+
 	// Verify ownership
-	isOwner, err := m.chatService.CheckChatbotOwnership(c.Context(), id, user.ID)
+	isOwner, err := m.chatService.CheckChatbotOwnership(c.Context(), id, user.ID, orgCtx)
 	if err != nil {
 		slog.Error("Failed to verify chatbot ownership", "error", err, "chat_id", chatID, "user_id", user.ID)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

@@ -7,6 +7,55 @@ export interface User {
   updated_at: string;
 }
 
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  billing_email?: string | null;
+  plan_tier: string;
+  role: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganizationListResponse {
+  organizations: Organization[];
+}
+
+export interface OrganizationCreateRequest {
+  name: string;
+  slug?: string;
+  description?: string | null;
+  billing_email?: string | null;
+}
+
+export interface OrganizationInviteRequest {
+  email: string;
+  role?: string;
+  message?: string | null;
+}
+
+export interface OrganizationInvite {
+  id: string;
+  organization_id: string;
+  email: string;
+  role: string;
+  expires_at: string;
+  accepted_at?: string | null;
+  created_at: string;
+}
+
+export interface OrganizationInviteCreateResponse {
+  invite: OrganizationInvite;
+  token: string;
+}
+
+export interface OrganizationInvitesListResponse {
+  invites: OrganizationInvite[];
+}
+
 export interface APIKey {
   id: string;
   client_id: string;
@@ -33,6 +82,7 @@ export interface ChatbotResponse
   extends Omit<ChatbotCreateRequest, "is_enabled"> {
   id: string;
   user_id: string;
+  organization_id?: string | null;
   is_enabled: boolean;
   created_at: string;
   updated_at: string;
@@ -63,6 +113,10 @@ export interface LLMModelsResponse {
 
 export interface ChatMessageRequest {
   query: string;
+}
+
+export interface ChatbotTransferRequest {
+  organization_id: string;
 }
 
 export interface ChatResponse {
@@ -148,6 +202,7 @@ export interface TextSourcesResponse {
 export interface SharedKnowledgeBase {
   id: string;
   owner_id: string;
+  organization_id?: string | null;
   name: string;
   description?: string | null;
   created_at: string;

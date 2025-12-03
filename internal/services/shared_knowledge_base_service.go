@@ -34,7 +34,7 @@ func NewSharedKnowledgeBaseService(
 	}
 }
 
-func (s *SharedKnowledgeBaseService) Create(ctx context.Context, ownerID string, req *models.SharedKnowledgeBaseCreateRequest) (*models.SharedKnowledgeBaseResponse, error) {
+func (s *SharedKnowledgeBaseService) Create(ctx context.Context, ownerID string, orgCtx *OrganizationContext, req *models.SharedKnowledgeBaseCreateRequest) (*models.SharedKnowledgeBaseResponse, error) {
 	if ownerID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "owner id is required")
 	}
@@ -43,9 +43,10 @@ func (s *SharedKnowledgeBaseService) Create(ctx context.Context, ownerID string,
 	}
 
 	kb := &db.SharedKnowledgeBase{
-		OwnerID:     ownerID,
-		Name:        req.Name,
-		Description: req.Description,
+		OwnerID:        ownerID,
+		OrganizationID: orgIDFromContext(orgCtx),
+		Name:           req.Name,
+		Description:    req.Description,
 	}
 
 	if err := s.repo.Create(ctx, kb); err != nil {
@@ -55,8 +56,8 @@ func (s *SharedKnowledgeBaseService) Create(ctx context.Context, ownerID string,
 	return toSharedKnowledgeBaseResponse(kb), nil
 }
 
-func (s *SharedKnowledgeBaseService) Update(ctx context.Context, ownerID string, kbID uuid.UUID, req *models.SharedKnowledgeBaseUpdateRequest) (*models.SharedKnowledgeBaseResponse, error) {
-	kb, err := s.ensureOwnership(ctx, ownerID, kbID)
+func (s *SharedKnowledgeBaseService) Update(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID, req *models.SharedKnowledgeBaseUpdateRequest) (*models.SharedKnowledgeBaseResponse, error) {
+	kb, err := s.ensureOwnership(ctx, ownerID, orgCtx, kbID)
 	if err != nil {
 		return nil, err
 	}
@@ -78,23 +79,31 @@ func (s *SharedKnowledgeBaseService) Update(ctx context.Context, ownerID string,
 	return toSharedKnowledgeBaseResponse(kb), nil
 }
 
-func (s *SharedKnowledgeBaseService) Delete(ctx context.Context, ownerID string, kbID uuid.UUID) error {
-	if _, err := s.ensureOwnership(ctx, ownerID, kbID); err != nil {
+func (s *SharedKnowledgeBaseService) Delete(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID) error {
+	if _, err := s.ensureOwnership(ctx, ownerID, orgCtx, kbID); err != nil {
 		return err
 	}
 	return s.repo.Delete(ctx, kbID)
 }
 
-func (s *SharedKnowledgeBaseService) Get(ctx context.Context, ownerID string, kbID uuid.UUID) (*models.SharedKnowledgeBaseResponse, error) {
-	kb, err := s.ensureOwnership(ctx, ownerID, kbID)
+func (s *SharedKnowledgeBaseService) Get(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID) (*models.SharedKnowledgeBaseResponse, error) {
+	kb, err := s.ensureOwnership(ctx, ownerID, orgCtx, kbID)
 	if err != nil {
 		return nil, err
 	}
 	return toSharedKnowledgeBaseResponse(kb), nil
 }
 
-func (s *SharedKnowledgeBaseService) List(ctx context.Context, ownerID string) (*models.SharedKnowledgeBaseListResponse, error) {
-	kbs, err := s.repo.ListByOwner(ctx, ownerID)
+func (s *SharedKnowledgeBaseService) List(ctx context.Context, ownerID string, orgCtx *OrganizationContext) (*models.SharedKnowledgeBaseListResponse, error) {
+	var (
+		kbs []*db.SharedKnowledgeBase
+		err error
+	)
+	if org := orgIDFromContext(orgCtx); org != nil {
+		kbs, err = s.repo.ListByOrganization(ctx, *org)
+	} else {
+		kbs, err = s.repo.ListByOwner(ctx, ownerID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +116,8 @@ func (s *SharedKnowledgeBaseService) List(ctx context.Context, ownerID string) (
 	return &models.SharedKnowledgeBaseListResponse{KnowledgeBases: responses}, nil
 }
 
-func (s *SharedKnowledgeBaseService) ListFiles(ctx context.Context, ownerID string, kbID uuid.UUID) (*models.SharedKnowledgeBaseFilesResponse, error) {
-	if _, err := s.ensureOwnership(ctx, ownerID, kbID); err != nil {
+func (s *SharedKnowledgeBaseService) ListFiles(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID) (*models.SharedKnowledgeBaseFilesResponse, error) {
+	if _, err := s.ensureOwnership(ctx, ownerID, orgCtx, kbID); err != nil {
 		return nil, err
 	}
 
@@ -133,8 +142,8 @@ func (s *SharedKnowledgeBaseService) ListFiles(ctx context.Context, ownerID stri
 	}, nil
 }
 
-func (s *SharedKnowledgeBaseService) ListTextSources(ctx context.Context, ownerID string, kbID uuid.UUID) (*models.SharedKnowledgeBaseTextSourcesResponse, error) {
-	if _, err := s.ensureOwnership(ctx, ownerID, kbID); err != nil {
+func (s *SharedKnowledgeBaseService) ListTextSources(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID) (*models.SharedKnowledgeBaseTextSourcesResponse, error) {
+	if _, err := s.ensureOwnership(ctx, ownerID, orgCtx, kbID); err != nil {
 		return nil, err
 	}
 
@@ -159,8 +168,8 @@ func (s *SharedKnowledgeBaseService) ListTextSources(ctx context.Context, ownerI
 	}, nil
 }
 
-func (s *SharedKnowledgeBaseService) ProcessFileUpload(ctx context.Context, ownerID string, kbID uuid.UUID, fileHeader *multipart.FileHeader) (*models.SharedKnowledgeBaseFileUploadResponse, error) {
-	if _, err := s.ensureOwnership(ctx, ownerID, kbID); err != nil {
+func (s *SharedKnowledgeBaseService) ProcessFileUpload(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID, fileHeader *multipart.FileHeader) (*models.SharedKnowledgeBaseFileUploadResponse, error) {
+	if _, err := s.ensureOwnership(ctx, ownerID, orgCtx, kbID); err != nil {
 		return nil, err
 	}
 
@@ -179,8 +188,8 @@ func (s *SharedKnowledgeBaseService) ProcessFileUpload(ctx context.Context, owne
 	}, nil
 }
 
-func (s *SharedKnowledgeBaseService) ProcessTextUpload(ctx context.Context, ownerID string, kbID uuid.UUID, text string) error {
-	if _, err := s.ensureOwnership(ctx, ownerID, kbID); err != nil {
+func (s *SharedKnowledgeBaseService) ProcessTextUpload(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID, text string) error {
+	if _, err := s.ensureOwnership(ctx, ownerID, orgCtx, kbID); err != nil {
 		return err
 	}
 	if strings.TrimSpace(text) == "" {
@@ -192,8 +201,8 @@ func (s *SharedKnowledgeBaseService) ProcessTextUpload(ctx context.Context, owne
 	return err
 }
 
-func (s *SharedKnowledgeBaseService) ProcessWebsiteUpload(ctx context.Context, ownerID string, kbID uuid.UUID, rootURL string) error {
-	if _, err := s.ensureOwnership(ctx, ownerID, kbID); err != nil {
+func (s *SharedKnowledgeBaseService) ProcessWebsiteUpload(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID, rootURL string) error {
+	if _, err := s.ensureOwnership(ctx, ownerID, orgCtx, kbID); err != nil {
 		return err
 	}
 
@@ -202,11 +211,11 @@ func (s *SharedKnowledgeBaseService) ProcessWebsiteUpload(ctx context.Context, o
 	return err
 }
 
-func (s *SharedKnowledgeBaseService) DeleteFile(ctx context.Context, ownerID string, kbID uuid.UUID, filename string) error {
+func (s *SharedKnowledgeBaseService) DeleteFile(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID, filename string) error {
 	if filename == "" {
 		return apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "filename is required")
 	}
-	if _, err := s.ensureOwnership(ctx, ownerID, kbID); err != nil {
+	if _, err := s.ensureOwnership(ctx, ownerID, orgCtx, kbID); err != nil {
 		return err
 	}
 
@@ -235,11 +244,11 @@ func (s *SharedKnowledgeBaseService) DeleteFile(ctx context.Context, ownerID str
 	return nil
 }
 
-func (s *SharedKnowledgeBaseService) DeleteTextSource(ctx context.Context, ownerID string, kbID uuid.UUID, sourceID string) error {
+func (s *SharedKnowledgeBaseService) DeleteTextSource(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID, sourceID string) error {
 	if sourceID == "" {
 		return apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "source id is required")
 	}
-	if _, err := s.ensureOwnership(ctx, ownerID, kbID); err != nil {
+	if _, err := s.ensureOwnership(ctx, ownerID, orgCtx, kbID); err != nil {
 		return err
 	}
 
@@ -279,7 +288,7 @@ func (s *SharedKnowledgeBaseService) DeleteTextSource(ctx context.Context, owner
 	return nil
 }
 
-func (s *SharedKnowledgeBaseService) ensureOwnership(ctx context.Context, ownerID string, kbID uuid.UUID) (*db.SharedKnowledgeBase, error) {
+func (s *SharedKnowledgeBaseService) ensureOwnership(ctx context.Context, ownerID string, orgCtx *OrganizationContext, kbID uuid.UUID) (*db.SharedKnowledgeBase, error) {
 	if ownerID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "owner id is required")
 	}
@@ -287,19 +296,28 @@ func (s *SharedKnowledgeBaseService) ensureOwnership(ctx context.Context, ownerI
 	if err != nil {
 		return nil, err
 	}
-	if kb.OwnerID != ownerID {
-		return nil, apperrors.ErrUnauthorizedKnowledgeBaseAccess
+	orgID := orgIDFromContext(orgCtx)
+	switch {
+	case kb.OrganizationID != nil:
+		if orgID == nil || *kb.OrganizationID != *orgID {
+			return nil, apperrors.ErrUnauthorizedKnowledgeBaseAccess
+		}
+	default:
+		if kb.OwnerID != ownerID {
+			return nil, apperrors.ErrUnauthorizedKnowledgeBaseAccess
+		}
 	}
 	return kb, nil
 }
 
 func toSharedKnowledgeBaseResponse(kb *db.SharedKnowledgeBase) *models.SharedKnowledgeBaseResponse {
 	return &models.SharedKnowledgeBaseResponse{
-		ID:          kb.ID,
-		OwnerID:     kb.OwnerID,
-		Name:        kb.Name,
-		Description: kb.Description,
-		CreatedAt:   kb.CreatedAt,
-		UpdatedAt:   kb.UpdatedAt,
+		ID:             kb.ID,
+		OwnerID:        kb.OwnerID,
+		OrganizationID: kb.OrganizationID,
+		Name:           kb.Name,
+		Description:    kb.Description,
+		CreatedAt:      kb.CreatedAt,
+		UpdatedAt:      kb.UpdatedAt,
 	}
 }

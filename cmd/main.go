@@ -187,7 +187,8 @@ func runApplication(appCfg *config.AppConfig) error {
 	hydraService := services.NewHydraService(appCfg.HydraAdminURL, appCfg.HydraPublicURL)
 	logger.Info("hydra configuration", "admin_url", appCfg.HydraAdminURL, "public_url", appCfg.HydraPublicURL)
 	authService := services.NewAuthService(repos.User)
-	chatService := services.NewChatService(repos.Chat, repos.SharedKB, repos.Document, repos.File, repos.Message, repos.Revision, repos.LLMUsage, vectorizer, kbService, llmClient, pool, defaultChatModel)
+	chatService := services.NewChatService(repos.Chat, repos.SharedKB, repos.Document, repos.File, repos.Message, repos.Revision, repos.LLMUsage, repos.Org, repos.OrgMembers, vectorizer, kbService, llmClient, pool, defaultChatModel)
+	orgService := services.NewOrganizationService(repos.Org, repos.OrgMembers, repos.OrgInvites, repos.User)
 	apiKeyService := services.NewAPIKeyService(hydraService)
 	commonService := services.NewCommonService()
 	scheduleService := services.NewCrawlScheduleService(repos.Schedule, kbService, js)
@@ -211,6 +212,9 @@ func runApplication(appCfg *config.AppConfig) error {
 	// Initialize ownership middleware
 	ownershipMiddleware := middleware.NewOwnershipMiddleware(chatService)
 
+	// Initialize organization middleware
+	orgMiddleware := middleware.NewOrganizationMiddleware(orgService)
+
 	// Initialize subscription limits middleware
 	subscriptionLimits := middleware.NewSubscriptionLimitsMiddleware(svc, chatService)
 
@@ -222,8 +226,9 @@ func runApplication(appCfg *config.AppConfig) error {
 	app.Use(fiberLogger.New())
 
 	// Initialize API handlers
-	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, ownershipMiddleware, commonService, subscriptionLimits, scheduleService, promptService)
-	sharedKnowledgeBaseHandler := api.NewSharedKnowledgeBaseHandler(authMiddleware, sharedKBService, scheduleService)
+	chatbotHandler := api.NewChatHandler(authMiddleware, chatService, ownershipMiddleware, orgMiddleware, commonService, subscriptionLimits, scheduleService, promptService)
+	sharedKnowledgeBaseHandler := api.NewSharedKnowledgeBaseHandler(authMiddleware, orgMiddleware, sharedKBService, scheduleService)
+	organizationHandler := api.NewOrganizationHandler(authMiddleware, orgService, orgMiddleware)
 	authHandler := api.NewAuthHandler(authService, authMiddleware, api.AuthConfig{
 		KratosPublicURL: appCfg.KratosPublicURL,
 		KratosAdminURL:  appCfg.KratosAdminURL,
@@ -231,7 +236,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	})
 	apiKeyHandler := api.NewAPIKeyHandler(authService, authMiddleware, apiKeyService, commonService)
 	subsHandler := api.NewStripeSubHandler(authMiddleware, svc)
-	conversationHandler := api.NewConversationHandler(authMiddleware, chatService)
+	conversationHandler := api.NewConversationHandler(authMiddleware, chatService, orgMiddleware)
 	widgetHandler := api.NewWidgetHandler(authMiddleware)
 	queueHandler := api.NewQueueHandler(authMiddleware, services.NewQueueMetricsService(js))
 	llmHandler := api.NewLLMHandler(authMiddleware, llmService, svc)
@@ -246,6 +251,7 @@ func runApplication(appCfg *config.AppConfig) error {
 	widgetHandler.RegisterRoutes(app)
 	queueHandler.RegisterRoutes(app)
 	llmHandler.RegisterRoutes(app)
+	organizationHandler.RegisterRoutes(app)
 
 	// Add swagger route
 	app.Get("/swagger/*", swagger.HandlerDefault)

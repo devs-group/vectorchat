@@ -162,12 +162,14 @@ import IconDotsVertical from "@/components/icons/IconDotsVertical.vue";
 import IconMessageSquare from "@/components/icons/IconMessageSquare.vue";
 import IconPlus from "@/components/icons/IconPlus.vue";
 import IconTrash from "@/components/icons/IconTrash.vue";
+import { useOrganizations } from "~/composables/useOrganizations";
 
 definePageMeta({
   layout: "authenticated",
 });
 
 const apiService = useApiService();
+const { state: orgState, load: loadOrgs } = useOrganizations();
 
 const {
   data,
@@ -178,6 +180,7 @@ const {
 
 onMounted(async () => {
   try {
+    await loadOrgs();
     await listChatbots();
     if (data.value?.chatbots && data.value?.chatbots.length > 0) {
       console.log(`Loaded ${data.value?.chatbots.length} chatbots`);
@@ -188,6 +191,13 @@ onMounted(async () => {
     console.error("Error loading chatbots:", error);
   }
 });
+
+watch(
+  () => orgState.value.currentOrgId,
+  async () => {
+    await listChatbots();
+  },
+);
 
 // Whether there are any chats
 const hasChats = computed(() => (data.value?.chatbots?.length || 0) > 0);

@@ -21,18 +21,20 @@ import (
 // ChatService handles chat interactions with context from vector database
 type ChatService struct {
 	*CommonService
-	chatbotRepo  *db.ChatbotRepository
-	sharedKBRepo *db.SharedKnowledgeBaseRepository
-	documentRepo *db.DocumentRepository
-	fileRepo     *db.FileRepository
-	messageRepo  *db.ChatMessageRepository
-	revisionRepo *db.RevisionRepository
-	usageRepo    *db.LLMUsageRepository
-	vectorizer   vectorize.Vectorizer
-	llmClient    llm.Client
-	db           *db.Database
-	kbService    *KnowledgeBaseService
-	defaultModel string
+	chatbotRepo   *db.ChatbotRepository
+	sharedKBRepo  *db.SharedKnowledgeBaseRepository
+	documentRepo  *db.DocumentRepository
+	fileRepo      *db.FileRepository
+	messageRepo   *db.ChatMessageRepository
+	revisionRepo  *db.RevisionRepository
+	usageRepo     *db.LLMUsageRepository
+	orgRepo       *db.OrganizationRepository
+	orgMemberRepo *db.OrganizationMemberRepository
+	vectorizer    vectorize.Vectorizer
+	llmClient     llm.Client
+	db            *db.Database
+	kbService     *KnowledgeBaseService
+	defaultModel  string
 }
 
 // NewChatService creates a new chat service
@@ -44,6 +46,8 @@ func NewChatService(
 	messageRepo *db.ChatMessageRepository,
 	revisionRepo *db.RevisionRepository,
 	usageRepo *db.LLMUsageRepository,
+	orgRepo *db.OrganizationRepository,
+	orgMemberRepo *db.OrganizationMemberRepository,
 	vectorizer vectorize.Vectorizer,
 	knowledgeService *KnowledgeBaseService,
 	llmClient llm.Client,
@@ -62,12 +66,21 @@ func NewChatService(
 		messageRepo:   messageRepo,
 		revisionRepo:  revisionRepo,
 		usageRepo:     usageRepo,
+		orgRepo:       orgRepo,
+		orgMemberRepo: orgMemberRepo,
 		vectorizer:    vectorizer,
 		llmClient:     llmClient,
 		db:            database,
 		kbService:     knowledgeService,
 		defaultModel:  defaultModel,
 	}
+}
+
+func orgIDFromContext(orgCtx *OrganizationContext) *uuid.UUID {
+	if orgCtx == nil {
+		return nil
+	}
+	return orgCtx.ID
 }
 
 // ChatbotCreateRequest represents the request to create a new chatbot
@@ -81,6 +94,7 @@ func (s *ChatService) toChatbotResponse(ctx context.Context, chatbot *db.Chatbot
 	return &models.ChatbotResponse{
 		ID:                     chatbot.ID,
 		UserID:                 chatbot.UserID,
+		OrganizationID:         chatbot.OrganizationID,
 		Name:                   chatbot.Name,
 		Description:            chatbot.Description,
 		SystemInstructions:     chatbot.SystemInstructions,
@@ -98,7 +112,7 @@ func (s *ChatService) toChatbotResponse(ctx context.Context, chatbot *db.Chatbot
 }
 
 // ValidateAndCreateChatbot validates the request and creates a new chatbot
-func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID string, req *models.ChatbotCreateRequest) (*models.ChatbotResponse, error) {
+func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID string, orgCtx *OrganizationContext, req *models.ChatbotCreateRequest) (*models.ChatbotResponse, error) {
 	// Validate request
 	if req.Name == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "name is required")
@@ -135,12 +149,12 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 		isEnabled = *req.IsEnabled
 	}
 
-	chatbot, err := s.CreateChatbot(ctx, userID, req.Name, req.Description, req.SystemInstructions, modelName, temperature, maxTokens, saveMessages, isEnabled, useMaxTokens)
+	chatbot, err := s.CreateChatbot(ctx, userID, orgCtx, req.Name, req.Description, req.SystemInstructions, modelName, temperature, maxTokens, saveMessages, isEnabled, useMaxTokens)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.replaceChatbotSharedKnowledgeBases(ctx, chatbot.ID, userID, req.SharedKnowledgeBaseIDs); err != nil {
+	if err := s.replaceChatbotSharedKnowledgeBases(ctx, chatbot.ID, userID, orgCtx, req.SharedKnowledgeBaseIDs); err != nil {
 		return nil, err
 	}
 
@@ -152,7 +166,7 @@ func (s *ChatService) ValidateAndCreateChatbot(ctx context.Context, userID strin
 }
 
 // CreateChatbot creates a new chatbot with default settings
-func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, description, systemInstructions, modelName string, temperature float64, maxTokens int, saveMessages bool, isEnabled bool, useMaxTokens bool) (*db.Chatbot, error) {
+func (s *ChatService) CreateChatbot(ctx context.Context, userID string, orgCtx *OrganizationContext, name, description, systemInstructions, modelName string, temperature float64, maxTokens int, saveMessages bool, isEnabled bool, useMaxTokens bool) (*db.Chatbot, error) {
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
@@ -169,6 +183,7 @@ func (s *ChatService) CreateChatbot(ctx context.Context, userID, name, descripti
 	chatbot := &db.Chatbot{
 		ID:                 uuid.New(),
 		UserID:             userID,
+		OrganizationID:     orgIDFromContext(orgCtx),
 		Name:               name,
 		Description:        description,
 		SystemInstructions: systemInstructions,
@@ -200,8 +215,8 @@ func (s *ChatService) GetChatbotByID(ctx context.Context, chatbotID string) (*db
 	return chatbot, nil
 }
 
-// GetChatbotForUser retrieves a chatbot owned by the provided user
-func (s *ChatService) GetChatbotForUser(ctx context.Context, chatbotID, userID string) (*db.Chatbot, error) {
+// GetChatbotForUser retrieves a chatbot owned by the provided user or organization
+func (s *ChatService) GetChatbotForUser(ctx context.Context, chatbotID, userID string, orgCtx *OrganizationContext) (*db.Chatbot, error) {
 	if chatbotID == "" || userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
 	}
@@ -211,21 +226,24 @@ func (s *ChatService) GetChatbotForUser(ctx context.Context, chatbotID, userID s
 		return nil, apperrors.Wrap(err, "invalid chatbot ID format")
 	}
 
-	return s.chatbotRepo.FindByIDAndUserID(ctx, id, userID)
+	return s.chatbotRepo.FindByIDAndScope(ctx, id, userID, orgIDFromContext(orgCtx))
 }
 
 // ListChatbots lists all chatbots owned by a user
-func (s *ChatService) ListChatbots(ctx context.Context, userID string) ([]*db.Chatbot, error) {
+func (s *ChatService) ListChatbots(ctx context.Context, userID string, orgCtx *OrganizationContext) ([]*db.Chatbot, error) {
 	if userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "user ID is required")
 	}
 
+	if org := orgIDFromContext(orgCtx); org != nil {
+		return s.chatbotRepo.FindByOrgID(ctx, *org)
+	}
 	return s.chatbotRepo.FindByUserID(ctx, userID)
 }
 
 // ListChatbotsFormatted lists all chatbots owned by a user with formatted response
-func (s *ChatService) ListChatbotsFormatted(ctx context.Context, userID string) (*models.ChatbotsListResponse, error) {
-	chatbots, err := s.ListChatbots(ctx, userID)
+func (s *ChatService) ListChatbotsFormatted(ctx context.Context, userID string, orgCtx *OrganizationContext) (*models.ChatbotsListResponse, error) {
+	chatbots, err := s.ListChatbots(ctx, userID, orgCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -256,13 +274,13 @@ func (s *ChatService) ListChatbotsFormatted(ctx context.Context, userID string) 
 }
 
 // UpdateChatbotFromRequest updates a chatbot from request data
-func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatID, userID string, req *models.ChatbotUpdateRequest) (*models.ChatbotResponse, error) {
-	chatbot, err := s.UpdateChatbotAll(ctx, chatID, userID, req.Name, req.Description, req.SystemInstructions, req.ModelName, req.TemperatureParam, req.MaxTokens, req.SaveMessages, req.UseMaxTokens)
+func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatID, userID string, orgCtx *OrganizationContext, req *models.ChatbotUpdateRequest) (*models.ChatbotResponse, error) {
+	chatbot, err := s.UpdateChatbotAll(ctx, chatID, userID, orgCtx, req.Name, req.Description, req.SystemInstructions, req.ModelName, req.TemperatureParam, req.MaxTokens, req.SaveMessages, req.UseMaxTokens)
 	if err != nil {
 		return nil, err
 	}
 	if req.SharedKnowledgeBaseIDs != nil {
-		if err := s.replaceChatbotSharedKnowledgeBases(ctx, chatbot.ID, userID, req.SharedKnowledgeBaseIDs); err != nil {
+		if err := s.replaceChatbotSharedKnowledgeBases(ctx, chatbot.ID, userID, orgCtx, req.SharedKnowledgeBaseIDs); err != nil {
 			return nil, err
 		}
 	}
@@ -280,14 +298,14 @@ func (s *ChatService) UpdateChatbotFromRequest(ctx context.Context, chatID, user
 }
 
 // UpdateChatbotAll updates all chatbot fields in a single operation
-func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID string, name, description, systemInstructions, modelName *string, temperature *float64, maxTokens *int, saveMessages *bool, useMaxTokens *bool) (*db.Chatbot, error) {
+func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID string, orgCtx *OrganizationContext, name, description, systemInstructions, modelName *string, temperature *float64, maxTokens *int, saveMessages *bool, useMaxTokens *bool) (*db.Chatbot, error) {
 	// Validate inputs
 	if chatbotID == "" || userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
 	}
 
 	// Get the existing chatbot to check ownership
-	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, uuid.MustParse(chatbotID), userID)
+	chatbot, err := s.chatbotRepo.FindByIDAndScope(ctx, uuid.MustParse(chatbotID), userID, orgIDFromContext(orgCtx))
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +366,7 @@ func (s *ChatService) UpdateChatbotAll(ctx context.Context, chatbotID, userID st
 	return chatbot, nil
 }
 
-func (s *ChatService) replaceChatbotSharedKnowledgeBases(ctx context.Context, chatbotID uuid.UUID, ownerID string, kbIDs []uuid.UUID) error {
+func (s *ChatService) replaceChatbotSharedKnowledgeBases(ctx context.Context, chatbotID uuid.UUID, ownerID string, orgCtx *OrganizationContext, kbIDs []uuid.UUID) error {
 	if kbIDs == nil {
 		return nil
 	}
@@ -363,12 +381,18 @@ func (s *ChatService) replaceChatbotSharedKnowledgeBases(ctx context.Context, ch
 		return err
 	}
 
+	orgID := orgIDFromContext(orgCtx)
+
 	for _, id := range ids {
 		owner, ok := owners[id]
 		if !ok {
 			return apperrors.ErrSharedKnowledgeBaseNotFound
 		}
-		if owner != ownerID {
+		if owner.OrgID != nil {
+			if orgID == nil || *owner.OrgID != *orgID {
+				return apperrors.ErrUnauthorizedKnowledgeBaseAccess
+			}
+		} else if owner.OwnerID != ownerID {
 			return apperrors.ErrUnauthorizedKnowledgeBaseAccess
 		}
 	}
@@ -377,7 +401,7 @@ func (s *ChatService) replaceChatbotSharedKnowledgeBases(ctx context.Context, ch
 }
 
 // ToggleChatbotEnabled toggles the enabled state of a chatbot
-func (s *ChatService) ToggleChatbotEnabled(ctx context.Context, chatbotID, userID string, isEnabled bool) (*db.Chatbot, error) {
+func (s *ChatService) ToggleChatbotEnabled(ctx context.Context, chatbotID, userID string, orgCtx *OrganizationContext, isEnabled bool) (*db.Chatbot, error) {
 	// Validate inputs
 	if chatbotID == "" || userID == "" {
 		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
@@ -390,7 +414,7 @@ func (s *ChatService) ToggleChatbotEnabled(ctx context.Context, chatbotID, userI
 	}
 
 	// Get the existing chatbot to check ownership
-	chatbot, err := s.chatbotRepo.FindByIDAndUserID(ctx, chatbotUUID, userID)
+	chatbot, err := s.chatbotRepo.FindByIDAndScope(ctx, chatbotUUID, userID, orgIDFromContext(orgCtx))
 	if err != nil {
 		return nil, err
 	}
@@ -407,8 +431,76 @@ func (s *ChatService) ToggleChatbotEnabled(ctx context.Context, chatbotID, userI
 	return chatbot, nil
 }
 
+// TransferChatbotToOrganization moves a personal chatbot into an organization the user administers.
+func (s *ChatService) TransferChatbotToOrganization(ctx context.Context, chatbotID uuid.UUID, userID string, targetOrgID uuid.UUID) (*models.ChatbotResponse, error) {
+	if chatbotID == uuid.Nil {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID is required")
+	}
+	if targetOrgID == uuid.Nil {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "organization ID is required")
+	}
+
+	// Ensure chatbot is personal and owned by user
+	chatbot, err := s.chatbotRepo.FindByIDAndScope(ctx, chatbotID, userID, nil)
+	if err != nil {
+		return nil, err
+	}
+	if chatbot.OrganizationID != nil {
+		return nil, apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot already belongs to an organization")
+	}
+
+	// Ensure target org exists and user is admin/owner
+	if _, err := s.orgRepo.FindByID(ctx, targetOrgID); err != nil {
+		return nil, err
+	}
+	member, err := s.orgMemberRepo.Find(ctx, targetOrgID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin(member.Role) {
+		return nil, apperrors.ErrUnauthorizedOrganizationAccess
+	}
+
+	// Guard linked knowledge bases to avoid cross-org leaks
+	kbIDs, err := s.sharedKBRepo.ListIDsByChatbot(ctx, chatbot.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(kbIDs) > 0 {
+		owners, err := s.sharedKBRepo.ListOwnersByKnowledgeBaseIDs(ctx, kbIDs)
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range kbIDs {
+			owner, ok := owners[id]
+			if !ok {
+				return nil, apperrors.ErrSharedKnowledgeBaseNotFound
+			}
+			if owner.OrgID != nil && *owner.OrgID != targetOrgID {
+				return nil, apperrors.Wrap(apperrors.ErrUnauthorizedKnowledgeBaseAccess, "knowledge base belongs to a different organization")
+			}
+			if owner.OrgID == nil && owner.OwnerID != userID {
+				return nil, apperrors.Wrap(apperrors.ErrUnauthorizedKnowledgeBaseAccess, "knowledge base is not owned by you")
+			}
+		}
+	}
+
+	if err := s.chatbotRepo.TransferToOrganization(ctx, chatbot.ID, userID, targetOrgID); err != nil {
+		return nil, err
+	}
+
+	chatbot.OrganizationID = &targetOrgID
+	chatbot.UpdatedAt = time.Now()
+
+	aiMessages, err := s.messageRepo.CountAssistantMessagesByChatbotID(ctx, chatbot.ID)
+	if err != nil {
+		return nil, err
+	}
+	return s.toChatbotResponse(ctx, chatbot, aiMessages)
+}
+
 // DeleteChatbot deletes a chatbot and all associated data
-func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID string) error {
+func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID string, orgCtx *OrganizationContext) error {
 	if chatbotID == "" || userID == "" {
 		return apperrors.Wrap(apperrors.ErrInvalidChatbotParameters, "chatbot ID and user ID are required")
 	}
@@ -435,7 +527,7 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 	}
 
 	// Delete the chatbot
-	err = s.chatbotRepo.DeleteTx(ctx, tx, chatbotUUID, userID)
+	err = s.chatbotRepo.DeleteTx(ctx, tx, chatbotUUID, userID, orgIDFromContext(orgCtx))
 	if err != nil {
 		return apperrors.Wrap(err, "failed to delete chatbot")
 	}
@@ -449,20 +541,20 @@ func (s *ChatService) DeleteChatbot(ctx context.Context, chatbotID, userID strin
 	return nil
 }
 
-// CheckChatbotOwnership verifies if a user owns a specific chatbot
-func (s *ChatService) CheckChatbotOwnership(ctx context.Context, chatbotID uuid.UUID, userID string) (bool, error) {
-	return s.chatbotRepo.CheckOwnership(ctx, chatbotID, userID)
+// CheckChatbotOwnership verifies if a user or org owns a specific chatbot
+func (s *ChatService) CheckChatbotOwnership(ctx context.Context, chatbotID uuid.UUID, userID string, orgCtx *OrganizationContext) (bool, error) {
+	return s.chatbotRepo.CheckOwnership(ctx, chatbotID, userID, orgIDFromContext(orgCtx))
 }
 
 // GetChatbotFormatted retrieves a chatbot by ID with formatted response
-func (s *ChatService) GetChatbotFormatted(ctx context.Context, chatID, userID string) (*models.ChatbotResponse, error) {
+func (s *ChatService) GetChatbotFormatted(ctx context.Context, chatID, userID string, orgCtx *OrganizationContext) (*models.ChatbotResponse, error) {
 	chatbotUUID, err := uuid.Parse(chatID)
 	if err != nil {
 		return nil, apperrors.Wrap(err, "invalid chatbot ID format")
 	}
 
 	// Verify ownership
-	isOwner, err := s.CheckChatbotOwnership(ctx, chatbotUUID, userID)
+	isOwner, err := s.CheckChatbotOwnership(ctx, chatbotUUID, userID, orgCtx)
 	if err != nil {
 		return nil, apperrors.Wrap(err, "failed to verify chatbot ownership")
 	}
@@ -941,6 +1033,10 @@ func (s *ChatService) chatWithChatbot(
 		}
 		if provider != "" {
 			usage.Provider = &provider
+		}
+		if chatbot.OrganizationID != nil {
+			orgVal := chatbot.OrganizationID.String()
+			usage.OrgID = &orgVal
 		}
 		if err := s.usageRepo.Create(ctx, usage); err != nil {
 			slog.Warn("failed to record llm usage", "chatbot_id", chatbotUUID.String(), "session_id", trace, "err", err)

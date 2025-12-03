@@ -19,6 +19,11 @@ import type {
   CrawlSchedule,
   CrawlScheduleListResponse,
   LLMModelsResponse,
+  OrganizationCreateRequest,
+  OrganizationInviteRequest,
+  OrganizationInviteCreateResponse,
+  OrganizationInvitesListResponse,
+  ChatbotTransferRequest,
 } from "~/types/api";
 
 /**
@@ -104,6 +109,79 @@ export function useApiService() {
         });
       },
       { errorMessage: "Failed to load available models" },
+    );
+  };
+
+  // Organizations
+  const listOrganizations = <T>() => {
+    return useApi(
+      async () => {
+        return await useApiFetch<T>("/orgs", { method: "GET" });
+      },
+      { errorMessage: "Failed to load organizations" },
+    );
+  };
+
+  const createOrganization = <T>() => {
+    return useApi(
+      async (req: OrganizationCreateRequest) => {
+        return await useApiFetch<T>("/orgs", {
+          method: "POST",
+          body: req,
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Organization created",
+        errorMessage: "Failed to create organization",
+      },
+    );
+  };
+
+  const createOrganizationInvite = () => {
+    return useApi(
+      async (data: { organizationId: string; payload: OrganizationInviteRequest }) => {
+        return await useApiFetch<OrganizationInviteCreateResponse>(
+          `/orgs/${data.organizationId}/invites`,
+          {
+            method: "POST",
+            body: data.payload,
+          },
+        );
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Invite created",
+        errorMessage: "Failed to create invite",
+      },
+    );
+  };
+
+  const listOrganizationInvites = () => {
+    return useApi(
+      async (orgId: string) => {
+        return await useApiFetch<OrganizationInvitesListResponse>(
+          `/orgs/${orgId}/invites`,
+          { method: "GET" },
+        );
+      },
+      { errorMessage: "Failed to load invites" },
+    );
+  };
+
+  const acceptOrganizationInvite = () => {
+    return useApi(
+      async (token: string) => {
+        return await useApiFetch("/org-invites/accept", {
+          method: "POST",
+          body: { token },
+        });
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Invite accepted",
+        errorMessage: "Failed to accept invite",
+      },
     );
   };
 
@@ -321,6 +399,25 @@ export function useApiService() {
         showSuccessToast: true,
         successMessage: "Chatbot updated",
         errorMessage: "Failed to toggle chatbot state",
+      },
+    );
+  };
+
+  const transferChatbot = () => {
+    return useApi(
+      async (data: { chatbotId: string; organizationId: string }) => {
+        return await useApiFetch<{ chatbot: ChatbotResponse }>(
+          `/chat/chatbot/${data.chatbotId}/transfer`,
+          {
+            method: "POST",
+            body: { organization_id: data.organizationId } satisfies ChatbotTransferRequest,
+          },
+        );
+      },
+      {
+        showSuccessToast: true,
+        successMessage: "Chat moved to organization",
+        errorMessage: "Failed to transfer chatbot",
       },
     );
   };
@@ -1004,7 +1101,13 @@ export function useApiService() {
     updateChatbot,
     generateSystemPrompt,
     toggleChatbot,
+    transferChatbot,
     deleteChatbot,
+    listOrganizations,
+    createOrganization,
+    createOrganizationInvite,
+    listOrganizationInvites,
+    acceptOrganizationInvite,
     listLLMModels,
     sendChatMessage,
     streamChatMessage,

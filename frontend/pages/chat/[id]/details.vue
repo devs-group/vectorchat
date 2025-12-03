@@ -25,6 +25,56 @@
         </div>
       </div>
 
+      <div class="mb-6 rounded-lg border border-border bg-card p-4">
+        <div class="flex items-center justify-between">
+          <div class="space-y-0.5">
+            <h3 class="font-medium">Workspace</h3>
+            <p class="text-sm text-muted-foreground">
+              {{ chatbot.organization_id ? workspaceName : "Personal workspace" }}
+            </p>
+          </div>
+          <Badge v-if="chatbot.organization_id" variant="secondary">Organization</Badge>
+        </div>
+        <div
+          v-if="!chatbot.organization_id && transferableOrgs.length"
+          class="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]"
+        >
+          <Select v-model="transferOrgId">
+            <SelectTrigger class="w-full">
+              <SelectValue placeholder="Choose an organization" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="org in transferableOrgs"
+                :key="org.id"
+                :value="org.id"
+              >
+                {{ org.name }} ({{ org.role }})
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            :disabled="!transferOrgId || transferring"
+            class="justify-center"
+            @click="handleTransfer"
+          >
+            {{ transferring ? "Moving..." : "Transfer" }}
+          </Button>
+        </div>
+        <p
+          v-else-if="!chatbot.organization_id"
+          class="mt-3 text-sm text-muted-foreground"
+        >
+          Join or create an organization to share this chatbot.
+        </p>
+        <p
+          v-else
+          class="mt-3 text-sm text-muted-foreground"
+        >
+          This chatbot is shared with members of {{ workspaceName }}.
+        </p>
+      </div>
+
       <ChatbotForm
         mode="edit"
         :chatbot="chatbot"
@@ -50,21 +100,35 @@ import { ref, computed, watch, onMounted, nextTick } from "vue";
 import ChatbotForm from "../components/ChatbotForm.vue";
 import KnowledgeBase from "./components/KnowledgeBase.vue";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   ChatbotResponse,
   SharedKnowledgeBaseListResponse,
 } from "~/types/api";
 import { useRoute } from "vue-router";
 import { useApiService } from "@/composables/useApiService";
+import { useOrganizations } from "~/composables/useOrganizations";
 
 // Route & API
 const route = useRoute();
 const apiService = useApiService();
+const orgStore = useOrganizations();
+const personalId = "00000000-0000-0000-0000-000000000000";
 const chatId = computed(() => route.params.id as string);
 
 // State
 const chatbot = ref<ChatbotResponse | null>(null);
 const isToggling = ref(false);
+const transferOrgId = ref<string>("");
+const transferring = ref(false);
 
 // Refs
 const knowledgeSection = ref<HTMLElement | null>(null);
@@ -85,6 +149,11 @@ const {
   error: updateError,
   isLoading: isUpdating,
 } = apiService.updateChatbot();
+const {
+  execute: executeTransfer,
+  data: transferData,
+  error: transferError,
+} = apiService.transferChatbot();
 
 const { execute: loadSharedKnowledgeBases, data: sharedKnowledgeBasesData } =
   apiService.listSharedKnowledgeBases();
@@ -94,6 +163,20 @@ const sharedKnowledgeBases = computed(() => {
     | SharedKnowledgeBaseListResponse
     | undefined;
   return response?.knowledge_bases ?? [];
+});
+
+const transferableOrgs = computed(() =>
+  orgStore.state.value.organizations.filter(
+    (o) => o.id !== personalId && ["owner", "admin"].includes(o.role),
+  ),
+);
+
+const workspaceName = computed(() => {
+  if (!chatbot.value?.organization_id) return "Personal";
+  const match = orgStore.state.value.organizations.find(
+    (o) => o.id === chatbot.value?.organization_id,
+  );
+  return match?.name ?? "Organization";
 });
 
 // Fetch chatbot data
@@ -142,6 +225,29 @@ const handleUpdate = async (formData: any) => {
   }
 };
 
+const handleTransfer = async () => {
+  if (!chatbot.value || !transferOrgId.value) return;
+  transferring.value = true;
+  await executeTransfer({
+    chatbotId: chatbot.value.id,
+    organizationId: transferOrgId.value,
+  });
+  transferring.value = false;
+
+  const payload = transferData.value as { chatbot?: ChatbotResponse } | null;
+  if (!transferError.value && payload?.chatbot) {
+    chatbot.value = payload.chatbot;
+    const targetOrg = orgStore.state.value.organizations.find(
+      (o) => o.id === transferOrgId.value,
+    );
+    if (targetOrg) {
+      orgStore.setCurrent(targetOrg);
+    }
+    // Simple flow: switch org and reload chat list under new context
+    window.location.assign("/chat");
+  }
+};
+
 // Scroll to knowledge section
 const scrollToKnowledge = async () => {
   await nextTick();
@@ -163,10 +269,30 @@ watch(
   },
 );
 
+watch(
+  transferableOrgs,
+  (orgList) => {
+    if (!transferOrgId.value && orgList.length) {
+      transferOrgId.value = orgList[0].id;
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => chatbot.value?.organization_id,
+  (orgId) => {
+    if (!orgId && transferableOrgs.value.length && !transferOrgId.value) {
+      transferOrgId.value = transferableOrgs.value[0].id;
+    }
+  },
+);
+
 // Initialize
 onMounted(() => {
   fetchChatbotData();
   loadSharedKnowledgeBases();
+  orgStore.load();
 });
 
 // Expose scroll function for external use

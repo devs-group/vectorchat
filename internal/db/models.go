@@ -48,19 +48,20 @@ func (a *APIKey) ToResponse() *APIKeyResponse {
 }
 
 type Chatbot struct {
-	ID                 uuid.UUID `json:"id" db:"id"`
-	UserID             string    `json:"user_id" db:"user_id"`
-	Name               string    `json:"name" db:"name"`
-	Description        string    `json:"description" db:"description"`
-	SystemInstructions string    `json:"system_instructions" db:"system_instructions"`
-	ModelName          string    `json:"model_name" db:"model_name"`
-	TemperatureParam   float64   `json:"temperature_param" db:"temperature_param"`
-	MaxTokens          int       `json:"max_tokens" db:"max_tokens"`
-	UseMaxTokens       bool      `json:"use_max_tokens" db:"use_max_tokens"`
-	SaveMessages       bool      `json:"save_messages" db:"save_messages"`
-	IsEnabled          bool      `json:"is_enabled" db:"is_enabled"`
-	CreatedAt          time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
+	ID                 uuid.UUID  `json:"id" db:"id"`
+	UserID             string     `json:"user_id" db:"user_id"`
+	OrganizationID     *uuid.UUID `json:"organization_id,omitempty" db:"organization_id"`
+	Name               string     `json:"name" db:"name"`
+	Description        string     `json:"description" db:"description"`
+	SystemInstructions string     `json:"system_instructions" db:"system_instructions"`
+	ModelName          string     `json:"model_name" db:"model_name"`
+	TemperatureParam   float64    `json:"temperature_param" db:"temperature_param"`
+	MaxTokens          int        `json:"max_tokens" db:"max_tokens"`
+	UseMaxTokens       bool       `json:"use_max_tokens" db:"use_max_tokens"`
+	SaveMessages       bool       `json:"save_messages" db:"save_messages"`
+	IsEnabled          bool       `json:"is_enabled" db:"is_enabled"`
+	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 type Document struct {
@@ -105,12 +106,13 @@ type File struct {
 }
 
 type SharedKnowledgeBase struct {
-	ID          uuid.UUID `json:"id" db:"id"`
-	OwnerID     string    `json:"owner_id" db:"owner_id"`
-	Name        string    `json:"name" db:"name"`
-	Description *string   `json:"description" db:"description"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	ID             uuid.UUID  `json:"id" db:"id"`
+	OwnerID        string     `json:"owner_id" db:"owner_id"`
+	OrganizationID *uuid.UUID `json:"organization_id,omitempty" db:"organization_id"`
+	Name           string     `json:"name" db:"name"`
+	Description    *string    `json:"description" db:"description"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 type ChatbotSharedKnowledgeBase struct {
@@ -193,4 +195,40 @@ type Conversation struct {
 	LastMessageAt       time.Time `json:"last_message_at" db:"last_message_at"`
 	FirstMessageAt      time.Time `json:"first_message_at" db:"first_message_at"`
 	FirstMessageContent string    `json:"first_message_content" db:"first_message_content"`
+}
+
+type Organization struct {
+	ID           uuid.UUID `json:"id" db:"id"`
+	Name         string    `json:"name" db:"name"`
+	Slug         string    `json:"slug" db:"slug"`
+	Description  *string   `json:"description" db:"description"`
+	BillingEmail *string   `json:"billing_email" db:"billing_email"`
+	PlanTier     string    `json:"plan_tier" db:"plan_tier"`
+	CreatedBy    string    `json:"created_by" db:"created_by"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type OrganizationMember struct {
+	ID             uuid.UUID  `json:"id" db:"id"`
+	OrganizationID uuid.UUID  `json:"organization_id" db:"organization_id"`
+	UserID         string     `json:"user_id" db:"user_id"`
+	Role           string     `json:"role" db:"role"`
+	InvitedBy      *string    `json:"invited_by" db:"invited_by"`
+	InvitedAt      *time.Time `json:"invited_at" db:"invited_at"`
+	JoinedAt       time.Time  `json:"joined_at" db:"joined_at"`
+	LastActiveAt   *time.Time `json:"last_active_at" db:"last_active_at"`
+}
+
+type OrganizationInvite struct {
+	ID             uuid.UUID  `json:"id" db:"id"`
+	OrganizationID uuid.UUID  `json:"organization_id" db:"organization_id"`
+	Email          string     `json:"email" db:"email"`
+	Role           string     `json:"role" db:"role"`
+	TokenHash      string     `json:"token_hash" db:"token_hash"`
+	InvitedBy      *string    `json:"invited_by" db:"invited_by"`
+	Message        *string    `json:"message" db:"message"`
+	ExpiresAt      time.Time  `json:"expires_at" db:"expires_at"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
+	AcceptedAt     *time.Time `json:"accepted_at" db:"accepted_at"`
 }

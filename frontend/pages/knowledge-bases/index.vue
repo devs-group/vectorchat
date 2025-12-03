@@ -28,9 +28,11 @@ import IconGrid from "@/components/icons/IconGrid.vue";
 import IconPlus from "@/components/icons/IconPlus.vue";
 import IconTrash from "@/components/icons/IconTrash.vue";
 import { useApiService } from "@/composables/useApiService";
+import { useOrganizations } from "~/composables/useOrganizations";
 
 const router = useRouter();
 const apiService = useApiService();
+const { state: orgState, load: loadOrgs } = useOrganizations();
 
 const {
   data: knowledgeBasesData,
@@ -41,8 +43,16 @@ const {
 const { execute: removeKnowledgeBase } = apiService.deleteSharedKnowledgeBase();
 
 onMounted(async () => {
+  await loadOrgs();
   await fetchKnowledgeBases();
 });
+
+watch(
+  () => orgState.value.currentOrgId,
+  async () => {
+    await fetchKnowledgeBases();
+  },
+);
 
 const knowledgeBases = computed(
   () => knowledgeBasesData.value?.knowledge_bases ?? [],
