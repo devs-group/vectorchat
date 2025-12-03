@@ -47,13 +47,15 @@ func (s *PromptService) GenerateSystemPrompt(ctx context.Context, purpose, tone 
 }
 
 func buildPromptTemplate(purpose, tone string) string {
-	return fmt.Sprintf(`You are a prompt writer. Create a concise, well-structured system prompt for an AI assistant.
-
+	return fmt.Sprintf(`You are a senior AI engineer and prompt writer. Create a concise, well-structured system prompt for an AI assistant.
 Constraints:
-- Keep it under 220 words.
+- Keep it under 300 words.
 - Emphasize clarity, factual accuracy, and the assistant's role.
+- Write excellent system prompt.
 - Include 3-5 bullet guardrails (tone, safety, citations if relevant).
-- Keep formatting simple (plain text or Markdown list). Do not include any preamble.
+- Write in Markdown format.
+- Keep formatting simple (Markdown list). Do not include any preamble.
+- Make sure that the system prompt gives clear constraints on the purpose and should probably avoid answering questions outside of the purpose.
 
 Assistant purpose: %s
 Preferred tone/style: %s

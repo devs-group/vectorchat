@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
         description:
           "AI assistant trained on website content to help visitors navigate and find information",
         system_instructions: `You are a helpful website assistant. Answer questions using only information from this website. Be conversational and direct. If you don't find specific information on the site, let users know and suggest contacting the website directly for more details.`,
-        model_name: "gpt-5-nano",
+        model_name: "chat-default",
         max_tokens: 1000,
         temperature_param: 0.7,
         save_messages: true,

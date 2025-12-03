@@ -11,11 +11,9 @@ func ProviderFromModelID(id string) string {
 	switch lowered {
 	case "chat-default", "prompt-helper":
 		return "openai"
-	case "claude-default":
-		return "anthropic"
 	case "gemini-default":
 		return "google"
-	case "gpt5-default", "gpt5-mini", "gpt5-nano":
+	case "gpt-4o-mini":
 		return "openai"
 	}
 	if strings.Contains(lowered, "/") {
@@ -25,12 +23,8 @@ func ProviderFromModelID(id string) string {
 	switch {
 	case strings.HasPrefix(lowered, "gpt"):
 		return "openai"
-	case strings.HasPrefix(lowered, "claude"):
-		return "anthropic"
 	case strings.HasPrefix(lowered, "gemini"):
 		return "google"
-	case strings.HasPrefix(lowered, "mistral"):
-		return "mistral"
 	default:
 		return ""
 	}
@@ -39,17 +33,17 @@ func ProviderFromModelID(id string) string {
 // IsAdvancedModel heuristically marks models that should be hidden on basic plans.
 func IsAdvancedModel(info ModelInfo) bool {
 	provider := strings.ToLower(info.Provider)
-	if provider != "" && provider != "openai" {
+	if provider != "" && provider != "openai" && provider != "google" {
 		return true
 	}
 
 	id := strings.ToLower(info.ID)
 	switch {
-	case strings.Contains(id, "claude"), strings.Contains(id, "sonnet"), strings.Contains(id, "opus"):
+	case strings.HasPrefix(id, "gemini"):
 		return true
 	case strings.Contains(id, "gpt-4"):
 		return true
-	case (strings.Contains(id, "gpt-5") || strings.Contains(id, "gpt5")) && !strings.Contains(id, "nano"):
+	case (strings.Contains(id, "gpt-5") || strings.Contains(id, "gpt5")):
 		return true
 	}
 

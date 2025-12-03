@@ -18,8 +18,6 @@ import IconUserCircle from "@/components/icons/IconUserCircle.vue";
 import IconSun from "@/components/icons/IconSun.vue";
 import ChatSectionCard from "@/components/chat/ChatSectionCard.vue";
 import SystemPromptHelperDialog from "@/components/chat/SystemPromptHelperDialog.vue";
-import { useApiService } from "@/composables/useApiService";
-import type { LLMModel } from "~/types/api";
 
 interface Props {
   chatbot?: ChatbotResponse | null;
@@ -53,61 +51,45 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<EmitEvents>();
 
-type ModelOption = LLMModel & { hint?: string };
+type ModelOption = {
+  id: string;
+  label: string;
+  provider: string;
+  advanced: boolean;
+  hint?: string;
+};
 const fallbackModels: ModelOption[] = [
   {
     id: "chat-default",
-    label: "Chat Default (GPT-4o Mini)",
+    label: "GPT-5.1 Chat",
     provider: "openai",
     advanced: false,
-    hint: "Fast, low-latency general chat via proxy",
+    hint: "Fast, low-latency general chat model",
   },
   {
-    id: "claude-default",
-    label: "Claude 3.5 Sonnet",
-    provider: "anthropic",
-    advanced: true,
-    hint: "Advanced reasoning; may consume more credits",
-  },
-  {
-    id: "gpt-4o-mini",
-    label: "GPT-4o Mini (Direct)",
+    id: "gpt-5-mini",
+    label: "GPT 5 Mini",
     provider: "openai",
     advanced: false,
-    hint: "Direct OpenAI fallback if proxy models are unavailable",
+    hint: "",
   },
   {
     id: "gemini-default",
-    label: "Gemini 1.5 Flash",
+    label: "Gemini 2.0 Flash",
+    provider: "google",
+    advanced: false,
+    hint: "",
+  },
+  {
+    id: "gemini-2.5-pro",
+    label: "Gemini 2.5 Pro",
     provider: "google",
     advanced: true,
-    hint: "Google Gemini via proxy; great for long-context reads",
-  },
-  {
-    id: "gpt5-default",
-    label: "GPT-5",
-    provider: "openai",
-    advanced: true,
-    hint: "Latest OpenAI flagship; highest quality reasoning",
-  },
-  {
-    id: "gpt5-mini",
-    label: "GPT-5 Mini",
-    provider: "openai",
-    advanced: true,
-    hint: "Balanced speed and cost for GPT-5 generation",
-  },
-  {
-    id: "gpt5-nano",
-    label: "GPT-5 Nano",
-    provider: "openai",
-    advanced: false,
-    hint: "Fast, budget-friendly GPT-5 tier",
+    hint: "",
   },
 ];
 
 const defaultModelId = fallbackModels[0].id;
-const api = useApiService();
 
 // Form reactive data
 const name = ref("");
@@ -120,9 +102,7 @@ const saveMessages = ref(true);
 const useMaxTokens = ref(false);
 const selectedSharedKnowledgeBaseIds = ref<string[]>([]);
 const showPromptHelper = ref(false);
-const models = ref<ModelOption[]>([...fallbackModels]);
-const modelsLoading = ref(false);
-const modelsSource = ref<"fallback" | "api">("fallback");
+const modelOptions = fallbackModels;
 
 const formatHint = (model?: Partial<ModelOption>) => {
   if (!model) return "";
@@ -135,51 +115,10 @@ const formatHint = (model?: Partial<ModelOption>) => {
   return provider;
 };
 
-const normalizeModels = (items: LLMModel[]): ModelOption[] => {
-  return items.map((m) => ({
-    ...m,
-    label: m.label || m.id,
-    hint: formatHint(m),
-  }));
+const isSupportedModel = (id?: string | null) => {
+  if (!id) return false;
+  return modelOptions.some((m) => m.id === id);
 };
-
-const ensureModelSelection = () => {
-  if (!models.value.length) {
-    models.value = [...fallbackModels];
-  }
-
-  const exists = models.value.find((m) => m.id === modelName.value);
-  if (!exists) {
-    modelName.value = models.value[0]?.id || defaultModelId;
-  }
-};
-
-const applyModelPayload = (payload?: LLMModel[]) => {
-  if (payload && payload.length) {
-    models.value = normalizeModels(payload);
-    modelsSource.value = "api";
-  } else {
-    models.value = [...fallbackModels];
-    modelsSource.value = "fallback";
-  }
-  ensureModelSelection();
-};
-
-const { data: llmModels, execute: fetchModels } = api.listLLMModels();
-
-const loadModels = async () => {
-  modelsLoading.value = true;
-  await fetchModels();
-  modelsLoading.value = false;
-  applyModelPayload(llmModels.value?.models);
-};
-
-onMounted(loadModels);
-
-watch(
-  () => llmModels.value,
-  (val) => applyModelPayload(val?.models),
-);
 
 // Initialize form with chatbot data if editing
 const initializeForm = () => {
@@ -188,7 +127,10 @@ const initializeForm = () => {
     description.value = props.chatbot.description || "";
     systemInstructions.value =
       props.chatbot.system_instructions || "You are a helpful AI assistant";
-    modelName.value = props.chatbot.model_name || defaultModelId;
+    modelName.value =
+      (props.chatbot.model_name && isSupportedModel(props.chatbot.model_name))
+        ? props.chatbot.model_name
+        : defaultModelId;
     temperatureParam.value = props.chatbot.temperature_param || 0.7;
     maxTokens.value = props.chatbot.max_tokens || 2000;
     useMaxTokens.value =
@@ -213,7 +155,6 @@ const initializeForm = () => {
     useMaxTokens.value = false;
     selectedSharedKnowledgeBaseIds.value = [];
   }
-  ensureModelSelection();
 };
 
 // Watch for chatbot changes to reinitialize form
@@ -252,7 +193,7 @@ const submitButtonText = computed(() => {
 });
 
 const currentModel = computed(() =>
-  models.value.find((m) => m.id === modelName.value),
+  modelOptions.find((m) => m.id === modelName.value),
 );
 const currentModelHint = computed(
   () => currentModel.value?.hint || formatHint(currentModel.value),
@@ -308,12 +249,16 @@ const responseLengthLabel = computed(() => {
             >
 
             <div class="mt-2">
-              <Select v-model="modelName" :disabled="modelsLoading">
+              <Select v-model="modelName">
                 <SelectTrigger id="modelName" class="w-full">
                   <SelectValue placeholder="Select a model" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="m in models" :key="m.id" :value="m.id">
+                  <SelectItem
+                    v-for="m in modelOptions"
+                    :key="m.id"
+                    :value="m.id"
+                  >
                     <div class="flex flex-col">
                       <span class="font-medium">{{ m.label || m.id }}</span>
                       <span class="text-xs text-muted-foreground">
@@ -325,9 +270,6 @@ const responseLengthLabel = computed(() => {
               </Select>
               <p class="mt-2 text-xs text-muted-foreground">
                 <span>{{ currentModelHint }}</span>
-                <span v-if="modelsSource === 'fallback'" class="ml-1">
-                  (using fallback list while model catalog loads)
-                </span>
               </p>
             </div>
           </div>

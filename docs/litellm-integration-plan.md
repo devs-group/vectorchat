@@ -1,14 +1,14 @@
 # Unified LLM Integration Plan (LiteLLM Proxy + Go Backend)
 
 ## 1. Why LiteLLM (and alternatives)
-- **LiteLLM proxy** provides a single OpenAI-compatible endpoint that fans out to OpenAI, Anthropic, Gemini, Mistral, etc.
+- **LiteLLM proxy** provides a single OpenAI-compatible endpoint that fans out to OpenAI and Gemini while keeping one surface area to secure.
 - Handles request-based routing, standardized caching, rate limits, and unified key management.
 - Drop-in replacement for existing OpenAI client code (`langchaingo` or `go-openai`), minimizing backend refactors.
 - **Alternative:** Building a custom "LLM router" requires writing adapters, auth, and logging for every provider. LiteLLM is the fastest path to value.
 
 ## 2. Target Outcomes
 - **Single Interface:** All LLM calls (chat, tools, system-prompt gen) go through a unified client abstraction.
-- **Configurable Routing:** Switch models (OpenAI vs. Claude vs. Gemini) via configuration without code changes.
+- **Configurable Routing:** Switch models (OpenAI vs. Gemini) via configuration without code changes.
 - **Deployment:** Docker-first. Local dev uses a container; Prod uses the same container or a managed instance.
 - **Resilience:** Multi-provider keys for failover and parallel request handling are first-class citizens.
 
@@ -29,14 +29,14 @@
   - Mounts: `./litellm/config.yaml:/app/config.yaml`
   - Command: `--config /app/config.yaml --port 4000`
 - **Configuration (`litellm/config.yaml`):**
-  - **Providers:** Define API keys via env vars (`${OPENAI_API_KEY}`, etc.).
+  - **Providers:** Define API keys via env vars (`${OPENAI_API_KEY}`, `${GEMINI_API_KEY}`).
   - **Models:** Map aliases to real models.
     ```yaml
     model_list:
       - model_name: chat-default
         litellm_params: { model: gpt-4o-mini }
-      - model_name: claude-default
-        litellm_params: { model: anthropic/claude-3-5-sonnet }
+      - model_name: gemini-default
+        litellm_params: { model: google/gemini-1.5-flash }
     ```
 - **Readiness:** The Go backend container depends on `litellm`. Add a healthcheck or wait-for-it script to ensure the proxy is up before the Go app initializes.
 
@@ -101,7 +101,7 @@
 - **Note:** Cost columns are optional. It is safer to calculate cost in analytics views (`sum(tokens * price_per_token)`) to handle price fluctuations.
 
 ## 9. Definition of Done
-- [ ] LiteLLM running in Docker with aliases for OpenAI and Anthropic.
+- [ ] LiteLLM running in Docker with aliases for OpenAI and Gemini.
 - [ ] Go backend waits for LiteLLM readiness on startup.
 - [ ] `GET /llm/models` returns the list dynamically from the proxy.
 - [ ] Chat flow works via the proxy, respecting the selected model.

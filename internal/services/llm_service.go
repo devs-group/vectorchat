@@ -49,6 +49,9 @@ func (s *LLMService) ListModels(ctx context.Context) ([]models.LLMModel, error) 
 
 	modelsResp := make([]models.LLMModel, 0, len(infos))
 	for _, info := range infos {
+		if !isAllowedProvider(info.Provider) {
+			continue
+		}
 		modelsResp = append(modelsResp, models.LLMModel{
 			ID:       info.ID,
 			Label:    friendlyModelLabel(info.ID),
@@ -79,6 +82,9 @@ func (s *LLMService) buildFallbackModels() []models.LLMModel {
 	fallback := make([]models.LLMModel, 0, len(s.fallbackIDs))
 	for _, id := range s.fallbackIDs {
 		provider := llm.ProviderFromModelID(id)
+		if !isAllowedProvider(provider) {
+			continue
+		}
 		fallback = append(fallback, models.LLMModel{
 			ID:       id,
 			Label:    friendlyModelLabel(id),
@@ -87,6 +93,15 @@ func (s *LLMService) buildFallbackModels() []models.LLMModel {
 		})
 	}
 	return fallback
+}
+
+func isAllowedProvider(provider string) bool {
+	switch strings.ToLower(provider) {
+	case "openai", "google":
+		return true
+	default:
+		return false
+	}
 }
 
 func friendlyModelLabel(id string) string {
@@ -99,16 +114,10 @@ func friendlyModelLabel(id string) string {
 		return "Chat Default (GPT-4o Mini)"
 	case "prompt-helper":
 		return "Prompt Helper (GPT-4o Mini)"
-	case "claude-default":
-		return "Claude 3.5 Sonnet"
 	case "gemini-default":
 		return "Gemini 1.5 Flash"
-	case "gpt5-default":
-		return "GPT-5"
-	case "gpt5-mini":
-		return "GPT-5 Mini"
-	case "gpt5-nano":
-		return "GPT-5 Nano"
+	case "gpt-4o-mini":
+		return "GPT-4o Mini"
 	}
 
 	// Basic prettifier: replace dashes with spaces and capitalize provider-leading names.

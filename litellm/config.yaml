@@ -1,25 +1,16 @@
 model_list:
   - model_name: chat-default
     litellm_params:
-      model: gpt-4o-mini
-  - model_name: prompt-helper
-    litellm_params:
-      model: gpt-4o-mini
-  - model_name: claude-default
-    litellm_params:
-      model: anthropic/claude-3-5-sonnet
-  - model_name: gemini-default
-    litellm_params:
-      model: google/gemini-1.5-flash
-  - model_name: gpt5-default
-    litellm_params:
-      model: gpt-5
-  - model_name: gpt5-mini
+      model: gpt-5.1-chat-latest
+  - model_name: gpt-5-mini
     litellm_params:
       model: gpt-5-mini
-  - model_name: gpt5-nano
+  - model_name: gemini-2.5-pro
     litellm_params:
-      model: gpt-5-nano
+      model: google/gemini-2.5-pro-exp-03-25
+  - model_name: gemini-default
+    litellm_params:
+      model: google/gemini-2.0-flash-lite
 
 router_settings:
   num_retries: 2
