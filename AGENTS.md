@@ -1,48 +1,136 @@
-Please always use the simplest, clean, and smart path to achieve the goal.
+# VectorChat Agent Guide (`AGENTS.md`)
 
-You are a world-class engineer who focuses on very clean, straightforward, and nice-looking code. Make sure you know the codebase; when you spot duplication or awkward code, prefer small refactors that increase reuse and clarity. If the change is broad, ask first; if it is obvious and contained, just do it.
+This document is the **authoritative guide** for AI agents working on the VectorChat repository. It defines the coding standards, architectural patterns, and workflows required to maintain the high quality of this codebase.
 
-Go style
-- Always try to keep the controllers small and put the logic into service layer
-- Always try to make as much as possible of logic on the backend instead of frontend
-- Favor standard library first; keep dependencies minimal.
-- Prefer small, composable functions; avoid cleverness.
-- Return early on errors; keep guard clauses tidy. Always wrap the errors!
-- Keep exported APIs small and consistent; document any exported type or function.
-- Tests accompany behavior changes; prefer table-driven tests and fast, deterministic cases.
+**Mission:** Build a robust, scalable, and clean AI-powered chat system. We value simplicity, readability, and maintainability over cleverness.
 
-Code quality
-- Delete unused code; simplify before adding complexity.
-- Keep logging purposeful and concise; avoid noisy debug prints in hot paths.
-- Handle errors explicitly; never ignore them and wrap them.
-- Validate inputs at boundaries; fail fast with clear messages.
+---
 
-Workflow
-- Read adjacent code to follow existing patterns before inventing new ones.
-- Write changes that are easy to review: minimal scope, self-contained, with rationale in comments when non-obvious.
-- Prefer incremental improvements that reduce future maintenance burden.
+## 1. Tech Stack & Key Technologies
 
-Definition of done
-- Code is idiomatic, formatted, and lint-clean.
-- Tests relevant to the change pass locally.
-- Naming is clear; no TODOs left without an issue or follow-up note.
+### Backend (Go)
+- **Language:** Go 1.24+
+- **Web Framework:** [Fiber v2](https://github.com/gofiber/fiber) (Fast, Express-like)
+- **Database:** PostgreSQL 14+ with `pgvector` extension.
+- **ORM/Data Access:** [sqlx](https://github.com/jmoiron/sqlx) (Raw SQL with struct mapping). **No heavy ORMs.**
+- **Migrations:** [Goose](https://github.com/pressly/goose).
+- **LLM Integration:** [LangChainGo](https://github.com/tmc/langchaingo) & direct OpenAI API usage.
+- **Auth:** [Ory Stack](https://www.ory.sh/) (Kratos for identity, Hydra for OAuth2, Oathkeeper for zero-trust proxy).
+- **Async/Queue:** NATS JetStream.
+- **Documentation:** Swagger/OpenAPI (via `swaggo/swag`).
 
-Code structure (quick map)
-- Backend Go lives under `cmd/` (entrypoints) and `internal/` (api, db, services, vectorize, etc.) with shared libs in `pkg/` (config, docprocessor, jobs, models). Keep new packages internal unless they are stable, reusable building blocks.
-- Frontends: `frontend/` (main UI) and `vectorchat-light/` (lighter Nuxt app - purpose is just marketing). Shared widgets in `widgets/`. Static assets/uploads under `uploads/`.
-- Infrastructure/config: `deploy/`, `ory/` (hydra/kratos/oathkeeper configs), `services/` (aux services like markitdown), scripts in `scripts/`, migrations in `internal/db/migrations`, and docs in `docs/`.
+### Frontend (Nuxt/Vue)
+- **Framework:** Nuxt 3 (Vue 3 with Composition API).
+- **Language:** TypeScript (Strict mode).
+- **Styling:** Tailwind CSS v4.
+- **UI Component Library:** [Shadcn UI](https://www.shadcn-vue.com/) (Vue port).
+- **Icons:** Lucide Vue Next.
+- **State/Data:** Nuxt `useFetch`, `useState`.
 
-Docker Compose (local dev stack)
-- `frontend` serves main UI on :3000; `vectorchat-light` on :3100.
-- `app` runs Go API with `air`; exposes :8080; mounts repo for live reload; depends on Postgres.
-- Auth & gateway: `hydra`, `kratos`, `oathkeeper` (public gateway on :4456) plus migration jobs `hydra-migrate`, `kratos-migrate`.
-- Data/ops: `postgres` (pgvector image), `pgadmin` (:5050), `mailhog` (:8025), `crawl4ai`, `markitdown`.
-- All services share `vectorchat-network`; volumes for Postgres/pgadmin.
+### Infrastructure
+- **Containerization:** Docker & Docker Compose (`docker-compose.yml`).
+- **Services:** PostgreSQL, LiteLLM (LLM Proxy), MarkItDown (Doc processing), Crawl4AI (Web scraping).
 
-Makefile shortcuts (use instead of long compose commands)
-- `make build` → `docker compose build`
-- `make run` → `docker compose up -d` (brings full stack)
-- `make stop` / `make clean` stop stack; `clean` also drops volumes.
-- `make migrate` runs Go migrations inside `app` via goose.
-- `make swagger` generates API docs (`scripts/generate-swagger.sh`, installs `swag` if missing).
-- `test-*` targets call API endpoints for quick smoke checks.
+---
+
+## 2. Architecture Overview
+
+### Directory Structure
+- **`cmd/`**: Entry points. `cmd/main.go` is the API server. `cmd/crawl-scheduler` is the worker.
+- **`internal/`**: Private application code.
+  - **`api/`**: HTTP Handlers (Controllers). Parse requests, call services, return JSON.
+  - **`services/`**: Business logic. The "brain" of the app. Orchestrates DB and other clients.
+  - **`db/`**: Data Access Layer (Repositories). SQL queries live here.
+  - **`models/`**: (Deprecated/Moved) Prefer `pkg/models` for shared types.
+- **`pkg/`**: Public/Shared code.
+  - **`models/`**: Domain structs, API request/response types.
+  - **`config/`**: App configuration.
+- **`frontend/`**: Main Nuxt 3 web application.
+- **`deploy/`**: Kubernetes/Docker deployment manifests.
+- **`ory/`**: Configuration for Kratos, Hydra, Oathkeeper.
+
+### "Golden Path" Architecture
+The application follows a standard **Layered Architecture**:
+
+`Handler (internal/api)` -> `Service (internal/services)` -> `Repository (internal/db)` -> `Database`
+
+1.  **Handlers**: Thin layer. Validate input (using `pkg/models`), call Service, handle errors, return response.
+2.  **Services**: Contains ALL business logic. Transaction management happens here (if needed).
+3.  **Repositories**: Execute SQL queries. Return domain models.
+
+---
+
+## 3. Coding Standards & patterns
+
+### Go (Backend)
+1.  **Dependency Injection**: Use manual DI in `main.go`. Pass dependencies (Repositories, Services) via struct fields.
+2.  **Error Handling**:
+    -   **ALWAYS** wrap errors using `fmt.Errorf("context: %w", err)`.
+    -   Return early (guard clauses).
+    -   Handle specific errors (e.g., `sql.ErrNoRows`) in the Repository layer and return domain errors (e.g., `apperrors.ErrNotFound`).
+3.  **Database**:
+    -   Write raw SQL in `internal/db`.
+    -   Use `sqlx` tags (`db:"column_name"`) on structs.
+    -   **Context**: All DB methods MUST accept `context.Context` as the first argument.
+    -   **Transactions**: Use `*db.Transaction` for multi-step operations.
+4.  **Configuration**: Use `pkg/config`. Do not hardcode values.
+5.  **Logging**: Use `log/slog` (structured logging).
+
+### TypeScript/Vue (Frontend)
+1.  **Composition API**: Always use `<script setup lang="ts">`.
+2.  **Typing**: strict TypeScript usage. Avoid `any`. Define interfaces for props and API responses.
+3.  **Components**:
+    -   Use **Shadcn UI** components from `@/components/ui` for base elements (Buttons, Inputs, etc.).
+    -   Keep components small and focused.
+4.  **Icons**: Import from `lucide-vue-next`.
+    -   Example: `import { Loader2 } from 'lucide-vue-next'`
+5.  **API Calls**: Use `useFetch` or custom composables. Handle loading and error states in the UI.
+
+---
+
+## 4. Common Workflows (The "How-To")
+
+### Adding a New API Endpoint
+1.  **Model**: Define Request/Response structs in `pkg/models/`.
+2.  **Repository**: Add SQL query methods in `internal/db/<entity>_repository.go`.
+3.  **Service**: Add business logic method in `internal/services/<entity>_service.go`.
+4.  **Handler**: Create handler method in `internal/api/<entity>_handler.go`.
+    -   Add Swagger comments (`// @Summary`, `// @Router`, etc.).
+5.  **Route**: Register the route in `cmd/main.go` (or `internal/api/routes.go` if it exists).
+6.  **Docs**: Run `make swagger` to update API docs.
+
+### Database Changes
+1.  **Migration**: Create a new SQL migration file in `internal/db/migrations`.
+    -   Format: `YYYYMMDDHHMMSS_description.sql`.
+    -   Include both `+goose Up` and `+goose Down` sections.
+2.  **Run**: Apply with `make migrate` (runs inside Docker container).
+3.  **Verify**: Check `pgadmin` or `psql` to ensure schema is correct.
+
+### Running the Project
+-   **Full Stack**: `make run` (starts everything via Docker Compose).
+-   **Rebuild**: `make build`.
+-   **Stop**: `make stop`.
+-   **Clean**: `make clean` (Wipes Data Volumes - CAREFUL).
+
+### Testing
+-   **Unit Tests**: Write `_test.go` files next to the code.
+-   **Run Tests**: `go test ./...`
+
+---
+
+## 5. Critical Constraints & Rules
+-   **Ory Auth**: The app relies on Ory Kratos/Hydra. Do NOT implement custom auth (login/signup) logic. Use the `internal/middleware/auth_middleware.go` which validates Ory sessions/tokens.
+-   **Linting**: Ensure code passes standard linters.
+-   **No Magic**: Avoid "magical" code or complex reflection. Explicit is better than implicit.
+
+## 6. Definition of Done
+1.  Code works and meets requirements.
+2.  Code compiles without errors (`go build ./...`).
+3.  Linter checks pass.
+4.  Swagger documentation is updated (`make swagger`).
+5.  New database migrations are included if schema changed.
+6.  Frontend builds successfully (`npm run build` in `frontend/`).
+
+## 7. Useful Commands
+-   **Go**: `go mod tidy` to clean up dependencies.
+-   **Frontend**: `npm install` to install dependencies.

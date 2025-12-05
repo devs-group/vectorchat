@@ -12,9 +12,6 @@
         />
         <div class="flex flex-col gap-0.5 group-data-[collapsible=icon]:hidden">
           <span class="text-sm font-semibold tracking-tight">VectorChat</span>
-          <span class="text-xs font-normal text-muted-foreground"
-            >Dashboard</span
-          >
         </div>
       </NuxtLink>
     </SidebarHeader>
@@ -47,28 +44,59 @@
     <SidebarFooter class="border-t border-sidebar-border">
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton
-            class="hover:bg-transparent"
-            :tooltip="displayName"
-          >
-            <div class="flex items-center gap-3">
-              <div
-                class="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent text-sm font-medium uppercase text-sidebar-accent-foreground"
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <SidebarMenuButton
+                size="lg"
+                class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                :tooltip="displayName"
               >
-                {{ initials }}
-              </div>
-              <div
-                class="flex flex-col text-left text-sm leading-tight group-data-[collapsible=icon]:hidden"
-              >
-                <span class="font-medium text-sidebar-foreground truncate">
-                  {{ displayName }}
-                </span>
-                <span class="text-xs text-muted-foreground truncate">
-                  {{ email }}
-                </span>
-              </div>
-            </div>
-          </SidebarMenuButton>
+                <div
+                  class="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-accent text-sm font-medium uppercase text-sidebar-accent-foreground"
+                >
+                  {{ initials }}
+                </div>
+                <div
+                  class="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden"
+                >
+                  <span class="truncate font-medium">{{ displayName }}</span>
+                  <span class="truncate text-xs text-muted-foreground">
+                    {{ email }}
+                  </span>
+                </div>
+                <IconChevronsUpDown
+                  class="ml-auto h-4 w-4 group-data-[collapsible=icon]:hidden"
+                />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              class="w-[--reka-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+              side="bottom"
+              align="end"
+              :side-offset="4"
+            >
+              <DropdownMenuLabel class="p-0 font-normal">
+                <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                  <div
+                    class="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium uppercase"
+                  >
+                    {{ initials }}
+                  </div>
+                  <div class="grid flex-1 text-left text-sm leading-tight">
+                    <span class="truncate font-medium">{{ displayName }}</span>
+                    <span class="truncate text-xs text-muted-foreground">
+                      {{ email }}
+                    </span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @click="handleLogout">
+                <IconLogOut class="mr-2 h-4 w-4" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarFooter>
@@ -92,8 +120,18 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import IconChevronsUpDown from "@/components/icons/IconChevronsUpDown.vue";
 import IconCreditCard from "@/components/icons/IconCreditCard.vue";
 import IconGrid from "@/components/icons/IconGrid.vue";
+import IconLogOut from "@/components/icons/IconLogOut.vue";
 import IconMessageSquare from "@/components/icons/IconMessageSquare.vue";
 import IconSettings from "@/components/icons/IconSettings.vue";
 import OrganizationSwitcher from "@/components/OrganizationSwitcher.vue";
@@ -131,5 +169,21 @@ function isActive(path: string) {
   const current = route.path;
   if (current === path) return true;
   return current.startsWith(`${path}/`);
+}
+
+const config = useRuntimeConfig();
+
+async function handleLogout() {
+  try {
+    const logoutFlow = await $fetch<{ logout_url: string }>(
+      `${config.public.kratosPublicUrl}/self-service/logout/browser`,
+      { credentials: "include" },
+    );
+    if (logoutFlow?.logout_url) {
+      window.location.href = logoutFlow.logout_url;
+    }
+  } catch (error) {
+    console.error("Failed to initiate logout", error);
+  }
 }
 </script>

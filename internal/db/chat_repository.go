@@ -210,8 +210,8 @@ func (r *ChatbotRepository) Update(ctx context.Context, chatbot *Chatbot) error 
 		    max_tokens = :max_tokens, use_max_tokens = :use_max_tokens,
 		    save_messages = :save_messages, is_enabled = :is_enabled, updated_at = :updated_at
 		WHERE id = :id AND (
-			(:organization_id IS NULL AND organization_id IS NULL AND user_id = :user_id)
-			OR organization_id = CAST(:organization_id AS uuid)
+			(:organization_id::uuid IS NULL AND organization_id IS NULL AND user_id = :user_id)
+			OR organization_id = :organization_id::uuid
 		)
 	`
 
@@ -243,8 +243,8 @@ func (r *ChatbotRepository) UpdateTx(ctx context.Context, tx *Transaction, chatb
 		    max_tokens = :max_tokens, use_max_tokens = :use_max_tokens,
 		    save_messages = :save_messages, is_enabled = :is_enabled, updated_at = :updated_at
 		WHERE id = :id AND (
-			(:organization_id IS NULL AND organization_id IS NULL AND user_id = :user_id)
-			OR organization_id = CAST(:organization_id AS uuid)
+			(:organization_id::uuid IS NULL AND organization_id IS NULL AND user_id = :user_id)
+			OR organization_id = :organization_id::uuid
 		)
 	`
 

@@ -1,40 +1,70 @@
 <template>
-  <div class="flex min-h-[calc(100vh-3.5rem)] items-center justify-center">
-    <div class="mx-auto flex w-full max-w-sm flex-col justify-center space-y-6">
-      <div class="flex flex-col space-y-2 text-center">
-        <h1 class="text-2xl font-semibold tracking-tight">VectorChat</h1>
-        <p class="text-sm text-muted-foreground">
-          Sign in to your account to continue
+  <div class="grid min-h-screen lg:grid-cols-2">
+    <div
+      class="relative hidden bg-primary/5 lg:flex lg:flex-col lg:items-center lg:justify-center"
+    >
+      <div
+        class="absolute inset-0 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent"
+      />
+      <div class="relative z-10 flex flex-col items-center px-8 text-center">
+        <div
+          class="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10"
+        >
+          <IconMessageSquare class="h-10 w-10 text-primary" />
+        </div>
+        <h2 class="mb-3 text-3xl font-bold tracking-tight">VectorChat</h2>
+        <p class="max-w-sm text-lg text-muted-foreground">
+          Chat with your documents using AI. Upload, index, and get instant
+          answers from your knowledge base.
         </p>
       </div>
-
       <div
-        v-if="errorMessage"
-        class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-      >
-        {{ errorMessage }}
-      </div>
+        class="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent"
+      />
+    </div>
 
-      <div class="grid gap-4">
-        <Button
-          variant="outline"
-          class="w-full"
-          :disabled="!githubNode || isLoading"
-          @click="handleGithubLogin"
-        >
-          <IconGithub
-            class="mr-2 h-4 w-4"
-            aria-hidden="true"
-            focusable="false"
-            data-prefix="fab"
-            data-icon="github"
-            role="img"
-          />
-          <span v-if="isLoading">Loading providers…</span>
-          <span v-else>{{
-            githubNode?.meta?.label?.text || "Sign in with GitHub"
-          }}</span>
-        </Button>
+    <div class="flex flex-col">
+      <div class="flex flex-1 items-center justify-center px-4 py-12 sm:px-6">
+        <div class="w-full max-w-sm space-y-6">
+          <div class="space-y-2 text-center lg:text-left">
+            <div class="mb-4 flex items-center justify-center gap-2 lg:hidden">
+              <div
+                class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"
+              >
+                <IconMessageSquare class="h-5 w-5 text-primary" />
+              </div>
+              <span class="text-xl font-bold">VectorChat</span>
+            </div>
+            <h1 class="text-2xl font-semibold tracking-tight">Welcome back</h1>
+            <p class="text-sm text-muted-foreground">
+              Sign in to your account to continue
+            </p>
+          </div>
+
+          <div
+            v-if="errorMessage"
+            class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+          >
+            {{ errorMessage }}
+          </div>
+
+          <div class="space-y-4">
+            <Button
+              variant="outline"
+              class="h-11 w-full gap-2 text-base font-medium"
+              :disabled="!githubNode || isLoading"
+              @click="handleGithubLogin"
+            >
+              <IconGithub class="h-5 w-5" />
+              <span v-if="isLoading">Loading...</span>
+              <span v-else>Continue with GitHub</span>
+            </Button>
+          </div>
+
+          <p class="text-center text-xs text-muted-foreground lg:text-left">
+            By continuing, you agree to our terms of service
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -42,6 +72,7 @@
 
 <script setup lang="ts">
 import IconGithub from "@/components/icons/IconGithub.vue";
+import IconMessageSquare from "@/components/icons/IconMessageSquare.vue";
 import { useKratosSession } from "~/composables/useKratosSession";
 
 type KratosNodeAttributes = {
